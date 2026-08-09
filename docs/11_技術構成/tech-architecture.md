@@ -263,13 +263,27 @@ Function URL + Origin Access Control ではなく API Gateway を採る理由：
 
 #### CDKでの設定
 
+**P0-3で実機検証済み。** `ResponseTransferMode` は `Method` 直下ではなく **`Method.Integration` 配下**のプロパティ。また、統合URIも通常のLambdaプロキシ統合（`/2015-03-31/functions/{arn}/invocations`）ではなく、**`InvokeWithResponseStream` 専用の `/2021-11-15/functions/{arn}/response-streaming-invocations`** に変える必要がある。あわせて、API Gatewayが `lambda:InvokeWithResponseStream` でLambdaを呼べるよう、`lambda:InvokeFunction` とは別に権限を追加する。
+
 ```typescript
 const method = resource.addMethod("POST", integration);
 const cfnMethod = method.node.defaultChild as apigateway.CfnMethod;
-cfnMethod.addPropertyOverride("ResponseTransferMode", "STREAM");
+cfnMethod.addPropertyOverride("Integration.ResponseTransferMode", "STREAM");
+cfnMethod.addPropertyOverride(
+  "Integration.Uri",
+  `arn:aws:apigateway:${region}:lambda:path/2021-11-15/functions/${fn.functionArn}/response-streaming-invocations`,
+);
+
+fn.addPermission("ApiGatewayInvokeWithResponseStream", {
+  principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+  action: "lambda:InvokeWithResponseStream",
+  sourceArn: api.arnForExecuteApi(),
+});
 ```
 
 CDKのL2コンストラクトが未対応のため、**エスケープハッチで直接指定する。** また、**メソッドの設定変更はデプロイを作り直さないと反映されない**点に注意する。
+
+参照: [Set up a Lambda proxy integration with payload response streaming in API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/response-transfer-mode-lambda.html)
 
 ### 5.3 Lambda の設定
 
@@ -314,11 +328,11 @@ sequenceDiagram
 
 | # | 条件 | 状況 |
 |---|---|---|
-| 1 | Lambda Web Adapter の `response_stream` が API Gateway 統合で動く | 事例あり。**要検証（軽）** |
-| 2 | CloudFront が素通しする（4.3の圧縮設定を含む） | **要検証** |
-| 3 | Bedrock の Sonnet 5 がストリーミングに対応 | **対応を確認済み** |
+| 1 | Lambda Web Adapter の `response_stream` が API Gateway 統合で動く | **P0-3で検証済み。** ただしCDKの設定方法に誤りがあった（5.2参照）。修正後は正常に動作 |
+| 2 | CloudFront が素通しする（4.3の圧縮設定を含む） | **P0-3で検証済み。** 圧縮ON/OFF両方でブラウザに逐次表示されることを確認 |
+| 3 | Bedrock の Sonnet 5 がストリーミングに対応 | 対応を確認済み。**ただしこのAWSアカウントでのモデルアクセス（利用目的申請）は承認待ち。** P0-3の疎通検証は `claude-haiku-4-5` で代替した。Sonnet 5自体での疎通は承認後に別途確認する |
 
-**API設計3.2を変更する必要はない。** 検証は残るが、代替案の検討は不要になった。
+**API設計3.2を変更する必要はない。** 検証は完了した。
 
 ### 5.5 非同期ジョブ
 
@@ -947,10 +961,12 @@ CloudFront → API Gateway（STREAM） → Lambda（Web Adapter）
 
 確認すること：
 
-1. `output_config.format` によるJSON拘束が通るか（**リスク2**）
-2. ストリーミングがCloudFrontを素通しするか（圧縮の有無を両方試す）
-3. 最初のチャンクが届くまでの時間
-4. `system` 4,096トークン前後でキャッシュが効き始めるか
+1. `output_config.format` によるJSON拘束が通るか（**リスク2**）（P0-4で検証）
+2. ストリーミングがCloudFrontを素通しするか（圧縮の有無を両方試す）（**P0-3で検証済み**）
+3. 最初のチャンクが届くまでの時間（**P0-3で検証済み**）
+4. `system` 4,096トークン前後でキャッシュが効き始めるか（P0-5で検証）
+
+**P0-3の結果（2・3）：** CloudFront → API Gateway（`STREAM`） → Lambda（Web Adapter） → Bedrock の構成で、圧縮ON/OFFの両方でブラウザに逐次表示されることを確認した。初回チャンクまでの時間は約1〜1.2秒（Lambdaがウォーム状態、`claude-haiku-4-5` 使用時）。ただし当初のCDK設定例には誤りがあり、実機で修正が必要だった（5.2参照）。`claude-sonnet-5` 自体でのストリーミングは、このAWSアカウントでのモデルアクセス（利用目的申請）が承認され次第、別途確認する。
 
 **リスク1は技術検証ではなく判断である。** プロトタイプと並行して、プライバシーポリシーの方針とあわせて決める。
 
