@@ -7,7 +7,7 @@ PYTHON := python3.12
 setup: setup-api setup-tools setup-web setup-infra
 
 setup-api:
-	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest
+	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx -r requirements.txt
 
 setup-tools:
 	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy

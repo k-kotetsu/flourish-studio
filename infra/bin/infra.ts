@@ -2,8 +2,9 @@
 import * as cdk from "aws-cdk-lib/core";
 import { DataStack } from "../lib/data-stack";
 import { AuthStack } from "../lib/auth-stack";
+import { AppStack } from "../lib/app-stack";
 
-// AppStack, EdgeStack はP1-6〜P1-7で追加する。
+// EdgeStack はP1-7で追加する。
 // 参照: docs/11_技術構成/tech-architecture.md 10.1
 const app = new cdk.App();
 
@@ -22,3 +23,5 @@ new AuthStack(app, "AuthStack", {
   googleClientId:
     "834684313682-8ilfh4c2oar51mken8963etv7a731l14.apps.googleusercontent.com",
 });
+
+new AppStack(app, "AppStack", { env });
