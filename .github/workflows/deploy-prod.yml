@@ -1,0 +1,24 @@
+name: Deploy (prod)
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    # このEnvironmentにRequired reviewersを設定することで、タグpush後もデプロイ実行前に人の承認を挟む。
+    # Environment自体の作成とレビュアー設定はGitHubリポジトリ側の設定（私）で行う。
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: make setup
+      - run: make lint
+      - run: make test
+      - run: 'echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy -c env=prod に置き換える）"'

@@ -13,10 +13,10 @@ setup-tools:
 	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy
 
 setup-web:
-	cd web && npm install
+	cd web && npm ci
 
 setup-infra:
-	cd infra && npm install
+	cd infra && npm ci
 
 lint: lint-api lint-tools lint-web lint-infra
 
@@ -44,4 +44,4 @@ dev:
 	@echo "未実装（P1-8: FastAPI雛形、P1-9: DynamoDB Local を参照）"
 
 deploy-dev:
-	@echo "未実装（P1-2: GitHub Actions を参照）"
+	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
