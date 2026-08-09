@@ -1,0 +1,1274 @@
+<title>Flourish Studio ワイヤーフレーム 全27画面</title>
+<style>
+  :root {
+    --bg: #F8F9F6; --surface: #FFFFFF; --surface-sub: #F4F6F3;
+    --primary: #52796F; --primary-soft: #E2ECE7; --primary-ink: #FFFFFF;
+    --text: #202522; --text-sub: #68736D; --text-faint: #828C86;
+    --border: #E2E6E3; --control: #7A847E;
+    --danger: #9E3520; --warning: #7C5A12;
+    --scrim: rgba(32, 37, 34, .45);
+    --sans: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151A18; --surface: #1E2522; --surface-sub: #252D29;
+      --primary: #8EB7A8; --primary-soft: #263C35; --primary-ink: #12211B;
+      --text: #F1F4F2; --text-sub: #A4AFA9; --text-faint: #7F8A84;
+      --border: #333D38; --control: #6E7A74;
+      --danger: #E8907B; --warning: #D9AC61;
+      --scrim: rgba(0, 0, 0, .6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151A18; --surface: #1E2522; --surface-sub: #252D29;
+    --primary: #8EB7A8; --primary-soft: #263C35; --primary-ink: #12211B;
+    --text: #F1F4F2; --text-sub: #A4AFA9; --text-faint: #7F8A84;
+    --border: #333D38; --control: #6E7A74;
+    --danger: #E8907B; --warning: #D9AC61;
+    --scrim: rgba(0, 0, 0, .6);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .masthead { border-bottom: 2px solid var(--text); padding-bottom: 20px; margin-bottom: 12px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-sub); margin: 0 0 10px; }
+  .masthead h1 { font-size: clamp(24px, 4vw, 34px); line-height: 1.25; margin: 0 0 14px; text-wrap: balance; letter-spacing: -.01em; }
+  .specs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .specs li { font-family: var(--mono); font-size: 11px; color: var(--text-sub); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--surface); }
+  .theme-switch { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .theme-switch > span { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--text-sub); }
+  .theme-switch button { font: inherit; font-size: 12px; padding: 5px 12px; cursor: pointer; background: var(--surface); color: var(--text-sub); border: 1px solid var(--control); border-radius: 999px; }
+  .theme-switch button.on { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .theme-switch button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .lede { color: var(--text-sub); font-size: 14px; margin: 18px 0 20px; max-width: 64ch; }
+  .lede strong { color: var(--text); font-weight: 600; }
+  .revlog { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 16px 20px; margin: 0 0 36px; max-width: 74ch; }
+  .revlog h2 { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-sub); margin: 0 0 10px; font-weight: 600; }
+  .revlog ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+  .revlog li { margin-bottom: 5px; }
+  .revlog li::marker { color: var(--text-faint); }
+
+  .group { margin-top: 44px; }
+  .group > h2 { font-size: 15px; margin: 0 0 18px; padding-bottom: 8px; border-bottom: 1px solid var(--control); font-family: var(--mono); letter-spacing: .06em; }
+  .plates { display: flex; flex-direction: column; gap: 26px; }
+  .plate-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .plate-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .sid { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--primary); }
+  .plate-head h3 { font-size: 16px; margin: 0; }
+  .badge { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--text-sub); border: 1px solid var(--control); border-radius: 3px; padding: 2px 7px; }
+  .plate-body { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+  .frames { display: flex; flex-wrap: wrap; gap: 18px; }
+  .frame-unit { display: flex; flex-direction: column; gap: 7px; }
+  .frame-label { font-family: var(--mono); font-size: 11px; color: var(--text-sub); }
+  .frame-label b { color: var(--text); font-weight: 600; }
+  .notes { flex: 1 1 250px; min-width: 230px; }
+  .notes h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-sub); margin: 0 0 9px; font-weight: 600; }
+  .notes ul { margin: 0 0 16px; padding-left: 17px; font-size: 13px; line-height: 1.7; }
+  .notes li { margin-bottom: 6px; }
+  .notes li::marker { color: var(--text-faint); }
+  .flag { border-left: 3px solid var(--warning); background: var(--surface-sub); padding: 9px 12px; font-size: 12.5px; border-radius: 0 6px 6px 0; line-height: 1.7; }
+  .flag b { font-weight: 600; color: var(--warning); }
+
+  /* ================= device ================= */
+  .device {
+    width: 375px; height: 720px; flex: 0 0 auto; position: relative;
+    background: var(--surface); border: 1px solid var(--control); border-radius: 14px;
+    overflow: hidden; display: flex; flex-direction: column;
+    font-size: 15px; line-height: 1.8;
+  }
+  .appbar { height: 56px; flex: 0 0 auto; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 14px; background: var(--surface); }
+  .appbar .nav { color: var(--text-sub); font-size: 16px; }
+  .appbar .ttl { font-weight: 600; font-size: 14px; }
+  .appbar .step { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-sub); }
+  .appbar .brand { font-weight: 600; font-size: 15px; }
+  .appbar .toggle { margin-left: auto; font-size: 11px; color: var(--text-sub); border: 1px solid var(--control); border-radius: 999px; padding: 4px 10px; }
+  .pbar { height: 4px; flex: 0 0 auto; background: var(--surface-sub); }
+  .pbar i { display: block; height: 100%; background: var(--primary); }
+  .vp { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); }
+  .pad { padding: 18px 16px 28px; display: flex; flex-direction: column; gap: 18px; }
+  .cta { flex: 0 0 auto; border-top: 1px solid var(--border); padding: 10px 16px 14px; background: var(--surface); }
+
+  /* type */
+  .display { font-size: 28px; font-weight: 700; line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
+  .h1 { font-size: 20px; font-weight: 700; line-height: 1.45; margin: 0; text-wrap: balance; }
+  .h2 { font-size: 16px; font-weight: 600; line-height: 1.5; margin: 0; }
+  .txt { font-size: 15px; line-height: 1.8; }
+  .sub { font-size: 13px; line-height: 1.7; color: var(--text-sub); }
+  .lbl { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--text-sub); }
+
+  /* atoms */
+  .btn { display: block; width: 100%; text-align: center; padding: 14px; background: var(--primary); color: var(--primary-ink); border: none; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.4; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--control); font-weight: 500; }
+  .btn[disabled] { background: var(--surface-sub); color: var(--text-faint); }
+  .btn-txt { display: block; width: 100%; text-align: center; padding: 11px; color: var(--text-sub); font-size: 14px; }
+  .hint { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 8px; line-height: 1.6; }
+
+  .card { border: 1px solid var(--border); border-radius: 9px; padding: 14px; background: var(--surface); }
+  .card.sunk { background: var(--surface-sub); border-color: var(--surface-sub); }
+  .card.sel { border-color: var(--primary); background: var(--primary-soft); }
+  .rule { height: 1px; background: var(--border); }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 10px; border: 1px solid var(--control); border-radius: 3px; padding: 1px 6px; color: var(--text-sub); }
+
+  .sec { display: flex; align-items: center; gap: 8px; }
+  .sec .sq { width: 22px; height: 22px; flex: 0 0 auto; color: var(--text-sub); }
+  .sec .sq svg { width: 100%; height: 100%; display: block; }
+  .sec .en { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .sec .jp { font-size: 12px; color: var(--text-sub); }
+
+  .q { display: flex; flex-direction: column; gap: 8px; }
+  .scale { display: flex; gap: 6px; }
+  .scale span { flex: 1; height: 38px; border: 1px solid var(--control); border-radius: 6px; background: var(--surface); }
+  .scale span.on { border-color: var(--primary); background: var(--primary); }
+  .anchors { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint); }
+  .opts { display: flex; flex-direction: column; gap: 7px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--control); border-radius: 7px; font-size: 14px; line-height: 1.5; background: var(--surface); }
+  .opt .dot { width: 17px; height: 17px; border: 1px solid var(--control); border-radius: 50%; flex: 0 0 auto; }
+  .opt .box { width: 17px; height: 17px; border: 1px solid var(--control); border-radius: 4px; flex: 0 0 auto; }
+  .opt.on { border-color: var(--primary); background: var(--primary-soft); }
+  .opt.on .dot { border-color: var(--primary); background: var(--primary); box-shadow: inset 0 0 0 3px var(--primary-soft); }
+  .opt.on .box { border-color: var(--primary); background: var(--primary); }
+  /* Weekly Reflection：横並びの3段階 */
+  .wrow { border: 1px solid var(--border); border-radius: 9px; padding: 11px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+  .wrow .top { display: flex; align-items: center; gap: 7px; }
+  .wrow .top .ic { width: 16px; height: 16px; color: var(--text-faint); flex: 0 0 auto; }
+  .wrow .top .ic svg { width: 100%; height: 100%; display: block; }
+  .wrow .top .en { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--text-sub); }
+  .wrow .goal { font-size: 14px; line-height: 1.5; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .seg span { padding: 8px 2px; text-align: center; font-size: 12px; line-height: 1.3; border: 1px solid var(--control); border-radius: 6px; color: var(--text-sub); }
+  .seg span.on { border-color: var(--primary); background: var(--primary-soft); color: var(--text); font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { border: 1px solid var(--control); border-radius: 999px; padding: 7px 13px; font-size: 14px; background: var(--surface); }
+  .chip.on { border-color: var(--primary); background: var(--primary-soft); font-weight: 600; }
+
+  .field { border: 1px solid var(--control); border-radius: 7px; padding: 11px 12px; font-size: 14px; color: var(--text-faint); background: var(--surface); }
+  .field.filled { color: var(--text); }
+  .area { border: 1px solid var(--control); border-radius: 7px; padding: 11px 12px; font-size: 14px; color: var(--text-faint); min-height: 74px; background: var(--surface); }
+  .area.filled { color: var(--text); }
+
+  .msg { display: flex; }
+  .msg .bub { max-width: 84%; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 1.8; }
+  .msg.ai .bub { background: var(--surface-sub); border-bottom-left-radius: 3px; }
+  .msg.me { justify-content: flex-end; }
+  .msg.me .bub { border: 1px solid var(--control); border-bottom-right-radius: 3px; }
+  .composer { display: flex; gap: 8px; align-items: center; }
+  .composer .f { flex: 1; border: 1px solid var(--control); border-radius: 20px; padding: 11px 15px; color: var(--text-faint); font-size: 14px; }
+  .composer .s { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); flex: 0 0 auto; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .acard { border: 1px solid var(--border); border-radius: 9px; padding: 13px; display: flex; flex-direction: column; gap: 7px; background: var(--surface); }
+  .acard .sq { width: 24px; height: 24px; color: var(--text-sub); }
+  .acard .sq svg { width: 100%; height: 100%; display: block; }
+  .acard .en { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .acard .st { font-size: 12px; color: var(--text-sub); line-height: 1.6; }
+  .acard.empty { border-style: dashed; }
+  .acard.dim { opacity: .55; }
+
+  .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+  .stage .ico { width: 28px; height: 28px; color: var(--text-faint); }
+  .stage .ico svg { width: 100%; height: 100%; display: block; }
+  .stage .nm { font-size: 13px; color: var(--text-sub); }
+  .stage.on { border-color: var(--primary); background: var(--primary-soft); }
+  .stage.on .ico { color: var(--primary); }
+  .stage.on .nm { color: var(--text); font-weight: 700; }
+
+  .spin { width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--surface-sub); border-top-color: var(--primary); animation: sp 1s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 4s; } }
+  .stage-c { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; padding: 24px; text-align: center; background: var(--bg); }
+  .errm { width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--control); display: grid; place-items: center; color: var(--text-sub); font-size: 21px; }
+
+  .scrim { position: absolute; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .dialog { background: var(--surface); border-radius: 12px; padding: 20px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .dialog h5 { margin: 0; font-size: 16px; }
+  .dialog p { margin: 0 0 6px; font-size: 13px; color: var(--text-sub); line-height: 1.75; }
+
+  /* ================= landing page ================= */
+  .lp { display: block; padding: 0; }
+  .lp .sec-block { padding: 44px 20px; border-bottom: 1px solid var(--border); }
+  .lp .sec-block.tint { background: var(--surface-sub); }
+  .lp .sec-block.hero { padding: 34px 20px 46px; }
+  .lp .eyebrow2 { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--primary); margin: 0 0 14px; }
+  .lp h2 { font-size: 21px; line-height: 1.5; margin: 0 0 14px; letter-spacing: -.01em; text-wrap: balance; }
+  .lp .hero-h { font-size: 27px; font-weight: 700; line-height: 1.45; letter-spacing: -.02em; margin: 0 0 16px; text-wrap: balance; }
+  .lp p { font-size: 15px; line-height: 1.9; margin: 0 0 14px; }
+  .lp p.small { font-size: 13.5px; color: var(--text-sub); line-height: 1.8; }
+  .lp .art { margin: 22px 0; color: var(--primary); }
+  .lp .art svg { width: 100%; height: auto; display: block; }
+  .lp .feat { border: 1px solid var(--border); border-radius: 10px; padding: 15px; background: var(--surface); margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+  .lp .feat .ic { width: 20px; height: 20px; color: var(--primary); flex: 0 0 auto; margin-top: 3px; }
+  .lp .feat .ic svg { width: 100%; height: 100%; display: block; }
+  .lp .feat .bd { flex: 1 1 auto; min-width: 0; }
+  .lp .feat h3 { font-size: 15px; margin: 0 0 4px; line-height: 1.5; }
+  .lp .feat p { font-size: 13.5px; color: var(--text-sub); margin: 0; line-height: 1.8; }
+  .lp .steps { counter-reset: st; }
+  .lp .step-i { display: flex; gap: 13px; padding: 14px 0; border-bottom: 1px dashed var(--border); }
+  .lp .step-i:last-child { border-bottom: 0; }
+  .lp .step-i .n { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); font-size: 12px; font-weight: 700; display: grid; place-items: center; font-family: var(--mono); }
+  .lp .step-i h4 { font-size: 15px; margin: 0 0 3px; line-height: 1.5; }
+  .lp .step-i p { font-size: 13px; color: var(--text-sub); margin: 0; line-height: 1.75; }
+  .lp .quote { border-left: 3px solid var(--primary); padding: 4px 0 4px 15px; font-size: 17px; font-weight: 600; line-height: 1.7; margin: 20px 0; letter-spacing: -.01em; }
+  .lp .vow { display: flex; gap: 11px; padding: 12px 0; align-items: flex-start; }
+  .lp .vow .ck { flex: 0 0 auto; width: 19px; height: 19px; color: var(--primary); margin-top: 3px; }
+  .lp .vow .ck svg { width: 100%; height: 100%; display: block; }
+  .lp .vow div { font-size: 14px; line-height: 1.75; }
+  .lp .vow b { display: block; margin-bottom: 2px; }
+  .lp .foot { padding: 26px 20px 34px; text-align: center; }
+  .lp .foot .small { font-size: 12px; color: var(--text-faint); }
+  .lp-cta { position: sticky; bottom: 0; }
+
+  /* ================= articles ================= */
+  .kchips { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .kchips span { flex: 0 0 auto; border: 1px solid var(--control); border-radius: 999px; padding: 6px 13px; font-size: 13px; color: var(--text-sub); white-space: nowrap; background: var(--surface); }
+  .kchips span.on { border-color: var(--primary); background: var(--primary); color: var(--primary-ink); font-weight: 600; }
+  .kcard { display: flex; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .kcard:last-child { border-bottom: 0; }
+  .kcard .thumb { width: 74px; height: 74px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; flex: 0 0 auto; }
+  .kcard .thumb svg { width: 28px; height: 28px; display: block; }
+  .kcard .bd { flex: 1 1 auto; min-width: 0; }
+  .kcard .cat { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--primary); }
+  .kcard h3 { font-size: 14.5px; line-height: 1.6; margin: 3px 0 4px; }
+  .kcard .ex { font-size: 12.5px; color: var(--text-sub); line-height: 1.7; }
+
+  .kart h1 { font-size: 22px; line-height: 1.55; margin: 10px 0 12px; letter-spacing: -.01em; text-wrap: balance; }
+  .kart .kmeta { display: flex; gap: 10px; align-items: center; font-family: var(--mono); font-size: 10.5px; color: var(--text-sub); }
+  .kart .kmeta .c { color: var(--primary); font-weight: 600; }
+  .kart .khero { height: 128px; border-radius: 10px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; margin: 18px 0 22px; }
+  .kart .khero svg { width: 46px; height: 46px; display: block; }
+  .kart h2 { font-size: 16.5px; line-height: 1.6; margin: 26px 0 10px; }
+  .kart p { font-size: 15px; line-height: 1.95; margin: 0 0 16px; }
+  .kbanner { border: 1px solid var(--primary); border-radius: 10px; padding: 20px 18px; background: var(--primary-soft); text-align: center; margin-top: 30px; }
+  .kbanner .bt { font-size: 16px; font-weight: 700; line-height: 1.6; margin-bottom: 6px; }
+  .kbanner .bs { font-size: 13px; color: var(--text-sub); line-height: 1.7; margin-bottom: 14px; }
+
+  /* 時差表示（フレーム内スクロールで発火）
+     既定は「見えている」。JSが監視を始められたときだけ隠す。
+     監視できない環境やスクリプト停止時に、LPが白紙にならないようにするため。 */
+  .rv { opacity: 1; }
+  html.rv-on .rv { opacity: 0; transform: translateY(16px); }
+  html.rv-on .rv.in { opacity: 1; transform: none; transition: opacity .6s cubic-bezier(.2,.85,.25,1), transform .6s cubic-bezier(.2,.85,.25,1); transition-delay: var(--d, 0s); }
+  @media (prefers-reduced-motion: reduce) {
+    html.rv-on .rv { opacity: 1; transform: none; }
+    html.rv-on .rv.in { transition: none; }
+  }
+
+  /* ================= motion demo ================= */
+  @keyframes riseIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes popIn { from { opacity: 0; transform: scale(.72); } to { opacity: 1; transform: none; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+  @keyframes growBar { from { width: 0; } }
+  @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .run .m-rise { animation: riseIn .55s cubic-bezier(.2,.85,.25,1) both; animation-delay: var(--d, 0s); }
+  .run .m-pop { animation: popIn .42s cubic-bezier(.34,1.56,.5,1) both; animation-delay: var(--d, 0s); }
+  .run .m-slide { animation: slideIn .5s cubic-bezier(.2,.85,.25,1) both; animation-delay: var(--d, 0s); }
+  .run .m-bar > i { animation: growBar .9s cubic-bezier(.2,.8,.2,1) both; animation-delay: var(--d, 0s); }
+  .m-breathe { animation: breathe 2.6s ease-in-out infinite; }
+  .m-hidden { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .run .m-rise, .run .m-pop, .run .m-slide, .run .m-bar > i { animation: none; opacity: 1; transform: none; }
+    .m-breathe { animation: none; }
+    .m-hidden { opacity: 1; }
+  }
+
+  .replay { font: inherit; font-size: 13px; padding: 8px 16px; cursor: pointer; background: var(--primary); color: var(--primary-ink); border: none; border-radius: 999px; }
+  .replay:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-sub); }
+  footer code { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Flourish Studio ／ MVP ワイヤーフレーム</p>
+    <h1>全31画面</h1>
+    <ul class="specs">
+      <li>375 × 720px</li>
+      <li>本文 15px</li>
+      <li>確定トークン適用</li>
+      <li>アイコン実装済み</li>
+      <li>実際の文言を使用</li>
+      <li>タブバーなし</li>
+    </ul>
+    <div class="theme-switch">
+      <span>表示テーマ</span>
+      <button type="button" data-set="auto" class="on">自動</button>
+      <button type="button" data-set="light">ライト</button>
+      <button type="button" data-set="dark">ダーク</button>
+    </div>
+  </header>
+
+  <p class="lede">
+    各フレームは<strong>実寸で、実際にスクロールできます</strong>。分量がモバイルで成立するかは、
+    説明文ではなく縦の長さでしか判断できないため。フレーム内を直接スクロールして確かめてください。
+  </p>
+
+  <div class="revlog">
+    <h2>最新の変更</h2>
+    <ul>
+      <li><b>S-36 / S-37 を追加。</b>確定したありたい姿を、あとから閲覧・編集できるようにした。全29→31画面</li>
+      <li><b>アイコンを実装。</b>4領域と成長段階（種・芽・苗・木）を線画で描き起こした。□ のプレースホルダを置き換え済み</li>
+      <li><b>Weekly Reflection を横並びに。</b>3段階をセグメント形式にして、1目標あたり3行に圧縮。7目標が1画面に収まる</li>
+      <li><b>モーションを積極的に使う方針へ転換。</b>ページ末尾に実際に動くデモを4つ追加</li>
+      <li><b>トップページをLPとして作り込み。</b>7セクションの縦長構成、イラスト3点、スクロール連動の時差表示。CTAの文言も変更</li>
+      <li><b>ヒーローのコピーを差し替え。</b>「名前をつけるところから」を取り下げ、定義書のビジョンから作り直した。Flourishの定義とギャラップ社の枠組みも本文に反映</li>
+      <li><b>記事機能を追加（K-01 / K-02）。</b>公開サイト側の読みもの。LPにも「読みもの」セクションを足した。全27→29画面</li>
+      <li><b>ログイン済みならCTAバナーを出さない。</b>ヘッダーの「ログイン」も「ホーム」に差し替える</li>
+      <li><b>所要時間を5分に統一。</b>画面・仕様書のすべての記載を揃えた</li>
+      <li><b>S-11 に前置きを追加。</b>「少し考えることになる」と先に伝えたうえで、「急がなくて大丈夫」と受け止めを添えた</li>
+    </ul>
+    <h2 style="margin-top:16px">第2回での変更</h2>
+    <ul>
+      <li><b>本文を 15px に組み直し。</b>デザイン原則 4.2 のタイプスケールに全画面を揃えた（第1回の5枚も再描画）</li>
+      <li><b>残り22画面を追加。</b>全27画面がそろった</li>
+      <li><b>生成中画面のステップ番号を削除。</b>バーは直前のステップ位置で止める</li>
+    </ul>
+  </div>
+
+  <div id="out"></div>
+  <div id="motion"></div>
+
+  <footer>
+    仕様（要素の役割・有効／無効の条件・遷移トリガー）は <code>docs/06_ワイヤーフレーム/wireframe-spec.md</code>、
+    共通ルールは <code>docs/07_デザイン原則/ui-ux-design-principles.md</code> に記載。
+    この文書はレイアウトのみを担当し、振る舞いは重複して記述していません。
+  </footer>
+</div>
+
+<script>
+const E = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+/* ---------------- icons（線画・24px・currentColor） ---------------- */
+const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICON = {
+  Career: svg('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>'),
+  Financial: svg('<circle cx="12" cy="12" r="8"/><path d="M12 7v10M9.5 9.8c0-1 1.1-1.8 2.5-1.8s2.5.8 2.5 1.8-1.1 1.8-2.5 1.8-2.5.8-2.5 1.8 1.1 1.8 2.5 1.8 2.5-.8 2.5-1.8"/>'),
+  Physical: svg('<path d="M12 20s-7-4.3-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.7-7 9-7 9z"/><path d="M3 12h3l1.5-2.5L9.5 14 11 12h2"/>'),
+  Social: svg('<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9.5" r="2.5"/><path d="M16 15c3 0 5 1.6 5 4.5"/>'),
+  記事: svg('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
+  ツール: svg('<path d="M14.5 4.5a4 4 0 0 0 5 5L21 8v3l-8.5 8.5a2.1 2.1 0 0 1-3-3L18 8"/><path d="M6.5 6.5 3 10l3 3 3.5-3.5"/>'),
+  seed: svg('<ellipse cx="12" cy="14" rx="4.5" ry="5.5"/><path d="M12 19v-8"/>'),
+  sprout: svg('<path d="M12 21v-7"/><path d="M12 14c0-3-2-5-5-5 0 3 2 5 5 5z"/><path d="M12 14c0-2.5 1.7-4.2 4.2-4.2 0 2.5-1.7 4.2-4.2 4.2z"/>'),
+  seedling: svg('<path d="M12 21V9"/><path d="M12 12c0-3-2.2-5.2-5.2-5.2 0 3 2.2 5.2 5.2 5.2z"/><path d="M12 14.5c0-3 2.2-5.2 5.2-5.2 0 3-2.2 5.2-5.2 5.2z"/><path d="M8 21h8"/>'),
+  tree: svg('<path d="M12 21v-5"/><path d="M12 16a6 6 0 0 0 0-12 6 6 0 0 0 0 12z"/><path d="M12 10 9 7M12 12l3-3"/><path d="M8.5 21h7"/>')
+};
+const STAGE_ICON = { '種':'seed', '芽':'sprout', '苗':'seedling', '木':'tree' };
+const CHECK = svg('<path d="M4 12.5 9 17.5 20 6.5"/>');
+const ICON_REPORT = svg('<path d="M4 20V9M9.5 20V4M15 20v-7M20.5 20v-4"/>');
+const ICON_MAP = svg('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="3.5" r="1.6"/><circle cx="20.5" cy="12" r="1.6"/><circle cx="12" cy="20.5" r="1.6"/><circle cx="3.5" cy="12" r="1.6"/><path d="M12 9V5.1M15 12h3.9M12 15v3.9M9 12H5.1"/>');
+const ICON_WEEK = svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
+
+/* ---------------- LP illustrations ---------------- */
+const ART_MAP = `<svg viewBox="0 0 320 190" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+  <circle cx="160" cy="95" r="27" fill="var(--primary-soft)" stroke="currentColor" stroke-width="1.6"/>
+  <text x="160" y="92" text-anchor="middle" font-size="11" fill="var(--text)" stroke="none" font-weight="700">ありたい姿</text>
+  <text x="160" y="105" text-anchor="middle" font-size="8" fill="var(--text-sub)" stroke="none">3〜5年後</text>
+  <path d="M160 68V34M187 95h46M160 122v34M133 95H87" stroke-dasharray="3 4" opacity=".7"/>
+  <g stroke-width="1.4">
+    <rect x="121" y="10" width="78" height="24" rx="12" fill="var(--surface)"/>
+    <text x="160" y="26" text-anchor="middle" font-size="11" fill="var(--text)" stroke="none">Career</text>
+    <rect x="233" y="83" width="80" height="24" rx="12" fill="var(--surface)"/>
+    <text x="273" y="99" text-anchor="middle" font-size="11" fill="var(--text)" stroke="none">Financial</text>
+    <rect x="121" y="156" width="78" height="24" rx="12" fill="var(--surface)"/>
+    <text x="160" y="172" text-anchor="middle" font-size="11" fill="var(--text)" stroke="none">Physical</text>
+    <rect x="7" y="83" width="80" height="24" rx="12" fill="var(--surface)"/>
+    <text x="47" y="99" text-anchor="middle" font-size="11" fill="var(--text)" stroke="none">Social</text>
+  </g>
+</svg>`;
+
+const ART_GROW = `<svg viewBox="0 0 320 120" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M14 100h292" stroke="var(--border)" stroke-width="1.4"/>
+  <g opacity=".45">
+    <ellipse cx="46" cy="90" rx="7" ry="9"/><path d="M46 99v-9"/>
+    <text x="46" y="116" text-anchor="middle" font-size="10" fill="var(--text-sub)" stroke="none">種</text>
+  </g>
+  <g opacity=".6">
+    <path d="M122 100V78"/><path d="M122 78c0-9-6-15-15-15 0 9 6 15 15 15z"/><path d="M122 82c0-7 5-12 12-12 0 7-5 12-12 12z"/>
+    <text x="122" y="116" text-anchor="middle" font-size="10" fill="var(--text-sub)" stroke="none">芽</text>
+  </g>
+  <g opacity=".8">
+    <path d="M198 100V56"/><path d="M198 70c0-11-8-18-19-18 0 11 8 18 19 18z"/><path d="M198 78c0-11 8-18 19-18 0 11-8 18-19 18z"/>
+    <text x="198" y="116" text-anchor="middle" font-size="10" fill="var(--text-sub)" stroke="none">苗</text>
+  </g>
+  <g>
+    <path d="M274 100V64"/><circle cx="274" cy="42" r="24" fill="var(--primary-soft)"/><path d="M274 64V34M274 48l-11-11M274 54l12-12"/>
+    <text x="274" y="116" text-anchor="middle" font-size="10" fill="var(--text)" stroke="none" font-weight="700">木</text>
+  </g>
+</svg>`;
+
+const ART_WEEK = `<svg viewBox="0 0 320 96" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+  <path d="M18 52h284" stroke="var(--border)"/>
+  ${[0,1,2,3,4,5,6].map(i => {
+    const x = 18 + i * 47.3;
+    return i === 3
+      ? `<circle cx="${x}" cy="52" r="15" fill="var(--primary-soft)"/><path d="M${x-5} 52l4 4 7-8"/>
+         <text x="${x}" y="86" text-anchor="middle" font-size="10" fill="var(--text)" stroke="none" font-weight="700">振り返り</text>`
+      : `<circle cx="${x}" cy="52" r="4.5" fill="var(--surface)" opacity=".8"/>`;
+  }).join('')}
+  <text x="160" y="18" text-anchor="middle" font-size="11" fill="var(--text-sub)" stroke="none">週に一度、5分だけ</text>
+</svg>`;
+
+/* ---------------- shared builders ---------------- */
+const bar = pct => pct == null ? '' : `<div class="pbar"><i style="width:${pct}%"></i></div>`;
+const hdr = o => {
+  const right = o.step ? `<span class="step">${o.step}</span>` : (o.toggle ? `<span class="toggle">◐ 自動</span>` : '');
+  const left = o.nav ? `<span class="nav">${o.nav}</span>` : '';
+  const t = o.brand ? `<span class="brand">${o.brand}</span>` : `<span class="ttl">${o.ttl || ''}</span>`;
+  return `<div class="appbar">${left}${t}${right}</div>` + bar(o.pct);
+};
+const screen = (h, body, cta) =>
+  h + `<div class="vp"><div class="pad">${body}</div></div>` + (cta ? `<div class="cta">${cta}</div>` : '');
+
+const scale = on => `<div class="scale">${[0,1,2,3,4].map(i => `<span class="${i===on?'on':''}"></span>`).join('')}</div>
+  <div class="anchors"><span>満たされていない</span><span>満たされている</span></div>`;
+const radios = (list, on) => `<div class="opts">${list.map((c,i) =>
+  `<div class="opt ${i===on?'on':''}"><span class="dot"></span>${E(c)}</div>`).join('')}</div>`;
+const checks = (list, on) => `<div class="opts">${list.map((c,i) =>
+  `<div class="opt ${on.includes(i)?'on':''}"><span class="box"></span>${E(c)}</div>`).join('')}</div>`;
+const chips = (list, on) => `<div class="chips">${list.map((c,i) =>
+  `<span class="chip ${on.includes(i)?'on':''}">${E(c)}</span>`).join('')}</div>`;
+
+const waiting = o => hdr({ ttl: o.ttl, pct: o.pct }) + `<div class="stage-c">
+  ${o.failed
+    ? `<div class="errm">!</div>
+       <div class="h1">${E(o.errTitle)}</div>
+       <div class="sub">${o.errSub}</div>
+       <div style="width:100%;margin-top:6px">
+         <button class="btn">もう一度やってみる</button>
+         ${o.back ? `<button class="btn-txt">${E(o.back)}</button>` : ''}
+       </div>`
+    : `<div class="spin"></div>
+       <div class="h1">${E(o.title)}</div>
+       <div class="sub">${o.sub}</div>`}
+</div>`;
+
+/* ---------------- data ---------------- */
+const AREAS = [
+  { en:'Career', jp:'仕事・働き方', label:'仕事や働き方',
+    items:['仕事のやりがい','スキルや成長の実感','今後のキャリアの見通し','収入や待遇','働き方や時間の使い方'] },
+  { en:'Financial', jp:'お金・生活設計', label:'お金や生活のこと',
+    items:['貯蓄の状況','収入の水準','支出の把握とコントロール','将来に向けた資産形成','生活費や返済の負担'] },
+  { en:'Physical', jp:'健康・生活習慣', label:'からだや生活習慣',
+    items:['睡眠','運動する習慣','食事','体調や疲れのとれ方','体重や体型'] },
+  { en:'Social', jp:'人との関係', label:'人との関わり',
+    items:['気軽に話せる相手がいること','家族やパートナーとの関係','友人と過ごす時間','職場以外のつながり','頼れる人がいるという安心感'] }
+];
+const COMMIT = ['まだこれからのところ','あまり動けていない','動けている時と、そうでない時がある','少し動けている','しっかり動けている'];
+const STAGES = ['種','芽','苗','木'];
+const PURPOSE = '自分で選んだと言えることを積み重ねて生きていきたい。';
+
+const FREE = [
+  ['Career','Careerの中では「仕事のやりがい」が満たされているようですね。いまどんな状況で、なぜそう感じているのか、書ける範囲で教えてもらえますか。',
+            '一方で「今後のキャリアの見通し」は、少し気になっているようですね。いまどう感じていて、これからどうしていきたいですか。'],
+  ['Financial','Financialの中では「生活費や返済の負担」が満たされているようですね。いまどんな状況で、なぜそう感じているのか、書ける範囲で教えてもらえますか。',
+               '一方で「支出の把握とコントロール」は、少し気になっているようですね。いまどう感じていて、これからどうしていきたいですか。'],
+  ['Physical','Physicalの中では「食事」が満たされているようですね。いまどんな状況で、なぜそう感じているのか、書ける範囲で教えてもらえますか。',
+              '一方で「睡眠」は、少し気になっているようですね。いまどう感じていて、これからどうしていきたいですか。'],
+  ['Social','Socialの中では「家族やパートナーとの関係」が満たされているようですね。いまどんな状況で、なぜそう感じているのか、書ける範囲で教えてもらえますか。',
+            '一方で「職場以外のつながり」は、少し気になっているようですね。いまどう感じていて、これからどうしていきたいですか。']
+];
+
+const REPORT = [
+  { en:'Career',
+    ok:'「今の会社で任される範囲が広がってきた」と書いてくださいましたね。やりがいと成長の実感は、いましっかり手ごたえのある側にあるようです！',
+    ng:'一方で、この先のキャリアの見通しについては、まだもやもやが残っているのかもしれません。回っているのに伸びていない、という感覚が近いでしょうか。',
+    adv:'次に何を任されたいか、ひとつだけ言葉にしてみるのはどうでしょう。誰かに伝えるのは、そのあとでも大丈夫です。' },
+  { en:'Financial',
+    ok:'生活費や返済の負担については、いまのところ苦しさは感じていないようですね。',
+    ng:'支出の把握は、気になっている側に大きく寄っていました。「何に使ったか思い出せない」と書いてくださったことが、そのまま表れているのかもしれません。',
+    adv:'まずは1週間だけ、何にいくら使ったか眺めてみるのはどうでしょう。減らすことは、そのあとで考えれば大丈夫です。' },
+  { en:'Physical',
+    ok:'食事については、大きく崩れてはいないようです。',
+    ng:'いちばん気になっていたのは睡眠でした。寝る時間が毎日ばらばらな状態が、続いているのかもしれません。',
+    adv:'寝る時間を早めるより先に、起きる時間をそろえるほうが、案外続きやすいかもしれません。' },
+  { en:'Social',
+    ok:'家族やパートナーとの関係は、満たされている側にありました。近い人との関係は保てているようですね。',
+    ng:'職場の外とのつながりは薄いと感じているようです。ただ、それを困りごととしては書いていませんでした。',
+    adv:'会いたい人を、ひとりだけ思い浮かべてみるのはどうでしょう。連絡するかどうかは、そのあとで決めて大丈夫です。' }
+];
+
+const CHAT_P = [
+  ['ai','「成長」を選んでくださいましたね。これを選んだのは、何か思い当たることがありましたか。'],
+  ['me','前の職場で、仕事は回っていたけど自分が伸びてる感じが全然しなくて、それが一番きつかったです。'],
+  ['ai','「伸びている感じがしない」と書いてくださいました。回っているのに伸びない、というのはどんな場面で強く感じましたか。'],
+  ['me','毎年同じ時期に同じ資料を作ってるとき。去年の自分と何も変わってないなと。'],
+  ['ai','去年との差を、自分で見ようとしていたのだと思います。3〜5年後、その差がどうなっていたら納得できそうでしょうか。'],
+  ['me','去年はできなかったことを任されてる、みたいな状態だと納得できる気がします。']
+];
+const CHAT_A = [
+  ['ai','Careerの中で「今後のキャリアの見通し」を選んでくださいましたね。そして大切にしたいこととして「自分で決められる裁量があること」も挙げていました。この2つは、どうつながっていますか。'],
+  ['me','決められる範囲が広がらないと、先が見えないなと思っていて。指示待ちのままだと5年後も同じ気がします。'],
+  ['ai','「決められる範囲が広がる」ことと「先が見える」ことを、同じものとして捉えているのですね。それが実現したとき、「自分で選んだと言えることを積み重ねて生きていきたい」という姿には、どんなふうに近づきそうでしょうか。'],
+  ['me','仕事の中で自分が選んだって言えることが増えるので、たぶんそのままつながると思います。']
+];
+
+const PLANS_P = [
+  ['自分の納得を軸に','自分で選んだと言えることを積み重ねて生きていきたい。'],
+  ['まわりの人とともに','まわりの人が安心して力を出せる存在でありたい。'],
+  ['もっと広く','人の可能性が広がる場をつくっていきたい。']
+];
+const PLANS_A = [
+  ['今の場所で深める','今の仕事の中で自分の強みが言葉になっていて、次に何を任されたいかを自分から言えている。'],
+  ['やり方を変える','働き方や役割を一度組み替えて、自分に合う進め方が見つかっている。'],
+  ['外に出る','社外の人と接点があり、今の会社の外でも通用する選択肢を持てている。']
+];
+
+const GOALS = ['職務経歴書を書き上げる','月に1回、社外の人と話す','半期に1つ、新しい役割に手を挙げる'];
+const WR = ['進んでいる','止まっている','見直したい'];
+
+/* ================= screens ================= */
+
+const rv = (html, d) => `<div class="rv" style="--d:${(d || 0).toFixed(2)}s">${html}</div>`;
+
+/* ---------------- articles ---------------- */
+const KCATS = ['すべて', 'Career', 'Financial', 'Physical', 'Social', 'Flourishとは'];
+const ART_ICON = { Career:'Career', Financial:'Financial', Physical:'Physical', Social:'Social' };
+const ICON_FLOURISH = svg('<path d="M12 21V10"/><path d="M12 13c0-4-3-6.5-7-6.5 0 4 3 6.5 7 6.5z"/><path d="M12 15c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/><path d="M8 21h8"/>');
+const kIcon = c => c === 'Flourishとは' ? ICON_FLOURISH : ICON[ART_ICON[c]];
+
+const ARTICLES = [
+  { c:'Flourishとは', t:'幸せと、フラリッシュは違う', d:'2026.08.05', r:'5分',
+    ex:'いま楽しいかどうかと、よく生きているかどうかは、別の話です。' },
+  { c:'Career', t:'「転職したい」の前に、一度だけ考えたいこと', d:'2026.08.01', r:'6分',
+    ex:'辞めたい理由は言えるのに、どうなりたいかは言えない。そこに手がかりがあります。' },
+  { c:'Financial', t:'貯金が増えない人が、まず見るべきは金額じゃない', d:'2026.07.28', r:'5分',
+    ex:'節約より先に、何に使ったか思い出せるかどうかを確かめてみる。' },
+  { c:'Physical', t:'睡眠を変えるなら、寝る時間より起きる時間から', d:'2026.07.24', r:'4分',
+    ex:'早く寝ようとして失敗し続けるより、確実に効く順番があります。' },
+  { c:'Social', t:'職場以外のつながりが、なぜ効いてくるのか', d:'2026.07.20', r:'6分',
+    ex:'仕事が苦しいときに支えになるのは、たいてい仕事の外にあります。' },
+  { c:'Career', t:'「やりがいがない」の正体を分解する', d:'2026.07.16', r:'7分',
+    ex:'ひとことでまとめてしまうと、動かしどころが見えなくなります。' }
+];
+
+const kBanner = () => `<div class="kbanner">
+    <div class="bt">いまの自分を、<br>眺めてみませんか。</div>
+    <div class="bs">4つの領域について5分ほど答えると、<br>いまの状態をAIが文章で整理します。</div>
+    <button class="btn">5分で、いまの自分を見てみる</button>
+    <div class="hint">登録もお支払いもいりません</div>
+  </div>`;
+
+const k01 = () => `
+  <div class="appbar"><span class="nav">‹</span><span class="ttl">記事</span><span class="toggle">ログイン</span></div>
+  <div class="vp"><div class="pad">
+    <div class="h1">読みもの</div>
+    <div class="sub">人生を育てるための、知識とヒント。4つの領域と、Flourish という考え方について。</div>
+    <div class="kchips">${KCATS.map((c,i) => `<span class="${i===0?'on':''}">${c}</span>`).join('')}</div>
+    <div>${ARTICLES.map(a => `
+      <div class="kcard">
+        <div class="thumb">${kIcon(a.c)}</div>
+        <div class="bd">
+          <div class="cat">${a.c}</div>
+          <h3>${E(a.t)}</h3>
+          <div class="ex">${E(a.ex)}</div>
+        </div>
+      </div>`).join('')}</div>
+    <button class="btn ghost">もっと読む</button>
+  </div></div>`;
+
+const k02 = (loggedIn) => `
+  <div class="appbar"><span class="nav">‹</span><span class="ttl">Flourishとは</span><span class="toggle">${loggedIn ? 'ホーム' : 'ログイン'}</span></div>
+  <div class="vp"><div class="pad"><div class="kart">
+    <div class="kmeta"><span class="c">Flourishとは</span><span>2026.08.05</span><span>5分で読めます</span></div>
+    <h1>幸せと、フラリッシュは違う</h1>
+    <div class="khero">${ICON_FLOURISH}</div>
+    <p>「いま幸せですか」と聞かれて、すぐに答えられる人は多くありません。仕事は大変だし、貯金も思うように増えていない。でも、不幸かと言われるとそうでもない。そんな状態のほうが、ずっと一般的です。</p>
+    <h2>一時的な幸福感とは、別のものさし</h2>
+    <p>Flourish とは、人生のさまざまな側面が良い状態にあり、その人らしく力を発揮しながら、成長し、充実して生きている状態のことです。短く言えば「自分らしく、よりよく生き、成長している状態」。</p>
+    <p>ここで大事なのは、<b>いま楽かどうかを問うていない</b>ということです。</p>
+    <p>たとえば、仕事が忙しくて余裕がない時期があったとします。そのときの幸福感は、決して高くないでしょう。それでも——自分にとって意味のある仕事をしている。去年できなかったことができている。信頼できる仲間がいる。将来に向かって進んでいる感覚がある。そう感じられているなら、Flourishing は高いと言えます。</p>
+    <h2>だから、点数をつけない</h2>
+    <p>この考え方に立つと、いまの状態を1つの点数で表すことには意味がなくなります。大事なのは、どの側面が満たされていて、どの側面が気になっているのか。そして、それが自分にとってなぜ大事なのか。</p>
+    <p>Flourish Studio が優劣をつけず、満たされている点と気になっている点を必ず両方お返しするのは、そのためです。</p>
+    ${loggedIn ? '' : kBanner()}
+  </div></div></div>`;
+
+const s01 = () => `
+  <div class="appbar"><span class="brand">Flourish Studio</span><span class="toggle">ログイン</span></div>
+  <div class="vp"><div class="lp">
+
+    <section class="sec-block hero">
+      ${rv('<p class="eyebrow2">Wellbeing Platform</p>', 0)}
+      ${rv('<h1 class="hero-h">人生は、<br>完成させるものじゃない。<br>育てていくものだ。</h1>', .12)}
+      ${rv('<p><b>自分の現在地を知り、自分なりのより良い人生を探索し、育てていく。</b><br>Flourish Studio は、そのためのパーソナルスタジオです。</p>', .26)}
+      ${rv(`<div class="art">${ART_MAP}</div>`, .4)}
+      ${rv('<p class="small">20〜30代のキャリア形成期に。何かを売ることはありません。</p>', .55)}
+    </section>
+
+    <section class="sec-block tint">
+      ${rv('<p class="eyebrow2">こんな状態、ありませんか</p>', 0)}
+      ${rv(`<div class="vow"><span class="ck">${CHECK}</span><div>大きな不満はないのに、<b>何となく満たされない</b></div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div>将来が不安。でも<b>何が不安なのか説明できない</b></div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div>転職も、貯金も、運動も。<b>やることが多くて手がつかない</b></div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div>理想の状態を<b>自分の言葉にできていない</b></div></div>`, .12)}
+      ${rv('<p class="small" style="margin-top:16px">世の中のサービスの多くは、困りごとを自覚している人向けにできています。まだ言葉になっていない段階の人が、置いていかれがちでした。</p>', .3)}
+    </section>
+
+    <section class="sec-block">
+      ${rv('<p class="eyebrow2">Flourish とは</p>', 0)}
+      ${rv('<h2>自分らしく、よりよく生き、<br>成長している状態。</h2>', .1)}
+      ${rv('<p>Flourish とは、人生のさまざまな側面が良い状態にあり、その人らしく力を発揮しながら、成長し、充実して生きている状態のことです。</p>', .22)}
+      ${rv(`<div class="art">${ART_GROW}</div>`, .34)}
+      ${rv('<p>大事なのは、いま楽かどうかではありません。たとえば仕事が大変で、一時的に幸福感が低かったとしても——自分にとって意味のある仕事をしている。成長している。良い仲間がいる。将来に向かって進んでいる。そう感じられているなら、<b>Flourishing は高い</b>と言えます。</p>', .46)}
+      ${rv('<div class="quote">3年後のあなたを、1枚の地図に。</div>', .58)}
+    </section>
+
+    <section class="sec-block tint">
+      ${rv('<p class="eyebrow2">4つの領域</p>', 0)}
+      ${rv('<h2>仕事も、お金も、からだも、つながりも。<br>バラバラの悩みじゃなかった。</h2>', .1)}
+      ${rv('<p>Flourish Studio が扱う4つの領域は、ギャラップ社が示したウェルビーイングの構成要素をもとにしています。</p>', .2)}
+      ${rv(`<div class="feat"><span class="ic">${ICON.Career}</span><div class="bd"><h3>Career</h3><p>仕事、働き方、成長、役割</p></div></div>
+            <div class="feat"><span class="ic">${ICON.Financial}</span><div class="bd"><h3>Financial</h3><p>収入、支出、貯蓄、資産形成、生活設計</p></div></div>
+            <div class="feat"><span class="ic">${ICON.Physical}</span><div class="bd"><h3>Physical</h3><p>健康、体力、睡眠、運動、生活習慣</p></div></div>
+            <div class="feat"><span class="ic">${ICON.Social}</span><div class="bd"><h3>Social</h3><p>人間関係、家族、友人、社会とのつながり</p></div></div>`, .3)}
+      ${rv('<p style="margin-top:18px">この4つを別々の悩みとして扱うのではなく、ひとつの「ありたい姿」に紐づけて構造化する。そうやって自分を見つめ直すことで、<b>人生全体が良い方向に機能し、成長し、充実していく</b>ことを支えます。</p>', .44)}
+      ${rv('<p class="small">なぜ働き方を変えたいのか。なぜ貯蓄したいのか。なぜ健康を整えたいのか。なぜ人とのつながりを大切にしたいのか。それらはすべて、ひとつの姿につながっています。</p>', .54)}
+    </section>
+
+    <section class="sec-block">
+      ${rv('<p class="eyebrow2">できること</p>', 0)}
+      ${rv('<h2>3つの機能で、<br>人生を育てていきます。</h2>', .1)}
+      ${rv(`<div class="feat"><span class="ic">${ICON_REPORT}</span><div class="bd">
+              <h3>いまの自分を知る</h3>
+              <p>4つの領域について答えると、AIが今の状態を文章で整理します。点数はつけません。満たされている点と、気になっている点の両方をお返しします。</p></div></div>`, .22)}
+      ${rv(`<div class="feat"><span class="ic">${ICON_MAP}</span><div class="bd">
+              <h3>ありたい姿を、地図にする</h3>
+              <p>AIとの対話を通じて、3〜5年後のありたい姿を自分の言葉にします。そこから4つの領域それぞれの理想の状態と、今年の目標へつなげます。</p></div></div>`, .34)}
+      ${rv(`<div class="feat"><span class="ic">${ICON_WEEK}</span><div class="bd">
+              <h3>週に一度、振り返る</h3>
+              <p>毎日の記録は求めません。週に一度だけ、目標の進み方を選ぶと、AIが振り返り・気づき・次の一歩を整理します。</p></div></div>`, .46)}
+      ${rv(`<div class="art">${ART_WEEK}</div>`, .58)}
+    </section>
+
+    <section class="sec-block tint">
+      ${rv('<p class="eyebrow2">はじめかた</p>', 0)}
+      ${rv(`<div class="steps">
+        <div class="step-i"><span class="n">1</span><div><h4>5分の質問に答える</h4><p>登録は不要です。4つの領域について、いまの気持ちに近いものを選んでいきます。</p></div></div>
+        <div class="step-i"><span class="n">2</span><div><h4>いまの自分を受け取る</h4><p>AIが整理した現在地を、その場で全部お見せします。ここまで無料で、登録もいりません。</p></div></div>
+        <div class="step-i"><span class="n">3</span><div><h4>ありたい姿をつくる</h4><p>続けたくなったら登録して、AIと話しながら3〜5年後の姿を言葉にしていきます。</p></div></div>
+        <div class="step-i"><span class="n">4</span><div><h4>少しずつ育てる</h4><p>4つの領域を一度に埋める必要はありません。ひとつずつ、週に一度の振り返りで育てていきます。</p></div></div>
+      </div>`, .12)}
+    </section>
+
+    <section class="sec-block">
+      ${rv('<p class="eyebrow2">大切にしていること</p>', 0)}
+      ${rv(`<div class="vow"><span class="ck">${CHECK}</span><div><b>何も売りません</b>AIとの対話や目標の提案に、広告や商品への誘導を混ぜません。</div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div><b>点数をつけません</b>優劣ではなく、言葉になった度合いと行動の積み重ねを見ます。</div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div><b>答えを押しつけません</b>AIは考えを引き出す伴走者です。決めるのはいつもあなたです。</div></div>
+            <div class="vow"><span class="ck">${CHECK}</span><div><b>書き換わることを歓迎します</b>1年後に考えが変わっていても、それは失敗ではなく成長です。</div></div>`, .12)}
+      ${rv('<div class="quote">何も売らないAI。</div>', .34)}
+    </section>
+
+    <section class="sec-block tint">
+      ${rv('<p class="eyebrow2">読みもの</p>', 0)}
+      ${rv('<h2>人生を育てるための、<br>知識とヒント。</h2>', .1)}
+      ${rv(`<div style="margin-top:6px">${ARTICLES.slice(0,3).map(a => `
+        <div class="kcard">
+          <div class="thumb">${kIcon(a.c)}</div>
+          <div class="bd"><div class="cat">${a.c}</div><h3>${E(a.t)}</h3><div class="ex">${E(a.ex)}</div></div>
+        </div>`).join('')}</div>`, .22)}
+      ${rv('<button class="btn ghost" style="margin-top:14px">記事をもっと見る</button>', .4)}
+    </section>
+
+    <section class="sec-block foot">
+      ${rv('<h2 style="margin-bottom:10px">まずは、いまの自分を<br>眺めてみませんか。</h2>', 0)}
+      ${rv('<p class="small">5分ほどで終わります。登録もお支払いもいりません。</p>', .12)}
+      ${rv('<p class="small" style="margin-top:22px">© Flourish Studio ／ 利用規約 ／ プライバシーポリシー</p>', .24)}
+    </section>
+
+  </div></div>
+  <div class="cta lp-cta">
+    <button class="btn">5分で、いまの自分を見てみる</button>
+    <div class="hint">登録はあとからで大丈夫です</div>
+  </div>`;
+
+const s02 = () => screen(
+  hdr({ nav:'‹', ttl:'ログイン' }),
+  `<div class="q"><div class="lbl">メールアドレス</div><div class="field">you@example.com</div></div>
+   <div class="q"><div class="lbl">パスワード</div><div class="field">••••••••</div></div>
+   <button class="btn">ログイン</button>
+   <button class="btn-txt">パスワードを忘れた方はこちら</button>`);
+
+const s11 = () => screen(
+  hdr({ nav:'×', ttl:'現在地レポート', pct:0 }),
+  `<div style="height:6px"></div>
+   <div class="h1">いまの自分を、<br>眺めてみましょう</div>
+   <div class="txt">仕事、お金、からだ、人との関係。4つの領域について、いくつか質問します。5分ほどで終わります。</div>
+   <div class="card sunk">
+     <div class="txt">すぐには言葉にならない質問も、あるかもしれません。少し立ち止まって考えることになりますが、<b>そこで浮かんだことが、このあと作っていく「ありたい姿」の土台になります。</b></div>
+     <div style="height:12px"></div>
+     <div class="txt">急がなくて大丈夫です。うまく答えようとしなくても、いまの気持ちに近いところを選んでいけば進みます。</div>
+   </div>
+   <div class="sub">点数をつけたり、優劣を決めたりするものではありません。いまの状態を、自分の言葉にしていくための時間です。</div>`,
+  `<button class="btn">はじめる</button>`);
+
+const s12 = (ai, o) => {
+  o = o || {};
+  const a = AREAS[ai];
+  const picks = o.blank ? [null,null,null,null,null] : [4,3,1,2,0];
+  return screen(
+    hdr({ nav:'×', ttl:'現在地レポート', step:`${ai+1} / 6`, pct:((ai+1)/6*100).toFixed(0) }),
+    `<div class="sec"><span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="jp">${a.jp}</span></div>
+     <div class="card sunk"><div class="sub">${E(a.label)}について、いまの気持ちに近いところを選んでみてください。深く考えこまなくて大丈夫です。右にいくほど、満たされている状態です。</div></div>
+     ${a.items.map((it,i) => `<div class="q"><div class="txt">${E(it)}</div>${scale(picks[i])}</div>`).join('')}
+     <div class="rule"></div>
+     <div class="q"><div class="txt">${a.en} をより良くするために、いま動けていますか？</div>${radios(COMMIT, o.blank ? -1 : 3)}</div>`,
+    `<button class="btn" ${o.blank?'disabled':''}>次へ</button>${o.blank?'<div class="hint">すべて選ぶと、次に進めます</div>':''}`)
+  + (o.dialog ? `<div class="scrim"><div class="dialog">
+      <h5>ここでやめますか？</h5>
+      <p>いま中断すると、ここまで選んでいただいた内容は残りません。またいつでも、最初から始められます。</p>
+      <button class="btn">つづける</button><button class="btn ghost">やめる</button>
+    </div></div>` : '');
+};
+
+const s13 = f => waiting({ ttl:'現在地レポート', pct:67, failed:f,
+  title:'答えてくださった内容を、読んでいます',
+  sub:'あなたに合わせた質問を用意しています。<br>少しだけお待ちください。',
+  errTitle:'うまく読み取れませんでした',
+  errSub:'通信の状態を確かめて、もう一度試してみてください。<br>選んでいただいた内容は、ちゃんと残っています。',
+  back:'回答に戻る' });
+
+const s14 = () => screen(
+  hdr({ nav:'‹', ttl:'現在地レポート', step:'5 / 6', pct:83 }),
+  `<div class="card sunk"><div class="sub">あと少しです。うまく言葉にならなくても大丈夫。空欄のままでも進めます。</div></div>
+   ${FREE.map(([en,q1,q2]) => `
+     <div class="sec"><span class="sq">${ICON[en]}</span><span class="en">${en}</span></div>
+     <div class="q"><div class="txt">${E(q1)}</div><div class="area">自由に書いてみてください</div></div>
+     <div class="q"><div class="txt">${E(q2)}</div><div class="area">自由に書いてみてください</div></div>
+     <div class="rule"></div>`).join('')}`,
+  `<button class="btn">レポートを作る</button>`);
+
+const s15 = f => waiting({ ttl:'現在地レポート', pct:83, failed:f,
+  title:'いま、レポートを書いています',
+  sub:'4つの領域それぞれについて、<br>いまの状態を整理しています。',
+  errTitle:'うまくレポートを作れませんでした',
+  errSub:'通信の状態を確かめて、もう一度試してみてください。<br>書いてくださった内容は、ちゃんと残っています。',
+  back:'回答に戻る' });
+
+const s16 = () => screen(
+  hdr({ ttl:'あなたの現在地', step:'6 / 6', pct:100 }),
+  `<div style="text-align:center;padding:6px 0 2px">
+     <div class="sub">今の状態のあなたを、あえて一言で表すと</div>
+     <div class="display" style="margin:10px 0 6px">全速前進、<br>燃料計は未確認</div>
+     <div class="sub">でしょうか。</div>
+     <div class="sub" style="color:var(--text-faint);font-size:12px;margin-top:12px">あくまで参考です。これがあなたを表すものではありません。</div>
+   </div>
+   <div class="rule"></div>
+   ${REPORT.map(r => `<div class="card">
+     <div class="sec"><span class="sq">${ICON[r.en]}</span><span class="en">${r.en}</span></div>
+     <div style="height:12px"></div>
+     <div class="lbl">満たされている点</div><div class="txt">${E(r.ok)}</div>
+     <div style="height:14px"></div>
+     <div class="lbl">気になっている点</div><div class="txt">${E(r.ng)}</div>
+     <div style="height:14px"></div>
+     <div class="lbl">これからできそうなこと</div><div class="txt">${E(r.adv)}</div>
+   </div>`).join('')}
+   <div class="card sunk">
+     <div class="lbl">言語化度</div>
+     <div class="sub">自分の考えが、どのくらい自分の言葉になっているか</div>
+     ${stages('芽')}
+     <div style="height:18px"></div>
+     <div class="lbl">コミット度</div>
+     <div class="sub">考えていることを、どのくらい行動につなげられているか</div>
+     ${stages('苗')}
+   </div>
+   <div class="txt" style="padding:4px 2px">
+     ここまでは、いまの自分をそっと眺めてみた時間でした。<br><br>
+     気になっていることは、そのままにしておくと、来年も同じ場所で待っていることが多いものです。動きはじめられるのは、それが「自分にとってなぜ大事なのか」とつながったときかもしれません。<br><br>
+     Flourish Mapでは、仕事も、お金も、からだも、人とのつながりも、バラバラの悩みとしてではなく、ひとつの「ありたい姿」につなげて考えていきます。4つがつながったとき、進み方が変わっていきます。<br><br>
+     次は、あなたが3〜5年後にどうありたいか。一緒に言葉にしていきましょう！
+   </div>`,
+  `<button class="btn">ありたい姿を作る</button>`);
+
+function stages(cur) {
+  return `<div class="stages">${STAGES.map(s =>
+    `<div class="stage ${s===cur?'on':''}"><span class="ico">${ICON[STAGE_ICON[s]]}</span><span class="nm">${s}</span></div>`).join('')}</div>`;
+}
+
+const s21 = () => screen(
+  hdr({ nav:'‹', ttl:'アカウント登録' }),
+  `<div class="h1">ここから先は、<br>書いたことが残ります</div>
+   <div class="txt">いま作ったレポートも一緒に保存されます。あとから見返したり、続きから育てたりできます。</div>
+   <div class="q"><div class="lbl">メールアドレス</div><div class="field">you@example.com</div></div>
+   <div class="q"><div class="lbl">パスワード</div><div class="field">8文字以上</div></div>
+   <div class="sub">登録すると、利用規約とプライバシーポリシーに同意したものとみなされます。</div>`,
+  `<button class="btn">登録してはじめる</button>`);
+
+const s31 = () => screen(
+  hdr({ ttl:'ありたい姿', step:'1 / 4', pct:25 }),
+  `<div class="card sunk"><div class="sub">3〜5年後のあなたについて、いくつか教えてください。まだ決まっていなくて大丈夫です。</div></div>
+   <div class="q"><div class="txt">これからの3〜5年で、大切にしたいことは？<span class="sub">（3つまで）</span></div>
+     ${chips(['成長','安定','自由','つながり','挑戦','貢献','自分らしさ','誠実さ','学び','健康','余白','家族'], [0,5,6])}</div>
+   <div class="rule"></div>
+   <div class="q"><div class="txt">満たされていると感じるのは、どんなときですか？</div>
+     ${checks(['誰かの役に立てたと感じたとき','新しいことができるようになったとき','自分で決められたと感じたとき','大切な人と過ごしているとき','落ち着いた生活が送れているとき','集中して何かに取り組めたとき','認められたと感じたとき','まだよくわからない'], [1,2])}</div>
+   <div class="rule"></div>
+   <div class="q"><div class="txt">3〜5年後、どんな毎日を送っていたいですか？</div>
+     ${radios(['今の延長線上で、より満足できている','今とは違う場所や働き方をしている','選択肢を持てる状態になっている','大切な人との時間が確保できている','心身に余裕がある','まだ想像がつかない'], 2)}</div>`,
+  `<button class="btn">次へ</button>`);
+
+const s32 = () => screen(
+  hdr({ nav:'‹', ttl:'ありたい姿', step:'2 / 4', pct:50 }),
+  `<div class="card sunk"><div class="sub">選んでいただいた内容をもとに、3回ほどやりとりします。うまく言葉にならなくても大丈夫です。</div></div>
+   ${CHAT_P.map(([w,t]) => `<div class="msg ${w}"><div class="bub">${E(t)}</div></div>`).join('')}
+   <div class="rule"></div>
+   <div class="sub" style="text-align:center">ここまでで、だいぶ見えてきました！</div>
+   <button class="btn">候補を作る</button>`,
+  `<div class="composer"><div class="f">メッセージを入力</div><div class="s"></div></div>`);
+
+const s33 = f => waiting({ ttl:'ありたい姿', pct:50, failed:f,
+  title:'いま、候補を考えています',
+  sub:'ここまでのお話から、<br>3つの方向で候補を用意しています。',
+  errTitle:'うまく候補を作れませんでした',
+  errSub:'通信の状態を確かめて、もう一度試してみてください。<br>ここまでのお話は、ちゃんと残っています。',
+  back:'対話に戻る' });
+
+const s34 = () => screen(
+  hdr({ nav:'‹', ttl:'ありたい姿', step:'3 / 4', pct:75 }),
+  `<div class="card sunk"><div class="sub">どれが正解ということはありません。いちばん自分に近いと感じたものを選んでください。あとから自由に書き換えられます。</div></div>
+   ${PLANS_P.map(([l,t],i) => `<div class="card ${i===0?'sel':''}">
+     <div class="lbl">${E(l)}</div><div class="h2" style="margin-top:6px">${E(t)}</div>
+   </div>`).join('')}
+   <button class="btn-txt">3つとも作り直す</button>`,
+  `<button class="btn">この案で進む</button>`);
+
+const s35 = () => screen(
+  hdr({ nav:'‹', ttl:'ありたい姿', step:'4 / 4', pct:100 }),
+  `<div class="card sunk"><div class="sub">自分の言葉に書き換えてみてください。あとからいつでも変えられます。</div></div>
+   <div class="q"><div class="lbl">あなたのありたい姿</div>
+     <div class="area filled">${E(PURPOSE)}</div></div>
+   <button class="btn-txt">案を選び直す</button>`,
+  `<button class="btn">これで確定する</button>`);
+
+const s36 = () => screen(
+  hdr({ nav:'‹', ttl:'ありたい姿' }),
+  `<div class="card"><div class="lbl">ありたい姿</div><div class="h2" style="margin-top:6px">${E(PURPOSE)}</div></div>
+   <div class="sub">2026年8月7日に作成</div>
+   <div class="rule"></div>
+   <div class="q"><div class="lbl">つながっている領域</div>
+     ${AREAS.map(a => `<div class="acard" style="margin-bottom:8px"><span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="st">${a.jp}</span></div>`).join('')}
+   </div>
+   <div class="rule"></div>
+   <button class="btn ghost">編集する</button>
+   <button class="btn-txt">AIと話して作り直す</button>`);
+
+const s37 = () => screen(
+  hdr({ nav:'‹', ttl:'ありたい姿を編集' }),
+  `<div class="card sunk"><div class="sub">自分の言葉に書き換えてみてください。いつでも変えられます。</div></div>
+   <div class="q"><div class="lbl">ありたい姿</div>
+     <div class="area filled">${E(PURPOSE)}</div>
+     <div class="sub" style="text-align:right">26 / 60</div>
+   </div>
+   <div class="card sunk"><div class="sub">書き換えても、4つの領域で作った理想の状態と目標はそのまま残ります。作り直すかは、領域ごとに決められます。</div></div>`,
+  `<button class="btn">保存する</button>`);
+
+const s41 = filled => {
+  const made = {
+    Career:'自分の強みが言葉になっていて、次に何を任されたいかを自分から言えている',
+    Financial:'使い道を自分で把握できていて、急な出費にも慌てない',
+    Physical:'起きる時間がそろっていて、朝に余裕がある',
+    Social:'会いたい人に自分から連絡できている'
+  };
+  return screen(
+    hdr({ brand:'Flourish Studio', toggle:true }),
+    `<div class="card"><div class="lbl">ありたい姿</div><div class="h2" style="margin-top:6px">${E(PURPOSE)}</div><div class="sub" style="margin-top:8px">タップして見る・編集する ›</div></div>
+     <div class="grid2">${AREAS.map(a => filled
+       ? `<div class="acard"><span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="st">${E(made[a.en])}</span><span class="pill">目標 2</span></div>`
+       : `<div class="acard empty"><span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="st">これから育てる領域</span></div>`).join('')}</div>
+     ${filled ? `<button class="btn">振り返りをする</button>`
+              : `<div class="card sunk" style="text-align:center"><button class="btn" disabled>振り返りをする</button>
+                 <div class="hint">目標をひとつ作ると、振り返りができるようになります</div></div>`}
+     <div class="rule"></div>
+     <div class="grid2">
+       <div class="acard dim"><span class="sq">${ICON["記事"]}</span><span class="en">記事</span><span class="pill">準備中</span></div>
+       <div class="acard dim"><span class="sq">${ICON["ツール"]}</span><span class="en">ツール</span><span class="pill">準備中</span></div>
+     </div>`);
+};
+
+const s50 = () => screen(
+  hdr({ ttl:'Flourish Map' }),
+  `<div class="h1">どこから<br>育てはじめますか</div>
+   <div class="txt">ひとつだけ選んでください。あとから他の領域も作れます。</div>
+   <div class="grid2">${AREAS.map(a =>
+     `<div class="acard"><span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="st">${a.jp}</span></div>`).join('')}</div>
+   <button class="btn-txt">あとで</button>`);
+
+const s51 = () => screen(
+  hdr({ nav:'×', ttl:'Career', step:'1 / 5', pct:20 }),
+  `<div class="card sunk"><div class="lbl">ありたい姿</div><div class="sub" style="color:var(--text)">${E(PURPOSE)}</div></div>
+   <div class="q"><div class="txt">Careerの中で、3〜5年後にいちばん変わっていてほしいのはどれですか？</div>
+     ${radios(AREAS[0].items, 2)}</div>
+   <div class="rule"></div>
+   <div class="q"><div class="txt">これからの仕事で、特に大切にしたいことは？<span class="sub">（あてはまるものをすべて）</span></div>
+     ${checks(['自分の成長を実感できること','誰かの役に立っている手ごたえ','正当に評価されること','一緒に働く人との相性','自分で決められる裁量があること','安定して続けられること','収入が上がっていくこと','新しいことに挑戦できること','専門性を深められること','生活を圧迫しない働き方であること'], [0,4])}</div>
+   <div class="rule"></div>
+   <div class="q"><div class="txt">これから、仕事は人生の中でどんな存在であってほしい？<span class="sub">（あてはまるものをすべて）</span></div>
+     ${checks(['自分を表現する場であってほしい','生活を支える手段であればいい','成長し続けられる場であってほしい','人とのつながりが生まれる場であってほしい','自分の力を試せる場であってほしい','心をすり減らさない場であってほしい','人生の中心にあってほしい','人生の一部くらいの距離でいてほしい','誇りを持てる場であってほしい','いつでも変えられる選択肢のひとつでいてほしい'], [2,8])}</div>`,
+  `<button class="btn">次へ</button>`);
+
+const s52 = () => screen(
+  hdr({ nav:'‹', ttl:'Career', step:'2 / 5', pct:40 }),
+  `<div class="card sunk"><div class="sub">2回ほどやりとりして、理想の状態を一緒に探していきます。</div></div>
+   ${CHAT_A.map(([w,t]) => `<div class="msg ${w}"><div class="bub">${E(t)}</div></div>`).join('')}
+   <div class="rule"></div>
+   <div class="sub" style="text-align:center">つながりが見えてきました！</div>
+   <button class="btn">理想の状態を作る</button>`,
+  `<div class="composer"><div class="f">メッセージを入力</div><div class="s"></div></div>`);
+
+const s53 = f => waiting({ ttl:'Career', pct:40, failed:f,
+  title:'いま、理想の状態を考えています',
+  sub:'選んでくださった内容とここまでのお話から、<br>3つの方向で候補を用意しています。',
+  errTitle:'うまく候補を作れませんでした',
+  errSub:'通信の状態を確かめて、もう一度試してみてください。<br>ここまでのお話は、ちゃんと残っています。',
+  back:'対話に戻る' });
+
+const s54 = () => screen(
+  hdr({ nav:'‹', ttl:'Career', step:'3 / 5', pct:60 }),
+  `<div class="card sunk"><div class="sub">1年後、Careerがどんな状態だとうれしいでしょうか。近いものを選んでください。</div></div>
+   ${PLANS_A.map(([l,t],i) => `<div class="card ${i===0?'sel':''}">
+     <div class="lbl">${E(l)}</div><div class="txt" style="margin-top:6px">${E(t)}</div>
+   </div>`).join('')}
+   <button class="btn-txt">3つとも作り直す</button>`,
+  `<button class="btn">この案で進む</button>`);
+
+const s55 = () => screen(
+  hdr({ nav:'‹', ttl:'Career', step:'4 / 5', pct:80 }),
+  `<div class="card sunk"><div class="lbl">ありたい姿</div><div class="sub" style="color:var(--text)">${E(PURPOSE)}</div></div>
+   <div class="q"><div class="lbl">Careerの理想の状態</div>
+     <div class="area filled">${E(PLANS_A[0][1])}</div></div>
+   <button class="btn-txt">案を選び直す</button>`,
+  `<button class="btn">次へ</button>`);
+
+const s56 = hint => screen(
+  hdr({ nav:'‹', ttl:'Career', step:'5 / 5', pct:100 }),
+  `<div class="card sunk"><div class="lbl">Careerの理想の状態</div><div class="sub" style="color:var(--text)">${E(PLANS_A[0][1])}</div></div>
+   <div class="q"><div class="txt">その状態に近づくために、今年取り組むことを書いてください。<span class="sub">（1〜3個）</span></div>
+     <div class="field filled">${E(GOALS[0])}</div>
+     <div class="field">2つ目（任意）</div>
+   </div>
+   <button class="btn ghost">＋ 目標を追加</button>
+   <div class="rule"></div>
+   ${hint
+     ? `<div class="card sunk">
+          <div class="lbl">AIからのヒント</div>
+          <div class="sub" style="margin-bottom:8px">例として3つ挙げてみました。そのまま使っても、書き換えても大丈夫です。</div>
+          ${GOALS.map(g => `<div class="opt" style="margin-bottom:7px"><span class="box"></span>${E(g)}</div>`).join('')}
+        </div>`
+     : `<div style="text-align:center"><div class="sub">思いつかないときは</div>
+        <button class="btn ghost" style="margin-top:8px">AIにヒントをもらう</button></div>`}`,
+  `<button class="btn">確定する</button>`);
+
+const s57 = many => screen(
+  hdr({ nav:'‹', ttl:'Career' }),
+  `<div class="card sunk"><div class="lbl">ありたい姿</div><div class="sub" style="color:var(--text)">${E(PURPOSE)}</div></div>
+   <div class="card"><div class="lbl">理想の状態</div><div class="txt" style="margin-top:6px">${E(PLANS_A[0][1])}</div></div>
+   <div class="q"><div class="lbl">今年の目標</div>
+     ${(many ? GOALS : GOALS.slice(0,1)).map(g => `<div class="card">${E(g)}</div>`).join('')}
+   </div>
+   <div class="rule"></div>
+   <button class="btn ghost">編集する</button>
+   <button class="btn-txt">AIと話して見直す</button>`);
+
+const s58 = () => screen(
+  hdr({ nav:'‹', ttl:'Careerを編集' }),
+  `<div class="q"><div class="lbl">理想の状態</div><div class="area filled">${E(PLANS_A[0][1])}</div></div>
+   <div class="q"><div class="lbl">今年の目標</div>
+     ${GOALS.map(g => `<div class="field filled">${E(g)}</div>`).join('')}
+   </div>
+   <button class="btn ghost">＋ 目標を追加</button>`,
+  `<button class="btn">保存する</button>`);
+
+const WR_GOALS = [
+  ['Career', GOALS[0], 0], ['Career', GOALS[1], 1],
+  ['Financial', '家計簿を週1で見返す', 2], ['Financial', '固定費を1つ見直す', 0],
+  ['Physical', '起きる時間をそろえる', 0], ['Physical', '週2回30分歩く', 1],
+  ['Social', '月に1回、友人に連絡する', 0]
+];
+const s61 = () => screen(
+  hdr({ nav:'×', ttl:'振り返り' }),
+  `<div class="card sunk"><div class="sub">それぞれの目標がどうだったか、近いものを選んでみてください。1分ほどで終わります。</div></div>
+   ${WR_GOALS.map(([en,g,on]) => `
+     <div class="wrow">
+       <div class="top"><span class="ic">${ICON[en]}</span><span class="en">${en}</span></div>
+       <div class="goal">${E(g)}</div>
+       <div class="seg">${WR.map((w,i) => `<span class="${i===on?'on':''}">${w}</span>`).join('')}</div>
+     </div>`).join('')}
+   <div class="rule"></div>
+   <div class="q"><div class="txt">目標を進めるうえで困ったことや、気になったことがあれば教えてください。<span class="sub">（任意）</span></div>
+     <div class="area">自由に書いてみてください</div></div>`,
+  `<button class="btn">送信する</button>`);
+
+const s62 = f => waiting({ ttl:'振り返り', failed:f,
+  title:'いま、今週を振り返っています',
+  sub:'選んでくださった内容と書いてくださったことを、<br>まとめて読んでいます。',
+  errTitle:'うまくまとめられませんでした',
+  errSub:'通信の状態を確かめて、もう一度試してみてください。<br>回答は、ちゃんと残っています。',
+  back:'回答に戻る' });
+
+const s63 = () => screen(
+  hdr({ ttl:'今回の振り返り' }),
+  `<div class="card">
+     <div class="lbl">振り返り</div>
+     <div class="txt" style="margin-top:6px">Careerの2つは前に進み、職務経歴書も書き上げられたようですね。一方でFinancialの家計簿は、今週は手がつかなかったとのことでした。</div>
+   </div>
+   <div class="card">
+     <div class="lbl">気づき</div>
+     <div class="txt" style="margin-top:6px">動けた目標には、どれも「その日のうちに終わる」大きさがありました。家計簿だけは、まとめて見返そうとしていたのかもしれません。「時間が取れなかった」と書いてくださったのも、そこと関係がありそうです。</div>
+   </div>
+   <div class="card sel">
+     <div class="lbl">次の一歩</div>
+     <div class="txt" style="margin-top:6px">来週は、週末にまとめて見返すのをやめて、1日1回アプリを開くだけにしてみるのはどうでしょう。</div>
+   </div>
+   <div class="sub" style="text-align:center">2026年8月7日 の記録として保存しました</div>`,
+  `<button class="btn">ホームへ</button>`);
+
+/* ================= assemble ================= */
+const GROUPS = [
+  ['入口・公開サイト', [
+    { id:'S-01', name:'トップページ（LP）', badge:'ウェブサイト',
+      frames:[['未登録・縦長スクロール', s01()]],
+      notes:[
+        '<b>アプリ画面ではなくウェブサイトとして構成。</b>ヘッダーにログイン、下部にCTAを固定し、本体は8セクションの縦長',
+        'セクション順は「共感 → Flourishとは → 4領域 → できること → はじめかた → 約束 → 読みもの → CTA」。<b>機能説明の前に、言葉の意味と課題認識を置いた</b>',
+        '各セクションの文字は<b>スクロールに合わせて時差で現れる</b>（120msずつ）。フレーム内をスクロールすると確認できる',
+        'イラストは3点。Flourish Mapの構造・成長の4段階・週次のリズムを図にした',
+        'ヒーローは定義書1章から。<b>ビジョンの「完成させることではなく育てていく」</b>を主見出しに、コンセプトを本文に置いた',
+        'CTAを「現在地レポートを試す」から<b>「5分で、いまの自分を見てみる」</b>に変更。サービス内の機能名を初見の人に見せない',
+        '「読みもの」セクションから K-01 へ送る'
+      ],
+      flag:'<b>要確認：</b>LPだけはデスクトップで中央寄せ430pxに収めると寂しくなる可能性がある。デザイン原則 5.2 の例外にするか判断したい。' },
+    { id:'S-02', name:'ログイン', badge:'フォーム', frames:[['通常', s02()]],
+      notes:['再訪ユーザー専用。プログレスバーは出さない','パスワード再設定はMVP範囲外だが、導線だけ置いている'] },
+    { id:'K-01', name:'記事一覧', badge:'ウェブサイト', frames:[['すべて表示', k01()]],
+      notes:[
+        'カテゴリは<b>4領域＋「Flourishとは」</b>。サービスの構造と揃えて、読んだ人がそのまま機能を理解できるようにした',
+        'カテゴリチップは横スクロール。増えても縦に折り返さない',
+        'サムネイルは<b>カテゴリのアイコンを面に載せた形</b>。記事ごとの画像を用意しなくても成立する',
+        'ヘッダーにログインを残し、公開サイトであることを保つ'
+      ] },
+    { id:'K-02', name:'記事詳細', badge:'ウェブサイト',
+      frames:[['未登録', k02(false)], ['ログイン済み', k02(true)]],
+      notes:[
+        '本文は15px・行間1.95。読み物なのでアプリ本体より行間を広げた',
+        '末尾に<b>共通のCTAバナー</b>を置く。記事ごとに文言を変えない',
+        'バナーは Primary Soft の面に囲み、本文と地続きに見せない',
+        '<b>ログイン済みならバナーを出さない。</b>すでに使っている人に登録を勧めない',
+        'あわせてヘッダー右の「ログイン」を「ホーム」に差し替える',
+        '関連記事は置かない。読み終えた人をサービスへ向ける'
+      ] }
+  ]],
+  ['現在地レポート', [
+    { id:'S-11', name:'現在地レポート開始', badge:'読む', frames:[['通常', s11()]],
+      notes:['所要時間を先に出して、離脱の判断材料を与える','<b>「少し考えることになる」を先に伝える。</b>そのうえで「急がなくて大丈夫」と受け止めを添え、身構えさせずに覚悟だけ持ってもらう','「点数をつけるものではない」を本文で明言','ここからプログレスバーが始まる（0%）'] },
+    { id:'S-12', name:'選択式（領域ごと・6問）', badge:'フォーム',
+      frames:[['Career・回答済み', s12(0)], ['未回答で無効', s12(3,{blank:true})], ['中断ダイアログ', s12(0,{dialog:true})]],
+      notes:['1領域6問 × 4画面。ほぼ1スクリーンに収まる','右にいくほどポジティブ。導入文でも向きを明示','コミット度だけ縦積み。下にいくほどポジティブに揃えた','未回答があるあいだ「次へ」は無効。理由を直下に置く'] },
+    { id:'S-13', name:'自由記述の問い生成中', badge:'待ち', frames:[['待ち', s13(false)], ['失敗', s13(true)]],
+      notes:['ステップ番号を出さない。バーは直前（4/6）の位置で止める','「あなたに合わせた質問を用意しています」と、待つ理由を書く'] },
+    { id:'S-14', name:'自由記述（8問）', badge:'フォーム', frames:[['通常', s14()]],
+      notes:['問い文はAIが生成。満たされている項目と気になっている項目が対になる','すべて任意入力。空欄でも進めることを冒頭で伝える','8問は縦に長い。領域見出しと罫線で区切って現在地を保つ'],
+      flag:'<b>要確認：</b>未登録の段階で8問は多い可能性がある。実測して、領域ごと1問に減らすか判断したい。' },
+    { id:'S-15', name:'レポート生成中', badge:'待ち', frames:[['待ち', s15(false)], ['失敗', s15(true)]],
+      notes:['この画面の生成が成功した時点で、ゲストセッションに保存される'] },
+    { id:'S-16', name:'現在地レポート結果', badge:'読む', frames:[['通常', s16()]],
+      notes:['あだ名は本文の約1.9倍。ここだけ中央寄せにして下と性格を分ける','成長段階は4つすべて並べ、該当箇所だけを塗る','締めはカードに入れず地の文にして、読み物として着地させた'] }
+  ]],
+  ['アカウント登録', [
+    { id:'S-21', name:'アカウント登録', badge:'フォーム', frames:[['通常', s21()]],
+      notes:['「ここから先は残ります」を見出しにして、登録する理由を先に示す','レポートも一緒に保存されることを明記','完了画面を挟まず、成功したらそのまま S-31 へ'] }
+  ]],
+  ['ありたい姿', [
+    { id:'S-31', name:'選択式（3問）', badge:'フォーム', frames:[['通常', s31()]],
+      notes:['価値観12個はチップ形式。3つまでの制限を設問文に添える','戻る先が登録画面のため、ヘッダーに戻るを置かない'] },
+    { id:'S-32', name:'AI対話（3往復）', badge:'チャット', frames:[['3往復完了時', s32()]],
+      notes:['AIは左・沈めた面、ユーザーは右・枠線。Primaryは使わない','3往復が終わると入力欄の上に「候補を作る」が現れる','入力欄は残したまま。続けたい人を止めない'] },
+    { id:'S-33', name:'3案生成中', badge:'待ち', frames:[['待ち', s33(false)], ['失敗', s33(true)]], notes:['バーは 2/4 の位置（50%）で止める'] },
+    { id:'S-34', name:'3案提示・選択', badge:'読む', frames:[['1案目を選択', s34()]],
+      notes:['自分 / 他者 / 社会 の順で固定。回答による並べ替えはしない','ラベルで方向を示し、本文は一文','「正解はない」を先に伝える'] },
+    { id:'S-35', name:'編集・確定', badge:'編集', frames:[['通常', s35()]],
+      notes:['完了画面を挟まないため、この画面が成果物の提示を兼ねる','確定後に一文を大きく見せてから S-50 へ'] },
+    { id:'S-36', name:'ありたい姿：閲覧', badge:'一覧', frames:[['通常', s36()]],
+      notes:[
+        'ホームのありたい姿カードから開く。<b>領域の S-57 と同じ型</b>',
+        '「編集する」（主）と「AIと話して作り直す」（副）を並べる',
+        'つながっている4領域を下に並べ、上位概念であることを示す'
+      ] },
+    { id:'S-37', name:'ありたい姿：編集', badge:'フォーム', frames:[['通常', s37()]],
+      notes:[
+        '一文を直接書き換えるだけ。AI対話を経由しない',
+        '<b>文字数カウンタを出す（上限60文字）</b>',
+        '<b>「領域は残る」と明記する。</b>ありたい姿を変えると全部やり直しになる、と誤解させない'
+      ] }
+  ]],
+  ['領域（Flourish Map）', [
+    { id:'S-50', name:'最初の領域を選ぶ', badge:'ハブ', frames:[['通常', s50()]],
+      notes:['4領域を同列に並べる。おすすめや優先度は出さない','「あとで」でホームへ抜けられる'] },
+    { id:'S-51', name:'選択式（3問）', badge:'フォーム', frames:[['Career', s51()]],
+      notes:['ありたい姿を最上部に常時表示して、つながりを切らさない','Q2・Q3はそれぞれ10項目の複数選択。1画面で25項目になる'],
+      flag:'<b>要確認：</b>25項目は縦に長い。複数選択2問を分割するか、上限（3つまで等）を設けるか判断したい。' },
+    { id:'S-52', name:'AI対話（2往復）', badge:'チャット', frames:[['2往復完了時', s52()]],
+      notes:['S-32と同じ型。往復数だけが2回に減る','2往復目でありたい姿とのつながりを確認する'] },
+    { id:'S-53', name:'3案生成中', badge:'待ち', frames:[['待ち', s53(false)], ['失敗', s53(true)]], notes:['バーは 2/5 の位置（40%）で止める'] },
+    { id:'S-54', name:'3案提示・選択', badge:'読む', frames:[['1案目を選択', s54()]],
+      notes:['深める / 変える / 広げる の順で固定','ありたい姿の3案（自分・他者・社会）とは別の軸'] },
+    { id:'S-55', name:'理想状態の編集・確定', badge:'編集', frames:[['通常', s55()]],
+      notes:['ここではまだ保存しない。S-56の確定でまとめて保存する'] },
+    { id:'S-56', name:'年間目標の設定', badge:'フォーム', frames:[['通常', s56(false)], ['AIヒント表示後', s56(true)]],
+      notes:['理想の状態を上部に置いて、目標がそこにつながることを示す','AIは自動で提案しない。押したときだけ候補が画面内に出る','1個で確定できる。3個を埋めさせない'] },
+    { id:'S-57', name:'領域：閲覧', badge:'一覧', frames:[['目標1個', s57(false)], ['目標3個', s57(true)]],
+      notes:['ホームから作成済み領域を開いたときの着地点','「編集する」と「AIと話して見直す」を主・副で分ける','軽い修正でAI対話を経由させない'] },
+    { id:'S-58', name:'領域：編集', badge:'フォーム', frames:[['通常', s58()]],
+      notes:['理想の状態と目標を直接書き換えるだけの画面','保存すると S-57 に戻る'] }
+  ]],
+  ['ホーム', [
+    { id:'S-41', name:'ホーム', badge:'ハブ', frames:[['領域0個（初回）', s41(false)], ['領域4個', s41(true)]],
+      notes:['ありたい姿を最上部に単独で置き、4領域より上位だと配置で示す','未作成の領域は破線。「これから育てる領域」と表記','目標0個でも振り返りボタンは残し、理由を直下に置く','ヘッダー右端にテーマ切替トグル（自動 → ライト → ダーク）'] }
+  ]],
+  ['Weekly Reflection', [
+    { id:'S-61', name:'回答', badge:'フォーム', frames:[['目標7個', s61()]],
+      notes:['<b>3段階を横並びのセグメントに変更。</b>1目標あたり3行に収まり、縦積みの半分以下になった','領域はアイコン＋小さな英字ラベルで示し、目標文より弱くする','3段階は目標を主語にした短い表現。自分を採点させない','自由記述は全体で1つだけ。任意入力'] },
+    { id:'S-62', name:'生成中', badge:'待ち', frames:[['待ち', s62(false)], ['失敗', s62(true)]],
+      notes:['このフローだけプログレスバーがない（1画面で完結するため）'] },
+    { id:'S-63', name:'結果', badge:'読む', frames:[['通常', s63()]],
+      notes:['振り返り・気づき・次の一歩の3ブロック','次の一歩だけ Primary で囲み、翌週に持ち帰るものを1つに絞る','「今週の」と限定表記せず、日付で記録する'] }
+  ]]
+];
+
+document.getElementById('out').innerHTML = GROUPS.map(([g, plates]) => `
+  <section class="group">
+    <h2>${g}</h2>
+    <div class="plates">
+      ${plates.map(p => `
+        <article class="plate-card">
+          <div class="plate-head">
+            <span class="sid">${p.id}</span><h3>${p.name}</h3><span class="badge">${p.badge}</span>
+          </div>
+          <div class="plate-body">
+            <div class="frames">
+              ${p.frames.map(([label, html]) => `
+                <div class="frame-unit">
+                  <div class="frame-label"><b>${label}</b></div>
+                  <div class="device">${html}</div>
+                </div>`).join('')}
+            </div>
+            <div class="notes">
+              <h4>レイアウトの判断</h4>
+              <ul>${p.notes.map(n => `<li>${n}</li>`).join('')}</ul>
+              ${p.flag ? `<div class="flag">${p.flag}</div>` : ''}
+            </div>
+          </div>
+        </article>`).join('')}
+    </div>
+  </section>`).join('');
+
+/* ================= motion demo ================= */
+const mNickname = () => screen(
+  hdr({ ttl:'あなたの現在地', step:'6 / 6', pct:100 }),
+  `<div style="text-align:center;padding:20px 0 2px">
+     <div class="sub m-rise" style="--d:.05s">今の状態のあなたを、あえて一言で表すと</div>
+     <div class="display m-rise" style="--d:.45s;margin:14px 0 8px">全速前進、<br>燃料計は未確認</div>
+     <div class="sub m-rise" style="--d:.95s">でしょうか。</div>
+     <div class="sub m-rise" style="--d:1.25s;color:var(--text-faint);font-size:12px;margin-top:14px">あくまで参考です。これがあなたを表すものではありません。</div>
+   </div>`);
+
+const mStages = () => screen(
+  hdr({ ttl:'あなたの現在地', step:'6 / 6', pct:100 }),
+  `<div class="card sunk">
+     <div class="lbl">コミット度</div>
+     <div class="sub">考えていることを、どのくらい行動につなげられているか</div>
+     <div class="stages">${STAGES.map((s,i) => `
+       <div class="stage ${s==='苗'?'on':''} m-pop" style="--d:${(i*0.16+0.2).toFixed(2)}s">
+         <span class="ico">${ICON[STAGE_ICON[s]]}</span><span class="nm">${s}</span>
+       </div>`).join('')}</div>
+   </div>
+   <div class="sub" style="text-align:center">種から順に灯り、現在地で止まる</div>`);
+
+const mHome = () => {
+  const made = { Career:'次に何を任されたいかを自分から言えている', Financial:'急な出費にも慌てない',
+                 Physical:'朝に余裕がある', Social:'会いたい人に自分から連絡できている' };
+  return screen(
+    hdr({ brand:'Flourish Studio', toggle:true }),
+    `<div class="card m-rise" style="--d:.05s"><div class="lbl">ありたい姿</div><div class="h2" style="margin-top:6px">${E(PURPOSE)}</div></div>
+     <div class="grid2">${AREAS.map((a,i) => `
+       <div class="acard m-rise" style="--d:${(0.28+i*0.09).toFixed(2)}s">
+         <span class="sq">${ICON[a.en]}</span><span class="en">${a.en}</span><span class="st">${E(made[a.en])}</span>
+       </div>`).join('')}</div>
+     <div class="m-rise" style="--d:.72s"><button class="btn">振り返りをする</button></div>`);
+};
+
+const mWait = () => hdr({ ttl:'Career', pct:40 }) + `<div class="stage-c">
+    <div class="m-breathe" style="width:56px;height:56px;color:var(--primary)">${ICON.sprout}</div>
+    <div class="h1">いま、理想の状態を考えています</div>
+    <div class="sub">選んでくださった内容とここまでのお話から、<br>3つの方向で候補を用意しています。</div>
+  </div>`;
+
+const MOTION = [
+  { id:'M-1', name:'あだ名の登場', where:'S-16 現在地レポート結果', frame: mNickname(),
+    notes:['前置き → あだ名 → 「でしょうか。」の順に、間を置いて現れる','この製品でいちばん軽い場面。ここだけは演出に時間を使う','読み終えたあとは動かさない'] },
+  { id:'M-2', name:'成長段階の点灯', where:'S-16 / S-41', frame: mStages(),
+    notes:['種から順に灯り、現在地で止まる','「いまここまで来た」を、静止画より短時間で伝えられる','ポップの戻り（overshoot）を少しだけ入れて、育つ感じを出す'] },
+  { id:'M-3', name:'ホームの立ち上がり', where:'S-41 ホーム', frame: mHome(),
+    notes:['ありたい姿 → 4領域 → 振り返り導線 の順に、90msずつずらして現れる','上位から下位へ落ちる順序が、情報の階層と一致する','再訪のたびに再生する。ホームは何度も来る画面なので、長くしない'] },
+  { id:'M-4', name:'待ち時間の呼吸', where:'生成中画面すべて', frame: mWait(),
+    notes:['スピナーをやめ、芽のアイコンをゆっくり拡縮させる','2.6秒周期。速いと急かされている感じになる','待たせている時間を、育っている時間として見せる'] }
+];
+
+document.getElementById('motion').innerHTML = `
+  <section class="group">
+    <h2>モーション</h2>
+    <p class="lede" style="margin-top:-6px">
+      <strong>動きは「進んだ手ごたえ」に使い、「考えている時間」には使いません。</strong>
+      入力中・読んでいる最中は動かさない、という線を引いています。以下は実際に動きます。
+    </p>
+    <div style="margin-bottom:18px"><button class="replay" type="button" id="replay">もう一度再生</button></div>
+    <div class="plates">
+      ${MOTION.map(m => `
+        <article class="plate-card">
+          <div class="plate-head"><span class="sid">${m.id}</span><h3>${m.name}</h3><span class="badge">${m.where}</span></div>
+          <div class="plate-body">
+            <div class="frames"><div class="frame-unit"><div class="device run">${m.frame}</div></div></div>
+            <div class="notes"><h4>動きの意図</h4><ul>${m.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
+          </div>
+        </article>`).join('')}
+    </div>
+  </section>`;
+
+document.getElementById('replay').addEventListener('click', () => {
+  document.querySelectorAll('#motion .device').forEach(d => {
+    d.classList.remove('run'); void d.offsetWidth; d.classList.add('run');
+  });
+});
+
+/* ---- LPの時差表示：フレーム内スクロールで発火 ----
+   IntersectionObserver が使えない環境では何もしない（.rv は見えたまま）。 */
+if (typeof IntersectionObserver === 'function') {
+  try {
+    document.documentElement.classList.add('rv-on');
+    document.querySelectorAll('.device .lp').forEach(lp => {
+      const root = lp.closest('.vp');
+      const io = new IntersectionObserver(es => {
+        es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+      }, { root, threshold: .12, rootMargin: '0px 0px -8% 0px' });
+      lp.querySelectorAll('.rv').forEach(el => io.observe(el));
+    });
+  } catch (e) {
+    document.documentElement.classList.remove('rv-on');
+  }
+}
+
+document.querySelectorAll('.theme-switch button').forEach(b => {
+  b.addEventListener('click', () => {
+    const m = b.dataset.set;
+    if (m === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', m);
+    document.querySelectorAll('.theme-switch button').forEach(x => x.classList.toggle('on', x === b));
+  });
+});
+</script>

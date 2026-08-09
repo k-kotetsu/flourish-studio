@@ -1,0 +1,13 @@
+node_modules/
+cdk.out/
+dist/
+.venv/
+__pycache__/
+*.pyc
+site-build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.lock
+package-lock.json
+.DS_Store
