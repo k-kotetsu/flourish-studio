@@ -976,7 +976,7 @@ CloudFront → API Gateway（STREAM） → Lambda（Web Adapter）
 | 3 | **Bedrock の実際の料金** | 12.2。料金表の確認が必要 |
 | 4 | **Sonnet 5 で品質が保てるか** | 評価セットの実施後に判断する |
 | 5 | **退会後に同じメールアドレスで再登録できるか** | 7.6。プライバシーポリシー策定時に決める |
-| 6 | ドメイン名 | 未取得 |
+| ~~6~~ | ~~ドメイン名~~ | **解消（P1-3）。`flourish-st.com` を取得し、Route 53 ホストゾーン（`Z0416565YMZIN1UIDKI5`）とACM証明書（`us-east-1`、apex + `*.flourish-st.com`、ISSUED）を作成済み** |
 
 **0.2の未決だった「Aurora の自動停止をprodでも使うか」は、DynamoDB採用により消滅した。**
 
