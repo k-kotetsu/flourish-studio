@@ -82,7 +82,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-6**~~ ✅ | CC | M | CDK `AppStack`：Lambda 2種（コンテナ）、API Gateway（`STREAM`）、SQS＋DLQ、IAM | `11_技術構成` 5.2、5.3、5.5、8.5、10.1 | ヘルスチェックが200を返す | P1-4、P0-3 |
 | ~~**P1-7**~~ ✅ | CC | M | CDK `EdgeStack`：S3 2種、CloudFront（4ビヘイビア）、WAF、CloudFront Function | `11_技術構成` 4.1〜4.5 | 独自ドメインでSPAが表示される | P1-3、P1-6 |
 | ~~**P1-8**~~ ✅ | CC | M | FastAPI 雛形。Lambda Web Adapter コンテナ、設定、ヘルスチェック、ローカル起動 | `11_技術構成` 5.1、5.7、13.1 | `make dev` でローカル起動。本番と同じ起動方法 | P1-1 |
-| **P1-9** | CC | M | **リポジトリ層。** DynamoDBアクセスの基盤、キー生成、トランザクション、条件付き書き込みのヘルパ | スキル `flourish-data`、`08_データモデル` 2章 | DynamoDB Local に対する統合テストが通る | P1-8 |
+| ~~**P1-9**~~ ✅ | CC | M | **リポジトリ層。** DynamoDBアクセスの基盤、キー生成、トランザクション、条件付き書き込みのヘルパ | スキル `flourish-data`、`08_データモデル` 2章 | DynamoDB Local に対する統合テストが通る | P1-8 |
 | **P1-10** | CC | S | エラー応答の共通形式、例外ハンドラ、`code` の定義 | スキル `flourish-api`、`09_API設計` 2.2〜2.3 | 全ステータスコードのテスト | P1-8 |
 | **P1-11** | CC | M | Cookie とセッションの基盤。`fs_guest` / `fs_session`、ハッシュ化、期限延長の間引き | スキル `flourish-api`、`11_技術構成` 7.2、9.3 | ゲスト発行→登録→ログインの経路がテストで通る | P1-9、P1-5 |
 | **P1-12** | CC | S | 冪等性とレート制限のミドルウェア | スキル `flourish-api` `flourish-data`、`09_API設計` 2.4〜2.5 | 同時リクエストで二重生成しないテスト | P1-9 |
@@ -110,6 +110,16 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 
 - **`make dev` は現時点でAPI単体の起動のみ。** DynamoDB Local（P1-9）・フロントエンド（P1-15）はまだ実装されていないため、CLAUDE.mdが定義する最終形（DynamoDB Local＋API＋フロントを起動）には届いていない。両タスクの完了時にそれぞれ積み増す
 - 設定項目は現時点で `environment` のみ。DB接続・Cognito・Bedrockなどの設定は、それぞれを実装するタスク（P1-9、P1-11、P1-14など）で追加する
+
+**P1-9完了メモ（2026-08-10）：** `app/db/` にリポジトリ層の基盤を実装した。
+
+- `keys.py`：`08_データモデル` 2.2の主キー一覧に対応するPK/SK生成関数（`user_pk`、`guest_pk`、`session_pk`、`job_pk`、`idem_pk`、`rate_pk`、`assessment_sk`、`purpose_current_sk`、`area_current_sk`、`reflection_sk`、`history_sk`）
+- `repository.py`：`get_item`／`put_item`（条件付き）／`update_item`（条件付き）／`batch_get_items`／`query_by_sk_prefix`／`transact_write_items`（`ConditionCheck`含む）／`put_versioned`（現行版読み取り→履歴退避＋新版書き込みを1トランザクションで行う、スキルflourish-data「更新の型」のヘルパー化）
+- `client.py`：boto3の`Table`リソースを`Settings`（`dynamodb_table_name`、`dynamodb_endpoint_url`、`aws_region`）から組み立てる
+- `local_bootstrap.py`：DynamoDB Local専用。テーブルが存在しなければ作成する（本番のテーブル定義は`infra/lib/data-stack.ts`が真実の源）
+- ルートに `docker-compose.yml`（`dynamodb-local`）を追加。`make dev`／`make test-api`は`dynamodb-local-up`に依存し、自動的にDynamoDB Localを起動してからAPI起動・テスト実行を行う
+- `tests/test_repository.py`：冪等性パターン（条件付きput）、レート制限パターン（条件付きupdate）、バージョン管理（`put_versioned`が履歴退避と新版書き込みを行うこと）、`ConditionCheck`によるトランザクションロールバック、`batch_get_items`、`query_by_sk_prefix`をDynamoDB Localに対する統合テストとして実装。`make test`で通ることを確認済み
+- **`ASSESSMENT`・`PURPOSE`・`AREA_PLAN`などエンティティ固有の制約（スキルflourish-data「制約はアプリが守る」の表）は未実装。** それぞれの機能タスク（P2-4、P3-8、P4-6など）で、このリポジトリ層を使って実装する
 
 ---
 

@@ -2,12 +2,17 @@ PYTHON := python3.12
 
 .PHONY: setup setup-api setup-tools setup-web setup-infra \
 	dev test lint lint-api lint-tools lint-web lint-infra \
-	test-api test-infra deploy-dev
+	test-api test-infra deploy-dev dynamodb-local-up dynamodb-local-down
+
+# DynamoDB Localはリクエスト署名を検証しないが、boto3のクライアント生成には
+# 認証情報が要る。値そのものに意味はない。
+LOCAL_AWS_ENV := AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
+	DYNAMODB_ENDPOINT_URL=http://localhost:8000
 
 setup: setup-api setup-tools setup-web setup-infra
 
 setup-api:
-	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx -r requirements.txt
+	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx "boto3-stubs[dynamodb]" -r requirements.txt
 
 setup-tools:
 	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy
@@ -34,14 +39,20 @@ lint-infra:
 
 test: test-api test-infra
 
-test-api:
-	cd api && .venv/bin/pytest
+test-api: dynamodb-local-up
+	cd api && $(LOCAL_AWS_ENV) .venv/bin/pytest
 
 test-infra:
 	cd infra && npm test
 
-dev:
-	cd api && .venv/bin/uvicorn app.main:app --reload --port 8080
+dynamodb-local-up:
+	docker compose up -d dynamodb-local
+
+dynamodb-local-down:
+	docker compose down
+
+dev: dynamodb-local-up
+	cd api && $(LOCAL_AWS_ENV) .venv/bin/uvicorn app.main:app --reload --port 8080
 
 deploy-dev:
 	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
