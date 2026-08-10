@@ -9,3 +9,7 @@ def test_health_returns_200() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_app_debug_reflects_local_environment() -> None:
+    assert app.debug is True

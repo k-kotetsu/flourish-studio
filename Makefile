@@ -41,7 +41,7 @@ test-infra:
 	cd infra && npm test
 
 dev:
-	@echo "未実装（P1-8: FastAPI雛形、P1-9: DynamoDB Local を参照）"
+	cd api && .venv/bin/uvicorn app.main:app --reload --port 8080
 
 deploy-dev:
 	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
