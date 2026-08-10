@@ -84,7 +84,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-8**~~ ✅ | CC | M | FastAPI 雛形。Lambda Web Adapter コンテナ、設定、ヘルスチェック、ローカル起動 | `11_技術構成` 5.1、5.7、13.1 | `make dev` でローカル起動。本番と同じ起動方法 | P1-1 |
 | ~~**P1-9**~~ ✅ | CC | M | **リポジトリ層。** DynamoDBアクセスの基盤、キー生成、トランザクション、条件付き書き込みのヘルパ | スキル `flourish-data`、`08_データモデル` 2章 | DynamoDB Local に対する統合テストが通る | P1-8 |
 | ~~**P1-10**~~ ✅ | CC | S | エラー応答の共通形式、例外ハンドラ、`code` の定義 | スキル `flourish-api`、`09_API設計` 2.2〜2.3 | 全ステータスコードのテスト | P1-8 |
-| **P1-11** | CC | M | Cookie とセッションの基盤。`fs_guest` / `fs_session`、ハッシュ化、期限延長の間引き | スキル `flourish-api`、`11_技術構成` 7.2、9.3 | ゲスト発行→登録→ログインの経路がテストで通る | P1-9、P1-5 |
+| ~~**P1-11**~~ ✅ | CC | M | Cookie とセッションの基盤。`fs_guest` / `fs_session`、ハッシュ化、期限延長の間引き | スキル `flourish-api`、`11_技術構成` 7.2、9.3 | ゲスト発行→登録→ログインの経路がテストで通る | P1-9、P1-5 |
 | **P1-12** | CC | S | 冪等性とレート制限のミドルウェア | スキル `flourish-api` `flourish-data`、`09_API設計` 2.4〜2.5 | 同時リクエストで二重生成しないテスト | P1-9 |
 | **P1-13** | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
 | **P1-14** | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
@@ -125,6 +125,17 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 
 - 具体的な `code`（`ANSWERS_INCOMPLETE`、`STATEMENT_TOO_LONG`など）は各機能タスクでこの例外クラス群を使って送出する。P1-10では基盤のみ
 - `tests/test_error_handlers.py` で全ステータスコード（400/401/403/404/409/422/429/503）と、`RequestValidationError`・未定義ルートの変換を確認済み
+
+**P1-11完了メモ（2026-08-10）：** Cookie とセッションの基盤を実装した。実際の `POST /guest-sessions`／`POST /auth/register`／`POST /auth/login`（Cognito連携を含む）はP2-2・P3-1・P3-2で実装する。P1-11ではその土台となるトークン・セッションの仕組みのみを用意した。
+
+- `app/core/security.py`：Cookie名（`fs_guest`／`fs_session`）と属性の定数（`HttpOnly`／`Secure`／`SameSite=Lax`／`Max-Age=2592000`）、`generate_token`（256bitの不透明トークン）、`hash_token`（`SESSION#<hash>`用）、`set_auth_cookie`／`clear_auth_cookie`
+- `app/domain/guest_session.py`：`GUEST_SESSION`（`08_データモデル`6.2）の発行・取得・登録時の紐付け記録（`mark_guest_converted`）。**PKにはトークンをそのまま使う**（`SESSION`と異なり6.2はハッシュ化を要求していない）
+- `app/domain/session.py`：`SESSION`（`08_データモデル`6.3）の発行・取得・`touch_session`（**前回の延長から24時間未満なら書き込まない間引き**）。PKには`hash_token`したものを使う
+- `app/api/deps.py`：`require_session`（要ログインの依存関係。未認証・期限切れは`401 UNAUTHENTICATED`でクライアントをS-01へ戻す）
+- `tests/test_security.py`／`tests/test_guest_session.py`／`tests/test_session.py`：トークンの一意性・ハッシュの一方向性、有効期限切れの判定、延長の間引きが効くこと・24時間以上経てば延長されることを確認
+- `tests/test_auth_flow.py`：完了条件「ゲスト発行→登録→ログインの経路がテストで通る」に対応。上記の基盤だけを使った最小限のテスト用ルート（`/test/guest-sessions`・`/test/register`・`/test/me`）で、ゲスト発行→（既存ゲストの再訪で増えない）→登録によるアカウントへの紐付け＋`fs_guest`破棄＋`fs_session`発行→`fs_session`のみでの保護リソースアクセス、および401系（Cookieなし／不正なトークン）を確認
+- **DynamoDBの`expires_at`（TTL）は実際の削除がAWS側で遅延しうるため、`get_active_guest_session`／`get_active_session`はアプリ側でも期限切れを判定する**
+- Cognito連携（`sub`の取得、パスワード要件、Google連携）、レート制限（P1-12）、実際のエンドポイント3本（`fs_guest`の再訪時再発行スキップを含む）は本タスクの範囲外
 
 ---
 
