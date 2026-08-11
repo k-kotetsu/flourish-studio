@@ -14,7 +14,7 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION,
 };
 
-new DataStack(app, "DataStack", { env });
+const dataStack = new DataStack(app, "DataStack", { env });
 
 new AuthStack(app, "AuthStack", {
   env,
@@ -25,7 +25,11 @@ new AuthStack(app, "AuthStack", {
     "834684313682-8ilfh4c2oar51mken8963etv7a731l14.apps.googleusercontent.com",
 });
 
-const appStack = new AppStack(app, "AppStack", { env, crossRegionReferences: true });
+const appStack = new AppStack(app, "AppStack", {
+  env,
+  crossRegionReferences: true,
+  table: dataStack.table,
+});
 
 // WAF(CLOUDFRONTスコープ)とACM証明書はus-east-1に置く(技術構成10.4)。
 // AppStackはap-northeast-1のため、EdgeStackとはリージョンをまたぐ参照になる。
