@@ -1,5 +1,5 @@
 import * as cdk from "aws-cdk-lib/core";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { AppStack } from "../lib/app-stack";
 
 function synth(): Template {
@@ -51,6 +51,29 @@ describe("AppStack", () => {
       const uri = JSON.stringify(method.Properties.Integration.Uri);
       expect(uri).toContain("response-streaming-invocations");
     }
+  });
+
+  it("APIのLambdaはJOB_QUEUE_URLを環境変数で受け取る(技術構成5.5)", () => {
+    const template = synth();
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({
+          JOB_QUEUE_URL: Match.anyValue(),
+        }),
+      },
+    });
+  });
+
+  it("APIのLambdaはジョブキューへのSendMessage権限を持つ(技術構成5.5)", () => {
+    const template = synth();
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const sendMessageStatements = policies.flatMap((policy) =>
+      policy.Properties.PolicyDocument.Statement.filter((statement: { Action?: unknown }) => {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        return actions.some((a: string) => typeof a === "string" && a === "sqs:SendMessage");
+      }),
+    );
+    expect(sendMessageStatements.length).toBeGreaterThan(0);
   });
 
   it("BedrockのIAM権限はResource: \"*\" にしない(技術構成8.5)", () => {

@@ -86,7 +86,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-10**~~ ✅ | CC | S | エラー応答の共通形式、例外ハンドラ、`code` の定義 | スキル `flourish-api`、`09_API設計` 2.2〜2.3 | 全ステータスコードのテスト | P1-8 |
 | ~~**P1-11**~~ ✅ | CC | M | Cookie とセッションの基盤。`fs_guest` / `fs_session`、ハッシュ化、期限延長の間引き | スキル `flourish-api`、`11_技術構成` 7.2、9.3 | ゲスト発行→登録→ログインの経路がテストで通る | P1-9、P1-5 |
 | ~~**P1-12**~~ ✅ | CC | S | 冪等性とレート制限のミドルウェア | スキル `flourish-api` `flourish-data`、`09_API設計` 2.4〜2.5 | 同時リクエストで二重生成しないテスト | P1-9 |
-| **P1-13** | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
+| ~~**P1-13**~~ ✅ | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
 | **P1-14** | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
 | **P1-15** | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
 | **P1-16** | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
@@ -144,6 +144,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `tests/test_idempotency.py`：同一キー再送で同じ`job_id`が返ること、キー・ownerが異なれば独立すること、`ThreadPoolExecutor`による同時リクエストで二重生成しないこと
 - `tests/test_rate_limit.py`：上限までは許可し超過で`RateLimitedError`になること、owner間の独立性、同時リクエストでも上限を超えないこと（登録済み）、ゲストの3回制限とカウンタの実値
 - **エンドポイントへの組み込み（`Idempotency-Key`ヘッダの取り出し、各生成系エンドポイントでの呼び出し）は、生成系エンドポイントを実装する各タスク（P1-13以降）で行う。** `app/api/deps.py`にはまだ追加していない
+
+**P1-13完了メモ（2026-08-11）：** 非同期ジョブ基盤（ジョブ登録・SQS送信・ワーカー雛形・`GET /jobs/{id}`）を実装した。実際の生成処理（Bedrock呼び出し）は各生成系タスク（P1-14、P2以降）でワーカーに積み増す。
+
+- `app/domain/job.py`：`JOB`アイテム（`08_データモデル`8.1）の`create_job`／`get_job`／`mark_running`／`mark_succeeded`／`mark_failed`。`create_job`は`job_id`を省略可能にし、`P1-12`の`idempotency.reserve_job_id`が予約したIDをそのまま渡せるようにした。**成果物を別アイテムに書く生成系ジョブは`mark_succeeded`を使わず、`repository.transact_write_items`でJOB更新と成果物保存を1トランザクションにまとめる**（`09_API設計`5.3「成功した時点ではじめて保存される」）
+- `app/queue/client.py`／`app/queue/jobs.py`：SQSクライアントと`send_job_message(job_id, kind)`。キューURLは`Settings.job_queue_url`（Lambda環境変数`JOB_QUEUE_URL`）から読む
+- `app/worker/handler.py`：SQSイベントの`Records`を`job_id`ごとに処理する雛形。**P1-13時点ではkindを問わずダミーの結果（`{"echo": kind}`）ですぐSUCCEEDEDにする。** kindごとの分岐（Bedrock呼び出し）は後続タスクで足す
+- `app/api/deps.py`：`current_owner`（`GET /jobs/{id}`専用。`fs_session`／`fs_guest`のどちらでも識別できるようにし、`USER#<id>`／`GUEST#<id>`の形で返す。どちらも無効なら401）
+- `app/api/v1/jobs.py`：`GET /jobs/{id}`。`owner`が一致しなければ`403 JOB_FORBIDDEN`、存在しなければ`404 JOB_NOT_FOUND`。`main.py`に`/api/v1`プレフィックスでマウント
+- `infra/lib/app-stack.ts`：APIのLambdaに`JOB_QUEUE_URL`環境変数と`queue.grantSendMessages`を追加（従来はキュー自体はP1-6で作成済みだったが、APIのLambdaから送信する権限・URLの受け渡しが未配線だった）
+- `tests/test_job.py`／`tests/test_queue_jobs.py`（`botocore.stub.Stubber`でSQSをスタブ）／`tests/test_worker_handler.py`／`tests/test_jobs_endpoint.py`：**完了条件「ダミージョブがQUEUED→SUCCEEDEDを辿る」**は`test_worker_handler.py::test_handler_processes_a_dummy_job_to_succeeded`で確認（`create_job`→ワーカーへ模擬SQSイベントを直接渡す→`SUCCEEDED`）
+- **ローカル開発・テストでは実際のSQSを使わない。** DynamoDB Localのような公式のSQSローカルエミュレータが無く、`11_技術構成`13.1もSQSのローカル方式を定めていないため、送信側は`Stubber`で、受信側（ワーカー）はSQSイベント形式の辞書を直接`handler`に渡すことでテストした。**実際にAWS上でSQS→ワーカーLambdaの配線が動くことは、まだ実機確認していない**（`deploy-dev`が未実装のため。`11_技術構成`5.5のとおりに構成した）
+- **DynamoDBテーブルへのIAM権限・環境変数（`DYNAMODB_TABLE_NAME`など）が、`AppStack`のLambda（API・ワーカーとも）にまだ配線されていないことに気づいた。** `DataStack`と`AppStack`はスタックが分かれており（`bin/infra.ts`）、`table.grantReadWriteData`も`DYNAMODB_TABLE_NAME`の受け渡しも存在しない。ローカルではDynamoDB Localへの疎通のみで動くため気づきにくいが、**現状のままでは実際にAWSへデプロイしてもAPI・ワーカーはDynamoDBに一切アクセスできない。** `P1-18`として切り出した
 
 ---
 
