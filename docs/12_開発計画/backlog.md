@@ -91,7 +91,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-15**~~ ✅ | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
 | ~~**P1-16**~~ ✅ | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
 | ~~**P1-17**~~ ✅ | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
-| **P1-18** | CC | S | **CDK配線の欠け。** `AppStack` の Lambda（API・ワーカー）に `DataStack` の DynamoDB テーブルへの IAM 権限と `DYNAMODB_TABLE_NAME` 環境変数を追加する | `11_技術構成` 10.1（スタック分割）、10.3（削除保護） | `cdk test` で API・ワーカー両方のロールに `flourish` テーブルへの読み書き権限（`grantReadWriteData` 相当）が付与されていることを確認できる。実機での疎通確認は次回 `deploy-dev` 実行時に行う | P1-4、P1-6 |
+| ~~**P1-18**~~ ✅ | CC | S | **CDK配線の欠け。** `AppStack` の Lambda（API・ワーカー）に `DataStack` の DynamoDB テーブルへの IAM 権限と `DYNAMODB_TABLE_NAME` 環境変数を追加する | `11_技術構成` 10.1（スタック分割）、10.3（削除保護） | `cdk test` で API・ワーカー両方のロールに `flourish` テーブルへの読み書き権限（`grantReadWriteData` 相当）が付与されていることを確認できる。実機での疎通確認は次回 `deploy-dev` 実行時に行う | P1-4、P1-6 |
 
 **P1-9（リポジトリ層）と P1-14（プロンプト実行基盤）が後続すべての土台になる。** ここを雑に作ると全フェーズに響く。
 
@@ -204,6 +204,14 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `jobs.ts`：`waitForJob(jobId, initialPollAfterMs, signal)`。`GET /jobs/{id}`を**サーバーが返す`poll_after_ms`の指示どおりの間隔だけ**呼び続け、`SUCCEEDED`なら`result`を返し、`FAILED`なら`code`/`retryable`を持つ`JobFailedError`を投げる。クライアント側に固定のポーリング間隔は持たせていない。`AbortSignal`でポーリングの打ち切りに対応（画面遷移・中断ダイアログでの離脱を想定。中断ダイアログ自体からの実際の配線はまだ無い）
 - **仕様と実装のズレを1件確認した。** `09_API設計`5.15・3.1は「`GET /jobs/{id}`が`poll_after_ms`を返し、クライアントはそれに従う（固定値を持たない）」と定めているが、P1-13で実装済みの`GET /jobs/{id}`（`api/app/api/v1/jobs.py`）は現状`poll_after_ms`を一切返していない。本タスクは仕様どおり、`QUEUED`/`RUNNING`中は`poll_after_ms`が必ず返る前提で`waitForJob`を実装した（値が無ければ例外を投げ、`jobs.spec.ts`でこの検知自体もテスト済み）。**このままではP2以降で実際にジョブ生成系エンドポイントを実装しても、ポーリングが1回目で例外になる。** `poll_after_ms`の具体的な値（`kind`ごとに変えるか、固定1500msかなど）は仕様に明記がなく判断が要るため、`GET /jobs/{id}`への追加は本タスクでは行わず、この場に記録するに留めた（ユーザー確認済み）。P2でジョブ生成系エンドポイントを実装するタスク（P2-5など）で、`GET /jobs/{id}`に`poll_after_ms`を足す作業も一緒に行う必要がある
 - テスト：`client.spec.ts`（GET/POST／`Idempotency-Key`／204／エラー変換／`Retry-After`／401フック／ネットワーク断／AbortError伝播）、`errorMessages.spec.ts`（既知`code`・フォールバック・禁止語や感嘆符を含まないこと）、`jobs.spec.ts`（初回は`poll_after_ms`だけ待つこと、以後も固定値を使わずサーバー指示に従うこと、`FAILED`時の`JobFailedError`、`poll_after_ms`欠落時に例外化すること）。`make lint`・`make test`で確認済み
+
+**P1-18完了メモ（2026-08-11）：** `AppStack`のLambda（API・ワーカーとも）に`DataStack`の`flourish`テーブルへのIAM権限と`DYNAMODB_TABLE_NAME`環境変数を配線した。
+
+- `infra/lib/app-stack.ts`：`AppStackProps`に`table: dynamodb.ITable`を追加。API・ワーカー両Lambdaの生成時に`DYNAMODB_TABLE_NAME`環境変数（値はテーブル名。参照先はスタックをまたぐため実体は`Fn::ImportValue`）を設定し、`props.table.grantReadWriteData(...)`を両Lambdaに付与した
+- `infra/bin/infra.ts`：`DataStack`のインスタンスを`dataStack`として受け取り、`dataStack.table`を`AppStack`に渡すよう配線した
+- **`flourish_article`テーブルは対象外。** バックログの完了条件が「`flourish`テーブルへの読み書き権限」とだけ定めており、`api/`側にも`flourish_article`を読むコードがまだ存在しない（記事機能はP6系で未着手）ため、本タスクの範囲外と判断した。必要になった時点で別途配線する
+- `infra/test/app-stack.test.ts`：`synth()`が`DataStack`相当のスタックでテーブルを作り`AppStack`に渡す形に変更。API・ワーカー両方が`DYNAMODB_TABLE_NAME`を環境変数に持つこと、両方のLambdaロールに`dynamodb:GetItem`・`dynamodb:PutItem`を含むポリシーが1つずつ（計2つ）付与されていることを確認するテストを追加した。完了条件「`cdk test`で両方のロールに読み書き権限が付与されていることを確認できる」に対応
+- `cdk synth`相当のjestテストのみで確認。**実機での疎通確認（実際にAWSへデプロイしてAPI・ワーカーがDynamoDBに書き込めること）は、完了条件の記載どおり次回`deploy-dev`実行時に行う**
 
 ---
 

@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as cdk from "aws-cdk-lib/core";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
@@ -27,6 +28,11 @@ function bedrockModelResourceArns(account: string): string[] {
   return arns;
 }
 
+export interface AppStackProps extends cdk.StackProps {
+  /** `DataStack` の flourishテーブル。API・ワーカー両Lambdaの読み書き先(技術構成10.1)。 */
+  readonly table: dynamodb.ITable;
+}
+
 export class AppStack extends cdk.Stack {
   readonly api: apigateway.RestApi;
   readonly queue: sqs.Queue;
@@ -34,7 +40,7 @@ export class AppStack extends cdk.Stack {
   readonly apiFunction: lambda.DockerImageFunction;
   readonly workerFunction: lambda.DockerImageFunction;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
 
     const apiAssetDir = path.join(__dirname, "..", "..", "api");
@@ -64,6 +70,7 @@ export class AppStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(120),
       environment: {
         JOB_QUEUE_URL: this.queue.queueUrl,
+        DYNAMODB_TABLE_NAME: props.table.tableName,
       },
     });
     // ジョブ登録時にAPI Lambdaがキューへ送信できるようにする(技術構成5.5)。
@@ -76,10 +83,19 @@ export class AppStack extends cdk.Stack {
       memorySize: 1769,
       timeout: cdk.Duration.seconds(300),
       reservedConcurrentExecutions: 5,
+      environment: {
+        DYNAMODB_TABLE_NAME: props.table.tableName,
+      },
     });
     this.workerFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(this.queue, { batchSize: 1 }),
     );
+
+    // API・ワーカーとも flourishテーブルへ読み書きする(技術構成10.1)。
+    // DataStackとAppStackはスタックが分かれているため、テーブル自体はDataStack側でしか
+    // 定義されない。ここで権限と参照先(環境変数)を明示的に配線する。
+    props.table.grantReadWriteData(this.apiFunction);
+    props.table.grantReadWriteData(this.workerFunction);
 
     const bedrockPolicy = new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
