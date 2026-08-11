@@ -2,6 +2,24 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      ダークモード初期化（07_デザイン原則 3.3、スキルflourish-ui）。
+      手動でライト／ダークが選ばれていれば data-theme を即座に付け、
+      Vue起動前のちらつきを防ぐ。未選択（自動）なら何もせず、
+      tokens.cssの prefers-color-scheme に委ねる。
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("flourish-theme");
+          if (stored === "light" || stored === "dark") {
+            document.documentElement.setAttribute("data-theme", stored);
+          }
+        } catch (e) {
+          /* localStorage不可（プライベートモード等）。自動追従にフォールバック */
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flourish Studio</title>
   </head>

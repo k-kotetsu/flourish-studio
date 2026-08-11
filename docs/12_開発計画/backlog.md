@@ -88,7 +88,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-12**~~ ✅ | CC | S | 冪等性とレート制限のミドルウェア | スキル `flourish-api` `flourish-data`、`09_API設計` 2.4〜2.5 | 同時リクエストで二重生成しないテスト | P1-9 |
 | ~~**P1-13**~~ ✅ | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
 | ~~**P1-14**~~ ✅ | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
-| **P1-15** | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
+| ~~**P1-15**~~ ✅ | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
 | **P1-16** | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
 | **P1-17** | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
 | **P1-18** | CC | S | **CDK配線の欠け。** `AppStack` の Lambda（API・ワーカー）に `DataStack` の DynamoDB テーブルへの IAM 権限と `DYNAMODB_TABLE_NAME` 環境変数を追加する | `11_技術構成` 10.1（スタック分割）、10.3（削除保護） | `cdk test` で API・ワーカー両方のロールに `flourish` テーブルへの読み書き権限（`grantReadWriteData` 相当）が付与されていることを確認できる。実機での疎通確認は次回 `deploy-dev` 実行時に行う | P1-4、P1-6 |
@@ -171,6 +171,19 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `app/ai/emf.py`：`08_データモデル`7.1のフィールド（`kind`/`model`/`prompt_version`/`effort`/`status`/トークン各種/`attempt`/`retry_reason`/`error_code`/`safety_flag`/識別子）でEMF形式のJSONを標準出力へ1行書く。プロンプトの入出力本文は出さない
 - `tests/test_ai_runner.py`／`test_ai_schema.py`／`test_ai_emf.py`：ダミーのプロンプト・スキーマで、Bedrock呼び出しをフェイクに差し替え、成功・スキーマ違反からの再生成成功・再生成も失敗・`retry_on_invalid=False`・`refusal`・`max_tokens`・APIエラー（再試行可／不可）・EMF記録の各経路を確認した。完了条件「ダミープロンプトで生成・検証・記録が動く」に対応
 - **依存`P0-7`は未解決。** `P0-7`は`P0-4`（`output_config.format`がBedrockで実際に通るかの実機検証）の結果を受けて出力形式の方針（3.3の案A/案C）を確定する人間判断タスクだが、`P0-4`も含めて未着手のまま（backlog上に完了マークなし）。本タスクは**ドキュメント8.2のコード例・スキル`flourish-ai`の記載に従い、案A（`output_config.format`によるJSON Schema拘束）を前提に実装した。** サーバ側の検証（`jsonschema`によるスキーマ検証と`validate_output`コールバックによる件数・文字数チェック）は`output_config.format`の成否と無関係に独立して行うため、**P0-4の結果が「通らない」であっても`_call`から`format`を外すだけで案Cへ切り替えられ、設計は壊れない。** ただし実機でBedrockが`output_config.format`を実際に受け付けるかどうかは、このサンドボックス環境からは検証できていない。P0-4/P0-7が解消され次第、本メモを更新する
+
+**P1-15完了メモ（2026-08-11）：** Vue雛形（Vite、vue-router、Pinia、デザイントークンのCSS変数、ダークモード初期化）を`web/`に実装した。画面（S-xx）は1つも実装しない。ルーターには仮のプレースホルダー1画面のみを置き、実際の画面は各機能タスク（P2-2以降）で差し替える。
+
+- `web/src/styles/tokens.css`：`07_デザイン原則`2章のカラートークン（基本7＋派生6）を`:root`に定義。ダークは`[data-theme="dark"]`と`@media (prefers-color-scheme: dark) :root:not([data-theme="light"])`の両方に同じ値を持たせ、**自動（OS追従）／ライト固定／ダーク固定の3状態**を成立させた（3.1）。4章のタイプスケール・書体、5章のレイアウト寸法（幅・間隔・角丸・タップ領域）もCSS変数として定義した。**欧文書体Instrument Sansは変数のみ用意し、Webフォントファイル自体はまだ読み込んでいない。** 実際に領域名を表示する画面（P4系）が来るまで実物のフォント選定・配置を確認できないため、フォント調達はそのときに行う判断とした
+- `web/src/stores/theme.ts`：`mode: "auto" | "light" | "dark"`を持つPiniaストア。`cycle()`で自動→ライト→ダーク→自動と循環し（3.2）、`<html>`への`data-theme`属性の付け外しと`localStorage`（キー`flourish-theme`）への保存を行う。**トグルのUI自体はP4-9の範囲。** 本タスクではP4-9が呼び出す土台のみを用意した
+- `web/index.html`：起動時のちらつき防止（スキルflourish-ui「初回描画のちらつき防止」）のインラインスクリプトを`<head>`先頭に追加。`localStorage`にライト／ダークの保存があれば、Vue起動前に`data-theme`を即座に付与する。自動（未選択）時は何もせず、tokens.cssの`prefers-color-scheme`に委ねる
+- **`localStorage`をアカウントと紐づけない暫定の保存先として採用した判断。** `07_デザイン原則`3.1は「選択はアカウントに紐づけて保存する」と定めるが、P1-15の時点では認証（P3-1〜P3-4）が存在しない。ローカル保存を先に用意し、P4-9（ログイン後にアカウントへ保存し、端末をまたいで一致させる）で置き換える／同期する前提とした
+- `web/vite.config.ts`：`base: "/app/"`を設定。**理由：** `infra/lib/edge-stack.ts`のCloudFrontビヘイビアで`/assets/*`は公開サイト用バケット（`publicSiteBucket`）に、`/app/*`はSPA用バケット（`spaBucket`）に振り分けられている。base未設定のままだとViteのデフォルト出力（`/assets/...`）が誤って公開サイト側のオリジンに向いてしまうため、ビルド成果物を`/app/assets/...`に収めて整合させた。`npm run build`で`dist/index.html`が`/app/assets/*`を参照することを確認済み
+- vue-router：`createWebHistory("/app/")`。ルートは仮のプレースホルダー1画面のみ
+- テスト基盤：`vitest`＋`happy-dom`を追加し、`web/src/stores/theme.spec.ts`でストアの初期状態・`data-theme`の付け外し・`localStorage`保存・循環順序を確認。Makefileに`test-web`を追加し`make test`に組み込んだ
+- **Node 22以降の組み込み`localStorage`（experimental webstorage）がhappy-domの実装をglobalスコープで覆い隠す既知の衝突を確認した。** `vite.config.ts`の`test.execArgv`に`--no-experimental-webstorage`を渡して回避した
+- `make dev`をAPIとフロントの並行起動に変更した（CLAUDE.mdが定義する最終形「DynamoDB Local＋API＋フロントを起動」に対応。P1-8完了メモの積み残し）。`trap 'kill 0' EXIT`で片方が終了・Ctrl-Cされたときにもう片方も道連れに終了する
+- `make lint`（eslint・vue-tsc）、`make test`（vitest含む）、`npm run build`をいずれも確認済み。**ブラウザでの目視確認は本環境に対話的ブラウザツールが無いため実施できていない。** `vite dev`でのHTML/JS/CSS配信、`vite build`での`/app/`配下への出力、ストアの単体テストで代替した
 
 ---
 
