@@ -1,3 +1,32 @@
+@import "./styles/tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 3.3 切り替え時のアニメーションは付けない */
+  color-scheme: light dark;
+}
+
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-jp);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  /* 5.3 ページ本体を横スクロールさせない */
+  overflow-x: hidden;
+}
+
+#app {
+  max-width: var(--layout-width-max);
+  margin: 0 auto;
+}
+
+:lang(en) {
+  font-family: var(--font-latin);
 }

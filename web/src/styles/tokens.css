@@ -1,0 +1,100 @@
+/*
+ * デザイントークン（07_デザイン原則 2章・4章・5章）。
+ * 色は必ずこの変数経由で使う。要素に直接カラーコードを書かない。
+ */
+
+:root {
+  /* 2.2 基本トークン（ライト） */
+  --bg: #F8F9F6;
+  --surface: #FFFFFF;
+  --primary: #52796F;
+  --primary-soft: #E2ECE7;
+  --text: #202522;
+  --text-sub: #68736D;
+  --border: #E2E6E3;
+
+  /* 2.2 派生トークン（ライト） */
+  --surface-sub: #F4F6F3;
+  --text-faint: #828C86;
+  --control-border: #7A847E;
+  --primary-ink: #FFFFFF;
+  --danger: #9E3520;
+  --warning: #7C5A12;
+
+  /* 4.1 書体 */
+  --font-jp: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+  --font-latin: "Instrument Sans", sans-serif;
+
+  /* 4.2 タイプスケール */
+  --font-size-nickname: 28px;
+  --line-height-nickname: 1.35;
+  --font-size-heading: 20px;
+  --line-height-heading: 1.45;
+  --font-size-section: 16px;
+  --line-height-section: 1.5;
+  --font-size-body: 15px;
+  --line-height-body: 1.8;
+  --font-size-caption: 13px;
+  --line-height-caption: 1.7;
+  --font-size-label: 11px;
+  --line-height-label: 1.4;
+  --letter-spacing-label: 0.08em;
+
+  /* 5.1 寸法 */
+  --layout-width-base: 375px;
+  --layout-width-verify: 430px;
+  --layout-width-max: 430px;
+  --layout-gutter: 16px;
+  --header-height: 56px;
+  --progress-bar-height: 4px;
+  --bottom-bar-height: 56px;
+  --tap-target-min: 44px;
+  --radius-card: 9px;
+  --radius-button: 8px;
+  --radius-input: 7px;
+
+  /* 5.3 縦の間隔（6 / 10 / 14 / 18 / 24px から選ぶ） */
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+}
+
+/* 3.1 既定はOSの設定に追従する。手動選択（[data-theme]）が優先される */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151A18;
+    --surface: #1E2522;
+    --primary: #8EB7A8;
+    --primary-soft: #263C35;
+    --text: #F1F4F2;
+    --text-sub: #A4AFA9;
+    --border: #333D38;
+
+    --surface-sub: #252D29;
+    --text-faint: #7F8A84;
+    --control-border: #6E7A74;
+    --primary-ink: #12211B;
+    --danger: #E8907B;
+    --warning: #D9AC61;
+  }
+}
+
+/* 手動でダークを選んだ場合はOS設定に関わらず適用する */
+:root[data-theme="dark"] {
+  --bg: #151A18;
+  --surface: #1E2522;
+  --primary: #8EB7A8;
+  --primary-soft: #263C35;
+  --text: #F1F4F2;
+  --text-sub: #A4AFA9;
+  --border: #333D38;
+
+  --surface-sub: #252D29;
+  --text-faint: #7F8A84;
+  --control-border: #6E7A74;
+  --primary-ink: #12211B;
+  --danger: #E8907B;
+  --warning: #D9AC61;
+}

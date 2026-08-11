@@ -2,7 +2,7 @@ PYTHON := python3.12
 
 .PHONY: setup setup-api setup-tools setup-web setup-infra \
 	dev test lint lint-api lint-tools lint-web lint-infra \
-	test-api test-infra deploy-dev dynamodb-local-up dynamodb-local-down
+	test-api test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down
 
 # DynamoDB Localはリクエスト署名を検証しないが、boto3のクライアント生成には
 # 認証情報が要る。値そのものに意味はない。
@@ -37,10 +37,13 @@ lint-web:
 lint-infra:
 	cd infra && npm run lint && npm run typecheck
 
-test: test-api test-infra
+test: test-api test-web test-infra
 
 test-api: dynamodb-local-up
 	cd api && $(LOCAL_AWS_ENV) .venv/bin/pytest
+
+test-web:
+	cd web && npm test
 
 test-infra:
 	cd infra && npm test
@@ -52,7 +55,10 @@ dynamodb-local-down:
 	docker compose down
 
 dev: dynamodb-local-up
-	cd api && $(LOCAL_AWS_ENV) .venv/bin/uvicorn app.main:app --reload --port 8080
+	@trap 'kill 0' EXIT; \
+	(cd api && $(LOCAL_AWS_ENV) .venv/bin/uvicorn app.main:app --reload --port 8080) & \
+	(cd web && npm run dev) & \
+	wait
 
 deploy-dev:
 	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
