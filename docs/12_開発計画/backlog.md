@@ -137,6 +137,14 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - **DynamoDBの`expires_at`（TTL）は実際の削除がAWS側で遅延しうるため、`get_active_guest_session`／`get_active_session`はアプリ側でも期限切れを判定する**
 - Cognito連携（`sub`の取得、パスワード要件、Google連携）、レート制限（P1-12）、実際のエンドポイント3本（`fs_guest`の再訪時再発行スキップを含む）は本タスクの範囲外
 
+**P1-12完了メモ（2026-08-11）：** 冪等性とレート制限を、リポジトリ層の条件付き書き込みだけで実装した（読んでから書かない。`flourish-data`「冪等性・レート制限は条件付き書き込みで」）。まだ生成系のエンドポイント自体が存在しない（P1-13〜P2以降）ため、本タスクの範囲は再利用可能な関数とそのテストに留めた。
+
+- `app/domain/idempotency.py`：`reserve_job_id(owner, idempotency_key, candidate_job_id)`。呼び出し側が候補の`job_id`を渡し、`IDEM#<owner>#<key>`への条件付き`PutItem`（`attribute_not_exists(PK)`）が成功すればその値を、失敗（＝既存）なら既存の`job_id`を返す。**戻り値が候補と一致した場合のみジョブを新規作成する**契約とすることで、先読みなしに同時リクエストを捌く（`08_データモデル`8.2）
+- `app/domain/rate_limit.py`：`check_and_increment_user`（登録済み、`RATE#<owner>#<時間枠>`への`ADD`＋条件式、1時間30回）と`check_and_increment_guest`（ゲスト、`GUEST`アイテムの`report_generation_count`への`ADD`＋条件式、1セッション3回）。超過時は`RateLimitedError`（`429`、`code: RATE_LIMITED`）を送出し、`retry_after`は登録済みなら時間枠終了までの秒数、ゲストならゲストセッションの`expires_at`までの秒数とした（**仕様に明記がないため、時間ベースでリセットされる唯一の基準として採用した判断**。ゲストの上限はセッション終了以外でリセットされないため、この値は目安に過ぎない）
+- `tests/test_idempotency.py`：同一キー再送で同じ`job_id`が返ること、キー・ownerが異なれば独立すること、`ThreadPoolExecutor`による同時リクエストで二重生成しないこと
+- `tests/test_rate_limit.py`：上限までは許可し超過で`RateLimitedError`になること、owner間の独立性、同時リクエストでも上限を超えないこと（登録済み）、ゲストの3回制限とカウンタの実値
+- **エンドポイントへの組み込み（`Idempotency-Key`ヘッダの取り出し、各生成系エンドポイントでの呼び出し）は、生成系エンドポイントを実装する各タスク（P1-13以降）で行う。** `app/api/deps.py`にはまだ追加していない
+
 ---
 
 ## 5. P2 現在地レポート（約2週間）
