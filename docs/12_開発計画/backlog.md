@@ -87,7 +87,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-11**~~ ✅ | CC | M | Cookie とセッションの基盤。`fs_guest` / `fs_session`、ハッシュ化、期限延長の間引き | スキル `flourish-api`、`11_技術構成` 7.2、9.3 | ゲスト発行→登録→ログインの経路がテストで通る | P1-9、P1-5 |
 | ~~**P1-12**~~ ✅ | CC | S | 冪等性とレート制限のミドルウェア | スキル `flourish-api` `flourish-data`、`09_API設計` 2.4〜2.5 | 同時リクエストで二重生成しないテスト | P1-9 |
 | ~~**P1-13**~~ ✅ | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
-| **P1-14** | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
+| ~~**P1-14**~~ ✅ | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
 | **P1-15** | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
 | **P1-16** | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
 | **P1-17** | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
@@ -159,6 +159,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `tests/test_job.py`／`tests/test_queue_jobs.py`（`botocore.stub.Stubber`でSQSをスタブ）／`tests/test_worker_handler.py`／`tests/test_jobs_endpoint.py`：**完了条件「ダミージョブがQUEUED→SUCCEEDEDを辿る」**は`test_worker_handler.py::test_handler_processes_a_dummy_job_to_succeeded`で確認（`create_job`→ワーカーへ模擬SQSイベントを直接渡す→`SUCCEEDED`）
 - **ローカル開発・テストでは実際のSQSを使わない。** DynamoDB Localのような公式のSQSローカルエミュレータが無く、`11_技術構成`13.1もSQSのローカル方式を定めていないため、送信側は`Stubber`で、受信側（ワーカー）はSQSイベント形式の辞書を直接`handler`に渡すことでテストした。**実際にAWS上でSQS→ワーカーLambdaの配線が動くことは、まだ実機確認していない**（`deploy-dev`が未実装のため。`11_技術構成`5.5のとおりに構成した）
 - **DynamoDBテーブルへのIAM権限・環境変数（`DYNAMODB_TABLE_NAME`など）が、`AppStack`のLambda（API・ワーカーとも）にまだ配線されていないことに気づいた。** `DataStack`と`AppStack`はスタックが分かれており（`bin/infra.ts`）、`table.grantReadWriteData`も`DYNAMODB_TABLE_NAME`の受け渡しも存在しない。ローカルではDynamoDB Localへの疎通のみで動くため気づきにくいが、**現状のままでは実際にAWSへデプロイしてもAPI・ワーカーはDynamoDBに一切アクセスできない。** `P1-18`として切り出した
+
+**P1-14完了メモ（2026-08-11）：** Bedrockクライアントとプロンプト実行基盤を`api/app/ai/`に実装した。個別のkindごとのプロンプト本文・出力スキーマは持たず、各機能タスク（P2-5、P2-8、P5-2など）がこの基盤の上に積む。
+
+- `app/ai/client.py`：`AnthropicBedrockMantle`を`Settings.bedrock_region`（既定`us-east-1`、`11_技術構成`8.4）から生成。`max_retries=0`でSDK自身の自動再試行を切り、429/503/タイムアウトは即座に呼び出し側へ返す（破ってはいけない規則5「自動リトライしない」）
+- `app/ai/common_block.py`：共通ブロック（`10_AIプロンプト設計`3.2）を全文そのまま定数化
+- `app/ai/models.py`：`SONNET`／`HAIKU`のモデルID定数
+- `app/ai/schema.py`：`to_wire_schema`。Bedrockの`output_config.format`が対応しない`minItems`/`maxItems`/`minLength`/`maxLength`を送信直前に取り除く。件数・文字数を含む完全な検証はサーバ側で行う（3.3）
+- `app/ai/runner.py`：`PromptSpec`／`generate()`。system[0]共通・system[1]個別（`cache_control`つき）・messages入力の3層を組み立ててBedrockを呼ぶ。`stop_reason`を`content`より先に確認し、`refusal`/`max_tokens`/スキーマ違反/APIエラーを`3.8`の表どおりに分類する。**スキーマ違反・件数不足のときだけサーバ内で1回再生成する**（`PromptSpec.retry_on_invalid=False`でGOAL_HINTS向けに無効化できる）
+- `app/ai/errors.py`：`AI_PROVIDER_ERROR`／`AI_OUTPUT_INVALID`／`AI_REFUSED`／`AI_MAX_TOKENS`と`retryable`。**`AI_OUTPUT_INVALID`のretryableは3.8に明記がないため`true`とした**（判断の詳細はコード内コメントを参照）
+- `app/ai/emf.py`：`08_データモデル`7.1のフィールド（`kind`/`model`/`prompt_version`/`effort`/`status`/トークン各種/`attempt`/`retry_reason`/`error_code`/`safety_flag`/識別子）でEMF形式のJSONを標準出力へ1行書く。プロンプトの入出力本文は出さない
+- `tests/test_ai_runner.py`／`test_ai_schema.py`／`test_ai_emf.py`：ダミーのプロンプト・スキーマで、Bedrock呼び出しをフェイクに差し替え、成功・スキーマ違反からの再生成成功・再生成も失敗・`retry_on_invalid=False`・`refusal`・`max_tokens`・APIエラー（再試行可／不可）・EMF記録の各経路を確認した。完了条件「ダミープロンプトで生成・検証・記録が動く」に対応
+- **依存`P0-7`は未解決。** `P0-7`は`P0-4`（`output_config.format`がBedrockで実際に通るかの実機検証）の結果を受けて出力形式の方針（3.3の案A/案C）を確定する人間判断タスクだが、`P0-4`も含めて未着手のまま（backlog上に完了マークなし）。本タスクは**ドキュメント8.2のコード例・スキル`flourish-ai`の記載に従い、案A（`output_config.format`によるJSON Schema拘束）を前提に実装した。** サーバ側の検証（`jsonschema`によるスキーマ検証と`validate_output`コールバックによる件数・文字数チェック）は`output_config.format`の成否と無関係に独立して行うため、**P0-4の結果が「通らない」であっても`_call`から`format`を外すだけで案Cへ切り替えられ、設計は壊れない。** ただし実機でBedrockが`output_config.format`を実際に受け付けるかどうかは、このサンドボックス環境からは検証できていない。P0-4/P0-7が解消され次第、本メモを更新する
 
 ---
 
