@@ -20,6 +20,7 @@
   --primary-ink: #FFFFFF;
   --danger: #9E3520;
   --warning: #7C5A12;
+  --scrim: rgba(32, 37, 34, 0.45);
 
   /* 4.1 書体 */
   --font-jp: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
@@ -78,6 +79,7 @@
     --primary-ink: #12211B;
     --danger: #E8907B;
     --warning: #D9AC61;
+    --scrim: rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -97,4 +99,5 @@
   --primary-ink: #12211B;
   --danger: #E8907B;
   --warning: #D9AC61;
+  --scrim: rgba(0, 0, 0, 0.6);
 }

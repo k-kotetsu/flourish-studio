@@ -89,7 +89,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-13**~~ ✅ | CC | M | 非同期ジョブ基盤。ジョブ登録、SQS送信、ワーカー雛形、`GET /jobs/{id}` | スキル `flourish-api`、`09_API設計` 3.1、`11_技術構成` 5.5 | ダミージョブが `QUEUED`→`SUCCEEDED` を辿る | P1-9、P1-6 |
 | ~~**P1-14**~~ ✅ | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
 | ~~**P1-15**~~ ✅ | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
-| **P1-16** | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
+| ~~**P1-16**~~ ✅ | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
 | **P1-17** | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
 | **P1-18** | CC | S | **CDK配線の欠け。** `AppStack` の Lambda（API・ワーカー）に `DataStack` の DynamoDB テーブルへの IAM 権限と `DYNAMODB_TABLE_NAME` 環境変数を追加する | `11_技術構成` 10.1（スタック分割）、10.3（削除保護） | `cdk test` で API・ワーカー両方のロールに `flourish` テーブルへの読み書き権限（`grantReadWriteData` 相当）が付与されていることを確認できる。実機での疎通確認は次回 `deploy-dev` 実行時に行う | P1-4、P1-6 |
 
@@ -184,6 +184,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - **Node 22以降の組み込み`localStorage`（experimental webstorage）がhappy-domの実装をglobalスコープで覆い隠す既知の衝突を確認した。** `vite.config.ts`の`test.execArgv`に`--no-experimental-webstorage`を渡して回避した
 - `make dev`をAPIとフロントの並行起動に変更した（CLAUDE.mdが定義する最終形「DynamoDB Local＋API＋フロントを起動」に対応。P1-8完了メモの積み残し）。`trap 'kill 0' EXIT`で片方が終了・Ctrl-Cされたときにもう片方も道連れに終了する
 - `make lint`（eslint・vue-tsc）、`make test`（vitest含む）、`npm run build`をいずれも確認済み。**ブラウザでの目視確認は本環境に対話的ブラウザツールが無いため実施できていない。** `vite dev`でのHTML/JS/CSS配信、`vite build`での`/app/`配下への出力、ストアの単体テストで代替した
+
+**P1-16完了メモ（2026-08-11）：** 共通コンポーネント7点を`web/src/components/`に実装した。個別画面（S-xx）はまだ1つも実装しない。
+
+- `AppButton.vue`：主要／副次／テキスト／無効の4種を`variant`と`disabled`で切り替える1コンポーネント（7.1）。無効時の理由文言（例：「すべて選ぶと、次に進めます」）はこのコンポーネントの外、呼び出し側が直下に置く設計とした
+- ヘッダー3型（6.2）：`AppHeaderHub.vue`（S-41専用、戻るなし。テーマ切替トグルの差し込み先として`right`スロットのみ用意——**トグルUI自体はP4-9の担当**）、`AppHeaderSingle.vue`（戻る＋画面名、プログレスバーなし）、`AppHeaderFlow.vue`（戻る／中断／プログレスバー付き）。**「フロー内」「フローの入口」「生成中」は左のアクションが`back`/`cancel`/`none`と切り替わるだけで見た目の骨格が同じため、`AppHeaderFlow`1コンポーネントに統合した**（3型はHub/Flow/Singleの粒度）
+- `AppProgressBar.vue`：6.3のプログレスバー単体。`AppHeaderFlow`から内部で利用する
+- `InterruptDialog.vue`：7.2の中断ダイアログ。文言は仕様どおり固定。「つづける」を主ボタンにし、開いたときのキーボードフォーカスも「つづける」に置いた（誤操作で入力を失う側を既定にしない）
+- `GeneratingScreen.vue`：7.4の生成中画面本体（ヘッダーを除く）。`failed`propで同一コンポーネント内の中身をエラー表示に入れ替える。`errorMessage`は呼び出し側が具体的に渡す必須の運用とし、**コンポーネント側に定型のフォールバック文言は持たせていない**
+- **`--scrim`トークンを`tokens.css`に追加した。** 中断ダイアログの背景幕（スクリム）に使う色がP1-15時点のトークン一覧になかったため、`06_ワイヤーフレーム/mockup.html`が定義する値（ライト`rgba(32,37,34,.45)`／ダーク`rgba(0,0,0,.6)`）をそのまま採用した
+- `web/src/views/ComponentGalleryView.vue`：Storybook相当の一覧画面。ルーター`/_gallery`（ユーザー導線には出さない内部確認用）に配置し、ボタン4種・ヘッダー3型・プログレスバー・中断ダイアログ・生成中画面（待ち／失敗）の全状態を1画面で確認できる
+- 各コンポーネントに`@vue/test-utils`を追加してユニットテストを実装（`*.spec.ts`、計32件）。`npm run lint`はTypeScriptの型のみを使う`defineEmits`の型引数（例：`MouseEvent`）を誤検知していたため、typescript-eslint公式の推奨に従い`no-undef`ルールを無効化した（TS側の型検査で代替される）
+- `make lint-web`・`make test-web`で確認済み。**ブラウザでの目視確認も実施済み**（P1-15時点はツールが無く未実施だったが、本タスクでは`playwright`のCLIを使い`/app/_gallery`をライト／ダーク両テーマでスクリーンショット取得、中断ダイアログと生成中画面の失敗状態への切り替えも操作して確認した。コンソールエラーなし）
 
 ---
 
