@@ -90,7 +90,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P1-14**~~ ✅ | CC | M | Bedrock クライアントとプロンプト実行基盤。3層構造の組み立て、出力検証、1回再生成、EMFログ | スキル `flourish-ai`、`10_AIプロンプト設計` 2〜3章 | ダミープロンプトで生成・検証・記録が動く | P1-8、P0-7 |
 | ~~**P1-15**~~ ✅ | CC | M | Vue 雛形。Vite、ルーター、Pinia、**デザイントークンのCSS変数**、ダークモード初期化 | スキル `flourish-ui`、`07_デザイン原則` 2〜5章 | トークンが定義され、テーマ切替が動く | P1-1 |
 | ~~**P1-16**~~ ✅ | CC | M | 共通コンポーネント：ボタン4種、ヘッダー3型、プログレスバー、中断ダイアログ、**生成中画面** | スキル `flourish-ui`、`07_デザイン原則` 6〜7章、`06_ワイヤーフレーム` | Storybook 相当の一覧で全状態を確認できる | P1-15 |
-| **P1-17** | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
+| ~~**P1-17**~~ ✅ | CC | S | APIクライアント（fetch ラッパ、`code` → 文言のマッピング、ジョブのポーリング） | スキル `flourish-api` `flourish-tone` | ポーリングが `poll_after_ms` に従う | P1-15、P1-10 |
 | **P1-18** | CC | S | **CDK配線の欠け。** `AppStack` の Lambda（API・ワーカー）に `DataStack` の DynamoDB テーブルへの IAM 権限と `DYNAMODB_TABLE_NAME` 環境変数を追加する | `11_技術構成` 10.1（スタック分割）、10.3（削除保護） | `cdk test` で API・ワーカー両方のロールに `flourish` テーブルへの読み書き権限（`grantReadWriteData` 相当）が付与されていることを確認できる。実機での疎通確認は次回 `deploy-dev` 実行時に行う | P1-4、P1-6 |
 
 **P1-9（リポジトリ層）と P1-14（プロンプト実行基盤）が後続すべての土台になる。** ここを雑に作ると全フェーズに響く。
@@ -196,6 +196,14 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/views/ComponentGalleryView.vue`：Storybook相当の一覧画面。ルーター`/_gallery`（ユーザー導線には出さない内部確認用）に配置し、ボタン4種・ヘッダー3型・プログレスバー・中断ダイアログ・生成中画面（待ち／失敗）の全状態を1画面で確認できる
 - 各コンポーネントに`@vue/test-utils`を追加してユニットテストを実装（`*.spec.ts`、計32件）。`npm run lint`はTypeScriptの型のみを使う`defineEmits`の型引数（例：`MouseEvent`）を誤検知していたため、typescript-eslint公式の推奨に従い`no-undef`ルールを無効化した（TS側の型検査で代替される）
 - `make lint-web`・`make test-web`で確認済み。**ブラウザでの目視確認も実施済み**（P1-15時点はツールが無く未実施だったが、本タスクでは`playwright`のCLIを使い`/app/_gallery`をライト／ダーク両テーマでスクリーンショット取得、中断ダイアログと生成中画面の失敗状態への切り替えも操作して確認した。コンソールエラーなし）
+
+**P1-17完了メモ（2026-08-11）：** APIクライアントを`web/src/api/`に実装した。個別エンドポイントの呼び出し関数（`POST /assessments`など）はまだ1つも作らない。各機能タスク（P2-2以降）がこの基盤の上に積む。
+
+- `client.ts`：`api.get`/`post`/`put`/`patch`/`delete`。`/api/v1`配下を`credentials: "include"`で呼ぶ（Cookieのみで認証、トークンはJSから触らない＝BFF方式）。`Idempotency-Key`ヘッダをオプションで付与できる。エラー応答（`09_API設計`2.3の`{error:{code,message,details}}`形）を`ApiError`（`status`/`code`/`message`/`details`/`retryAfterSeconds`）に変換して投げる。`fetch`自体の失敗は`code: "NETWORK_ERROR"`に正規化するが、`AbortError`はポーリングの打ち切りに使うためそのまま伝播させる。`401`（`UNAUTHENTICATED`）時に呼ばれる`onUnauthorized`フックを用意した（**S-01への実際の遷移はまだ配線していない。** S-01自体が未実装のため、P3系のルーティング実装時に`router.push`等を登録する形を想定）
+- `errorMessages.ts`：`code` → ユーザー向け文言の変換（`messageForCode`）。サーバーは文言を持たない（スキル`flourish-api`）契約に対応する、クライアント側で唯一この変換を行う場所とした。現時点で判明している`code`（`UNAUTHENTICATED`／`JOB_NOT_FOUND`／`JOB_FORBIDDEN`／`RATE_LIMITED`／AI系4種／`ANSWERS_INCOMPLETE`／`STATEMENT_TOO_LONG`／`GOALS_REQUIRED`／`PURPOSE_REQUIRED`／`NO_GOALS`／`NETWORK_ERROR`）を網羅し、未知の`code`はフォールバック文言に落とす（`flourish-api`「`code`の追加はしても意味は変えない」と整合）。トーンはスキル`flourish-tone`（謝罪・感嘆符・禁止語なし、「書いていただいた内容はそのまま残っています」の明示）に従った
+- `jobs.ts`：`waitForJob(jobId, initialPollAfterMs, signal)`。`GET /jobs/{id}`を**サーバーが返す`poll_after_ms`の指示どおりの間隔だけ**呼び続け、`SUCCEEDED`なら`result`を返し、`FAILED`なら`code`/`retryable`を持つ`JobFailedError`を投げる。クライアント側に固定のポーリング間隔は持たせていない。`AbortSignal`でポーリングの打ち切りに対応（画面遷移・中断ダイアログでの離脱を想定。中断ダイアログ自体からの実際の配線はまだ無い）
+- **仕様と実装のズレを1件確認した。** `09_API設計`5.15・3.1は「`GET /jobs/{id}`が`poll_after_ms`を返し、クライアントはそれに従う（固定値を持たない）」と定めているが、P1-13で実装済みの`GET /jobs/{id}`（`api/app/api/v1/jobs.py`）は現状`poll_after_ms`を一切返していない。本タスクは仕様どおり、`QUEUED`/`RUNNING`中は`poll_after_ms`が必ず返る前提で`waitForJob`を実装した（値が無ければ例外を投げ、`jobs.spec.ts`でこの検知自体もテスト済み）。**このままではP2以降で実際にジョブ生成系エンドポイントを実装しても、ポーリングが1回目で例外になる。** `poll_after_ms`の具体的な値（`kind`ごとに変えるか、固定1500msかなど）は仕様に明記がなく判断が要るため、`GET /jobs/{id}`への追加は本タスクでは行わず、この場に記録するに留めた（ユーザー確認済み）。P2でジョブ生成系エンドポイントを実装するタスク（P2-5など）で、`GET /jobs/{id}`に`poll_after_ms`を足す作業も一緒に行う必要がある
+- テスト：`client.spec.ts`（GET/POST／`Idempotency-Key`／204／エラー変換／`Retry-After`／401フック／ネットワーク断／AbortError伝播）、`errorMessages.spec.ts`（既知`code`・フォールバック・禁止語や感嘆符を含まないこと）、`jobs.spec.ts`（初回は`poll_after_ms`だけ待つこと、以後も固定値を使わずサーバー指示に従うこと、`FAILED`時の`JobFailedError`、`poll_after_ms`欠落時に例外化すること）。`make lint`・`make test`で確認済み
 
 ---
 
