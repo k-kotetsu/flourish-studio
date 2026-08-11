@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     dynamodb_table_name: str = "flourish"
     # ローカル(DynamoDB Local)を指す。本番はNoneのままAWSのデフォルトエンドポイントを使う。
     dynamodb_endpoint_url: str | None = None
+    # 非同期ジョブのSQSキューURL(11_技術構成5.5)。Lambda環境変数から渡す。
+    job_queue_url: str | None = None
 
 
 @lru_cache

@@ -62,7 +62,12 @@ export class AppStack extends cdk.Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 1024,
       timeout: cdk.Duration.seconds(120),
+      environment: {
+        JOB_QUEUE_URL: this.queue.queueUrl,
+      },
     });
+    // ジョブ登録時にAPI Lambdaがキューへ送信できるようにする(技術構成5.5)。
+    this.queue.grantSendMessages(this.apiFunction);
 
     // ワーカーLambda: 1,769MB / 300秒 / 予約同時実行5(Bedrockのスロットリング対策。技術構成5.3)。
     this.workerFunction = new lambda.DockerImageFunction(this, "WorkerFunction", {
