@@ -1,4 +1,4 @@
-"""`POST /assessments`。09_API設計5.3の検証と非同期ジョブ登録を確認する。
+"""`POST /assessments` ／ `GET /assessments/{id}`。09_API設計5.3〜5.4の検証を確認する。
 
 実際のBedrock呼び出し・SQS送信は行わない。`send_job_message`をフェイクに差し替える。
 生成成功時の保存・失敗時に何も残らないことは`test_worker_handler.py`で確認する。
@@ -11,8 +11,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.security import GUEST_COOKIE_NAME, SESSION_COOKIE_NAME
+from app.db import repository
 from app.domain import guest_session, questions, session
 from app.domain import job as job_domain
+from app.domain.assessment import build_assessment_item, now_iso
+from app.domain.assessment_precompute import CommitmentResult, ScaleAnswer
 from app.domain.rate_limit import GUEST_SESSION_LIMIT
 from app.main import app
 
@@ -164,6 +167,87 @@ def test_idempotency_key_reuses_the_same_job(monkeypatch: pytest.MonkeyPatch) ->
 
     assert first.json()["job_id"] == second.json()["job_id"]
     assert len(fake_send.calls) == 1  # 2回目はジョブを作らない
+
+
+def _stored_result_item(owner: str, assessment_id: str) -> dict[str, Any]:
+    """`GET /assessments/{id}`のテスト用に、生成成功済みのASSESSMENTアイテムを直接組み立てる。"""
+    scale_answers = [
+        ScaleAnswer(area=area, question_kind="COMMITMENT", score=2) for area in questions.AREAS
+    ]
+    ai_output = {
+        "nickname": "全速前進、燃料計は未確認",
+        "articulation_stage": "SPROUT",
+        "safety_flag": False,
+        "areas": [
+            {
+                "area": area,
+                "satisfied_text": "満たされている点があります。",
+                "concern_text": "気になる点もあります。",
+                "advice_text": "少しずつ試してみるのはどうでしょう。",
+            }
+            for area in questions.AREAS
+        ],
+    }
+    return build_assessment_item(
+        owner=owner,
+        assessment_id=assessment_id,
+        question_set_version=questions.CURRENT_QUESTION_SET_VERSION,
+        scale_answers=scale_answers,
+        free_text_answers=[],
+        ai_output=ai_output,
+        commitment=CommitmentResult(score=8, stage="SEEDLING"),
+        started_at=now_iso(),
+        completed_at=now_iso(),
+    )
+
+
+def test_get_assessment_returns_result_for_the_owning_guest() -> None:
+    token, _ = guest_session.issue_guest_session()
+    owner = f"GUEST#{token}"
+    assessment_id = _uid()
+    repository.put_item(_stored_result_item(owner, assessment_id))
+    client = _client_with_cookie(GUEST_COOKIE_NAME, token)
+
+    response = client.get(f"/api/v1/assessments/{assessment_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["nickname"] == "全速前進、燃料計は未確認"
+    assert len(body["areas"]) == 4
+    assert body["commitment_stage"] == "SEEDLING"
+    assert body["articulation_stage"] == "SPROUT"
+
+
+def test_get_assessment_returns_result_for_the_owning_user() -> None:
+    uid = _uid()
+    token, _ = session.create_session(uid)
+    owner = f"USER#{uid}"
+    assessment_id = _uid()
+    repository.put_item(_stored_result_item(owner, assessment_id))
+    client = _client_with_cookie(SESSION_COOKIE_NAME, token)
+
+    response = client.get(f"/api/v1/assessments/{assessment_id}")
+
+    assert response.status_code == 200
+
+
+def test_get_assessment_returns_403_for_another_owner() -> None:
+    token, _ = guest_session.issue_guest_session()
+    owner = f"GUEST#{token}"
+    assessment_id = _uid()
+    repository.put_item(_stored_result_item(owner, assessment_id))
+
+    response = _guest_client().get(f"/api/v1/assessments/{assessment_id}")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ASSESSMENT_FORBIDDEN"
+
+
+def test_get_assessment_returns_403_when_it_does_not_exist() -> None:
+    response = _guest_client().get(f"/api/v1/assessments/{_uid()}")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ASSESSMENT_FORBIDDEN"
 
 
 def test_guest_report_generation_limit_returns_429_after_the_session_limit(
