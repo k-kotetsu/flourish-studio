@@ -11,6 +11,7 @@ import AppHeaderFlow from "../components/AppHeaderFlow.vue";
 import AppHeaderSingle from "../components/AppHeaderSingle.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import GeneratingScreen from "../components/GeneratingScreen.vue";
+import { GROWTH_STAGES, GROWTH_STAGE_ICONS, GROWTH_STAGE_LABELS } from "../domain/growthStage";
 
 const dialogOpen = ref(false);
 const generatingFailed = ref(false);
@@ -166,6 +167,64 @@ const generatingFailed = ref(false);
     </section>
 
     <section class="gallery__group">
+      <h2>成長段階アイコン（P2-10。種・芽・苗・木）</h2>
+      <p class="gallery__lede">
+        線画・24pxグリッド・線幅1.6px・塗りつぶしなし。4つ並べたときに成長の連続が読み取れることを確認する（`07_デザイン原則`7.6）。表示コンポーネント化（該当段階のみ`--primary`で点灯、点灯アニメーション）はP2-11で行う。
+      </p>
+      <div class="gallery__row">
+        <div
+          v-for="stage in GROWTH_STAGES"
+          :key="`icon-${stage}`"
+          class="gallery__icon"
+        >
+          <svg
+            class="gallery__icon-svg"
+            :viewBox="GROWTH_STAGE_ICONS[stage].viewBox"
+          >
+            <path
+              v-for="(d, i) in GROWTH_STAGE_ICONS[stage].paths"
+              :key="i"
+              :d="d"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="gallery__label">{{ GROWTH_STAGE_LABELS[stage] }}</span>
+        </div>
+      </div>
+      <p class="gallery__lede">
+        実際の表示サイズ（28px）・点灯色
+      </p>
+      <div class="gallery__row">
+        <div
+          v-for="stage in GROWTH_STAGES"
+          :key="`icon-small-${stage}`"
+          class="gallery__icon gallery__icon--small gallery__icon--primary"
+        >
+          <svg
+            class="gallery__icon-svg gallery__icon-svg--small"
+            :viewBox="GROWTH_STAGE_ICONS[stage].viewBox"
+          >
+            <path
+              v-for="(d, i) in GROWTH_STAGE_ICONS[stage].paths"
+              :key="i"
+              :d="d"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="gallery__label">{{ GROWTH_STAGE_LABELS[stage] }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gallery__group">
       <h2>生成中画面</h2>
       <AppButton
         variant="secondary"
@@ -261,6 +320,31 @@ const generatingFailed = ref(false);
 
 .gallery__device--tall :deep(.generating-screen) {
   background: var(--bg);
+}
+
+.gallery__icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.gallery__icon-svg {
+  width: 64px;
+  height: 64px;
+}
+
+.gallery__icon-svg--small {
+  width: 28px;
+  height: 28px;
+}
+
+.gallery__icon--small {
+  gap: var(--space-2);
+}
+
+.gallery__icon--primary {
+  color: var(--primary);
 }
 
 .gallery__toggle-placeholder {
