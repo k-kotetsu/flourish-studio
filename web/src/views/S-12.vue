@@ -5,7 +5,7 @@
  * App.vueのrouter-viewに `:key="$route.fullPath"` を付けているため、領域が変わるたびに
  * このコンポーネントは新規に作り直される。そのため領域が変わったときの回答リセットは
  * 考えなくてよく、setup実行時の値をそのまま使う。
- * 保存はしない(クライアント保持)。Socialまで終えたらS-13(P2-6、未実装)へ。
+ * 保存はしない(クライアント保持)。Socialまで終えたらS-13へ。
  */
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -93,7 +93,6 @@ function goNext(): void {
   if (nextIndex < AREAS.length) {
     router.push(`/s-12/${AREA_META[AREAS[nextIndex]].slug}`);
   } else {
-    // S-13(P2-6)は未実装。実装され次第このパスへの遷移が有効になる
     router.push("/s-13");
   }
 }
