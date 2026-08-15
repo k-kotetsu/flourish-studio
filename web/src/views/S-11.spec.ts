@@ -50,7 +50,7 @@ describe("S-11", () => {
 
     await wrapper.find(".s11__cta button").trigger("click");
 
-    expect(push).toHaveBeenCalledWith("/s-12");
+    expect(push).toHaveBeenCalledWith("/s-12/career");
   });
 
   it("発行に失敗したらエラーを表示し、自動では再試行しない", async () => {

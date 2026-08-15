@@ -27,8 +27,7 @@ async function issueGuestSession(): Promise<void> {
 onMounted(issueGuestSession);
 
 function start(): void {
-  // S-12(P2-3)は未実装。実装され次第このパスへの遷移が有効になる
-  router.push("/s-12");
+  router.push("/s-12/career");
 }
 </script>
 
