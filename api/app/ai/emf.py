@@ -29,12 +29,17 @@ def emit(
     error_code: str | None = None,
     safety_flag: bool | None = None,
     identifiers: dict[str, str] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """1回のBedrock呼び出しにつき1行を出す。
 
     `retry_reason`は同一ジョブ内のサーバ内再生成を区別する。`attempt`はユーザーが
     再試行ボタンを押して新しいジョブになったときだけ増える値で、呼び出し側が渡す
     (08_データモデル7.1「再試行は同じkindで新しいログを出し、attemptを増やす」)。
+
+    `extra`はkind固有のフィールド(例: ASSESSMENT_REPORTの`articulation_reason`。
+    10_AIプロンプト設計4.2「ASSESSMENT_RESULTに保存せず、AI_GENERATION側に記録する」)。
+    08_データモデル7.1の共通フィールド一覧には無いため、この引数でしか渡らない。
     """
     payload: dict[str, Any] = {
         "_aws": {
@@ -66,4 +71,6 @@ def emit(
     }
     if identifiers:
         payload.update(identifiers)
+    if extra:
+        payload.update(extra)
     print(json.dumps(payload, ensure_ascii=False))

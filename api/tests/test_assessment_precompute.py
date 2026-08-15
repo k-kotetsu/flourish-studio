@@ -1,9 +1,14 @@
+import pytest
+
+from app.core.errors import UnprocessableEntityError
 from app.domain import growth_stage, questions
 from app.domain.assessment_precompute import (
+    FreeTextAnswer,
     FreeTextTarget,
     ScaleAnswer,
     compute_commitment,
     pick_free_text_targets,
+    validate_free_text_answers,
 )
 
 _QUESTION_SET = questions.get_question_set(questions.CURRENT_QUESTION_SET_VERSION)
@@ -140,3 +145,67 @@ def test_commitment_stage_boundaries() -> None:
 
         assert result.score == total_score
         assert result.stage == expected_stage
+
+
+def _valid_free_text_answers() -> list[FreeTextAnswer]:
+    answers = []
+    for area in questions.AREAS:
+        for slot in ("SATISFIED", "CONCERN"):
+            answers.append(
+                FreeTextAnswer(
+                    area=area,
+                    slot=slot,
+                    target_item_code=f"{area}_ITEM",
+                    generated_question="問い文",
+                    body="回答本文" if slot == "SATISFIED" else None,
+                )
+            )
+    return answers
+
+
+def test_validate_free_text_answers_accepts_exactly_8_with_null_body() -> None:
+    validate_free_text_answers(_valid_free_text_answers())  # 例外が出ないことを確認
+
+
+def test_validate_free_text_answers_rejects_missing_slot() -> None:
+    answers = _valid_free_text_answers()[:-1]  # 7件、SOCIALのCONCERNが欠ける
+
+    with pytest.raises(UnprocessableEntityError) as exc_info:
+        validate_free_text_answers(answers)
+
+    assert exc_info.value.code == "ANSWERS_INCOMPLETE"
+
+
+def test_validate_free_text_answers_rejects_duplicate_slot() -> None:
+    answers = _valid_free_text_answers()[:-1]
+    # SOCIALのCONCERNの代わりにCAREERのSATISFIEDを重複させる(件数は8のまま、組が揃わない)
+    answers.append(
+        FreeTextAnswer(
+            area=questions.CAREER,
+            slot="SATISFIED",
+            target_item_code="DUP",
+            generated_question="問い文",
+            body=None,
+        )
+    )
+
+    with pytest.raises(UnprocessableEntityError) as exc_info:
+        validate_free_text_answers(answers)
+
+    assert exc_info.value.code == "ANSWERS_INCOMPLETE"
+
+
+def test_validate_free_text_answers_requires_generated_question() -> None:
+    answers = _valid_free_text_answers()
+    answers[0] = FreeTextAnswer(
+        area=answers[0].area,
+        slot=answers[0].slot,
+        target_item_code=answers[0].target_item_code,
+        generated_question="",
+        body=None,
+    )
+
+    with pytest.raises(UnprocessableEntityError) as exc_info:
+        validate_free_text_answers(answers)
+
+    assert exc_info.value.code == "ANSWERS_INCOMPLETE"

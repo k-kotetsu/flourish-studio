@@ -67,6 +67,27 @@ def mark_succeeded(job_id: str, result: dict[str, Any]) -> Item:
     )
 
 
+def mark_succeeded_with_item(job_id: str, result: dict[str, Any], item: Item) -> None:
+    """成果物を別アイテムに書く生成系ジョブの完了(09_API設計5.3「成功した時点ではじめて保存される」)。
+
+    JOBのSUCCEEDED更新と成果物`item`のPutを1トランザクションにまとめる。片方だけが
+    書かれる状態を作らない。`item`のPK/SKは呼び出し側が設定済みであること。
+    """
+    repository.transact_write_items(
+        [
+            {
+                "Update": {
+                    "Key": {"PK": job_pk(job_id), "SK": JOB_SK},
+                    "UpdateExpression": "SET #status = :succeeded, #result = :result",
+                    "ExpressionAttributeNames": {"#status": "status", "#result": "result"},
+                    "ExpressionAttributeValues": {":succeeded": "SUCCEEDED", ":result": result},
+                }
+            },
+            {"Put": {"Item": item}},
+        ]
+    )
+
+
 def mark_failed(job_id: str, code: str, retryable: bool) -> Item:
     """`retryable`はクライアントが再試行ボタンを出すかの判断に使う(09_API設計3.1)。"""
     return repository.update_item(

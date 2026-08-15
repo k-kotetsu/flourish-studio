@@ -84,6 +84,7 @@ def generate(
     messages: Sequence[MessageParam],
     *,
     validate_output: Callable[[dict[str, Any]], None] | None = None,
+    extra_log_fields: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     attempt: int = 1,
     identifiers: dict[str, str] | None = None,
 ) -> GenerationResult:
@@ -91,6 +92,9 @@ def generate(
 
     `validate_output`は、JSON Schemaで表現できない件数・文字数などの追加検証を行う
     (3.3「スキーマで表現できないもの」)。違反時は`OutputValidationError`を送出する。
+
+    `extra_log_fields`は、成功した出力からkind固有のEMFフィールドを作る(例:
+    ASSESSMENT_REPORTの`articulation_reason`)。出力が無い(FAILED)ときは呼ばない。
 
     `attempt`はユーザーが再試行ボタンを押して新しいジョブになったときの通し番号で、
     呼び出し側(ジョブ側)が管理する。同一ジョブ内のサーバ内再生成は`retry_reason`で
@@ -100,7 +104,14 @@ def generate(
     wire_schema = to_wire_schema(spec.schema)
 
     result = _call(spec, system, wire_schema, messages, validate_output)
-    _log(spec, attempt=attempt, retry_reason=None, identifiers=identifiers, result=result)
+    _log(
+        spec,
+        attempt=attempt,
+        retry_reason=None,
+        identifiers=identifiers,
+        result=result,
+        extra_log_fields=extra_log_fields,
+    )
 
     is_retryable_invalid = (
         result.status == "FAILED"
@@ -118,6 +129,7 @@ def generate(
         retry_reason="SCHEMA_INVALID",
         identifiers=identifiers,
         result=result,
+        extra_log_fields=extra_log_fields,
     )
     return result
 
@@ -231,7 +243,11 @@ def _log(
     retry_reason: str | None,
     identifiers: dict[str, str] | None,
     result: GenerationResult,
+    extra_log_fields: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> None:
+    extra = None
+    if extra_log_fields is not None and result.output is not None:
+        extra = extra_log_fields(result.output)
     emf.emit(
         kind=spec.kind,
         model=spec.model,
@@ -246,4 +262,5 @@ def _log(
         completion_tokens=result.completion_tokens,
         cache_read_tokens=result.cache_read_tokens,
         identifiers=identifiers,
+        extra=extra,
     )

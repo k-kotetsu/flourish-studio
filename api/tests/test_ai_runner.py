@@ -272,3 +272,38 @@ def test_generate_uses_custom_validation_for_constraints_the_schema_cannot_expre
 
     assert result.status == "SUCCEEDED"
     assert result.output == {"message": "短い", "safety_flag": False}
+
+
+def test_generate_passes_extra_log_fields_derived_from_the_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _install_fake_client(monkeypatch, [_response(text=_valid_output_text("だいじょうぶ"))])
+
+    result = generate(
+        DUMMY_SPEC,
+        DUMMY_MESSAGES,
+        attempt=1,
+        extra_log_fields=lambda output: {"echoed_message": output["message"]},
+    )
+
+    assert result.status == "SUCCEEDED"
+    logs = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+    assert logs[0]["echoed_message"] == "だいじょうぶ"
+
+
+def test_generate_does_not_call_extra_log_fields_when_generation_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _install_fake_client(monkeypatch, [_response(text=None, stop_reason="refusal")])
+    calls: list[dict[str, Any]] = []
+
+    def _record_and_return_extra(output: dict[str, Any]) -> dict[str, Any]:
+        calls.append(output)
+        return {}
+
+    result = generate(
+        DUMMY_SPEC, DUMMY_MESSAGES, attempt=1, extra_log_fields=_record_and_return_extra
+    )
+
+    assert result.status == "FAILED"
+    assert calls == []
