@@ -19,7 +19,7 @@ def emit(
     kind: str,
     model: str,
     prompt_version: str,
-    effort: str,
+    effort: str | None,
     status: Literal["SUCCEEDED", "FAILED"],
     attempt: int,
     prompt_tokens: int | None = None,
@@ -40,6 +40,8 @@ def emit(
     `extra`はkind固有のフィールド(例: ASSESSMENT_REPORTの`articulation_reason`。
     10_AIプロンプト設計4.2「ASSESSMENT_RESULTに保存せず、AI_GENERATION側に記録する」)。
     08_データモデル7.1の共通フィールド一覧には無いため、この引数でしか渡らない。
+
+    `effort`は`SAFETY_CHECK`のみ`None`(Haiku 4.5は`effort`非対応。10_AIプロンプト設計4.9)。
     """
     payload: dict[str, Any] = {
         "_aws": {

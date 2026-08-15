@@ -6,6 +6,12 @@
  * あだ名(エンタメ) → 4領域の整理 → 言語化度・コミット度 → 締め。
  * 未登録のまま全文を表示する(認証不要)。AI生成が成功した場合のみ到達する画面のため、
  * 状態バリエーションを持たない(失敗はS-15側で使い切る、06_ワイヤーフレーム3章)。
+ *
+ * `safety_flag`が立った場合は評価(あだ名・4領域の整理・言語化度)を表示しない
+ * (10_AIプロンプト設計3.7「フラグが立った領域については、評価・課題の指摘・目標の
+ * 提案を行わない」「相談窓口の案内は画面側が行う」、P2-12)。**表示する固定文面
+ * そのものはP7-1(専門家レビューを要する)未完了のため、この画面ではまだ実装しない。**
+ * 評価を隠すところまでが本タスクの範囲で、代わりに表示する内容はP7-1完了後に別途行う。
  */
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -41,6 +47,8 @@ const orderedAreas = computed(() => {
   );
 });
 
+const isSafetyFlagged = computed(() => resultStore.result?.safety_flag ?? false);
+
 function goNext(): void {
   router.push("/s-21");
 }
@@ -57,7 +65,10 @@ function goNext(): void {
       step="6 / 6"
       left-action="none"
     />
-    <div class="s16__body">
+    <div
+      v-if="!isSafetyFlagged"
+      class="s16__body"
+    >
       <div
         class="s16__nickname"
         :class="{ 's16__nickname--enter': animate }"
@@ -140,7 +151,21 @@ function goNext(): void {
       </p>
     </div>
 
-    <div class="s16__cta">
+    <!--
+      safety_flagが立った場合の表示。10_AIプロンプト設計3.7「相談窓口の案内は画面側が行う」。
+      表示する固定文面はP7-1(専門家レビューを要する)の成果物待ちのため、ここでは
+      評価を隠すところまでを実装し、中身は空のまま残す(P2-12完了メモ参照)。
+    -->
+    <div
+      v-else
+      class="s16__body"
+      data-testid="safety-notice"
+    />
+
+    <div
+      v-if="!isSafetyFlagged"
+      class="s16__cta"
+    >
       <AppButton @click="goNext">
         ありたい姿を作る
       </AppButton>

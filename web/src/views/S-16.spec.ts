@@ -113,4 +113,16 @@ describe("S-16", () => {
 
     expect(push).toHaveBeenCalledWith("/s-21");
   });
+
+  it("safety_flagが立っていたら評価(あだ名・4領域・言語化度)を表示しない", () => {
+    useAssessmentResultStore().setResult({ ...result(), safety_flag: true });
+
+    const wrapper = mount(S16View);
+
+    expect(wrapper.find(".s16__nickname").exists()).toBe(false);
+    expect(wrapper.find(".s16__area-en").exists()).toBe(false);
+    expect(wrapper.find(".growth-stage-display__stages").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("全速前進、燃料計は未確認");
+    expect(wrapper.find('[data-testid="safety-notice"]').exists()).toBe(true);
+  });
 });
