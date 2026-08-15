@@ -8,6 +8,7 @@
 
 from dataclasses import dataclass
 
+from app.core.errors import UnprocessableEntityError
 from app.domain.growth_stage import SEED, SEEDLING, SPROUT, TREE
 from app.domain.questions import AREAS, COMMITMENT, SATISFACTION, QuestionSet
 
@@ -48,6 +49,28 @@ class FreeTextTarget:
 class CommitmentResult:
     score: int  # 4領域のQ6合計。0〜16
     stage: str  # GrowthStage
+
+
+def validate_scale_answers(scale_answers: list[ScaleAnswer], question_set: QuestionSet) -> None:
+    """`scale_answers`がちょうど24件で、(area, question_kind, item_code)の組が揃うことを確認する。
+
+    `09_API設計`5.2の「件数」「重複」の2検証をまとめて行う。件数が24件ちょうどでも組に重複が
+    あれば、必然的に別の組が欠ける。**どちらも同じ`ANSWERS_INCOMPLETE`として扱う判断とした**
+    (5.2は重複時のcodeを明記していない。件数不足と同じ「揃っていない」事実であるため)。
+    `POST /assessments`(P2-8)も同じ検証を使う(5.3「整合」)。
+    """
+    expected: set[tuple[str, str, str | None]] = {
+        (item.area, SATISFACTION, item.code) for item in question_set.items
+    }
+    expected |= {(area, COMMITMENT, None) for area in AREAS}
+    received = {(answer.area, answer.question_kind, answer.item_code) for answer in scale_answers}
+
+    if len(scale_answers) != 24 or received != expected:
+        raise UnprocessableEntityError(
+            "ANSWERS_INCOMPLETE",
+            f"scale_answers must be exactly 24 unique (area, question_kind, item_code) "
+            f"combinations (received {len(scale_answers)})",
+        )
 
 
 def pick_free_text_targets(

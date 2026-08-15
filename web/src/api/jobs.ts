@@ -1,11 +1,7 @@
 /**
  * 非同期ジョブのポーリング。09_API設計3.1・5.15、スキルflourish-api「非同期ジョブ」。
  * ポーリング間隔は常にサーバーの`poll_after_ms`に従う。クライアントは固定値を持たない。
- *
- * 注記（P1-17時点）：`09_API設計`5.15は`GET /jobs/{id}`が`poll_after_ms`を返す前提だが、
- * P1-13で実装済みの `api/app/api/v1/jobs.py` は現状この値を返していない
- * （バックログP1-17完了メモ参照）。本モジュールは仕様どおり、QUEUED/RUNNING中は
- * `poll_after_ms`が必ず返る前提で実装する。
+ * `GET /jobs/{id}`はQUEUED/RUNNING中、必ず`poll_after_ms`を返す（P2-5で`api/app/api/v1/jobs.py`に実装済み）。
  */
 
 import { api } from "./client";

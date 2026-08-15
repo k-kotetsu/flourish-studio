@@ -17,6 +17,15 @@ SATISFACTION = "SATISFACTION"
 COMMITMENT = "COMMITMENT"
 QUESTION_KINDS = (SATISFACTION, COMMITMENT)
 
+# プロンプト入力での領域表記(10_AIプロンプト設計4.1「領域: Career（仕事・働き方）」)。
+# web/src/domain/questions.ts の`AREA_META`のen/jpと揃える。
+AREA_LABELS: dict[str, str] = {
+    CAREER: "Career（仕事・働き方）",
+    FINANCIAL: "Financial（お金・生活設計）",
+    PHYSICAL: "Physical（健康・生活習慣）",
+    SOCIAL: "Social（人との関係）",
+}
+
 
 @dataclass(frozen=True)
 class Choice:
