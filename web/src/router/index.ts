@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import PlaceholderView from "../views/PlaceholderView.vue";
 import ComponentGalleryView from "../views/ComponentGalleryView.vue";
+import S11View from "../views/S-11.vue";
 
 // SPAは "/app/*" 配下でCloudFrontから配信される(infra/lib/edge-stack.ts)。
 // ビルド成果物のアセットURLもこのbaseに合わせる必要がある(vite.config.tsのbaseと対で決める)。
@@ -13,6 +14,12 @@ export const router = createRouter({
       path: "/",
       name: "home",
       component: PlaceholderView,
+    },
+    {
+      // ファイル名は画面IDに合わせる(dev-environment.md 8章「web/src/views/のファイル名を画面IDにする」)
+      path: "/s-11",
+      name: "s-11",
+      component: S11View,
     },
     {
       // Storybook相当の内部確認用画面（P1-16の完了条件）。ユーザー導線には出さない
