@@ -1,7 +1,9 @@
-"""`POST /assessments`。09_API設計5.3、10_AIプロンプト設計4.2、スキルflourish-api。
+"""`POST /assessments` ／ `GET /assessments/{id}`。09_API設計5.3〜5.4、10_AIプロンプト設計4.2、
+スキルflourish-api。
 
 S-15。選択式・自由記述・問い文をすべて受け取り、生成と保存をまとめて非同期ジョブで行う。
 成功した時点ではじめてASSESSMENTアイテムが保存される(`app/worker/handler.py`)。
+S-16はそうして保存されたレポートを`GET /assessments/{id}`で読む。
 """
 
 import dataclasses
@@ -12,7 +14,9 @@ from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
 
 from app.api.deps import current_owner
-from app.core.errors import BadRequestError
+from app.core.errors import BadRequestError, ForbiddenError
+from app.db import repository
+from app.db.keys import assessment_sk
 from app.domain import idempotency, rate_limit
 from app.domain import job as job_domain
 from app.domain.assessment import now_iso
@@ -120,3 +124,19 @@ def create_assessment_job(
         )
 
     return {"job_id": job_id, "poll_after_ms": POLL_AFTER_MS}
+
+
+@router.get("/assessments/{assessment_id}")
+def get_assessment(assessment_id: str, owner: str = Depends(current_owner)) -> dict[str, Any]:
+    """S-16。あだ名、領域ごとの3ブロック、言語化度・コミット度の段階を返す(09_API設計5.4)。
+
+    ASSESSMENTアイテムのPKは`owner`そのもの(USER#<id> / GUEST#<id>)なので、他人のレポートは
+    そもそも`current_owner`のキーでは引けない。5.4は「それ以外は403」とのみ定め404には
+    触れていないため、未存在と他人の所有を区別せず403にまとめる判断とした
+    (`GET /jobs/{id}`の「存在有無は漏らさない」と同じ考え方)。
+    """
+    item = repository.get_item(owner, assessment_sk(assessment_id))
+    if item is None:
+        raise ForbiddenError("ASSESSMENT_FORBIDDEN", "assessment does not belong to this owner")
+    result: dict[str, Any] = item["result"]
+    return result

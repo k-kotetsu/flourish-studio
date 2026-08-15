@@ -229,7 +229,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P2-6**~~ ✅ | CC | S | S-13 生成中画面と失敗時の再試行 | `04_画面設計` S-13、`07_デザイン原則` 7.4 | 失敗時に同じ画面で中身が入れ替わる | P1-16、P2-5 |
 | ~~**P2-7**~~ ✅ | CC | M | S-14 自由記述8問。任意入力、1,000文字上限 | `04_画面設計` S-14、`05_質問・コンテンツ設計` 3章 | 全問空欄でも進める | P2-6 |
 | ~~**P2-8**~~ ✅ | CC | L | **P-02 プロンプト実装 ＋ `POST /assessments`。** あだ名・4領域の整理・言語化度 | `10_AIプロンプト設計` 4.2、スキル `flourish-ai` | 検証をすべて通る。**成功時のみ1アイテム保存** | P1-14、P2-4 |
-| **P2-9** | CC | M | S-15 → S-16 結果画面。あだ名の演出、4領域の整理、締め | `04_画面設計` S-15/S-16、`05_質問・コンテンツ設計` 5章、`06_ワイヤーフレーム` | 上から下へ軽い→真面目の構成 | P2-8、P1-16 |
+| ~~**P2-9**~~ ✅ | CC | M | S-15 → S-16 結果画面。あだ名の演出、4領域の整理、締め | `04_画面設計` S-15/S-16、`05_質問・コンテンツ設計` 5章、`06_ワイヤーフレーム` | 上から下へ軽い→真面目の構成 | P2-8、P1-16 |
 | **P2-10** | **私** | M | **成長段階アイコン（種・芽・苗・木）の描き起こし** | `07_デザイン原則` 7.6 | 4つ並べて成長の連続が読み取れるSVG | − |
 | **P2-11** | CC | S | 成長段階の表示コンポーネント。4段階を並べ、該当のみ `--primary` | `07_デザイン原則` 7.7 | 数値を出さない。点灯アニメーション | P2-10、P1-16 |
 | **P2-12** | CC | M | P-09 `SAFETY_CHECK` と `safety_flag` の表示 | `10_AIプロンプト設計` 4.9、3.7 | フラグ時に評価を出さず、固定文面を表示 | P2-8、P7-1 |
@@ -327,6 +327,21 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - 既存の`test_handler_processes_a_dummy_job_to_succeeded`・`test_handler_processes_multiple_records`は`ASSESSMENT_REPORT`をダミーkindとして使っていたため、P2-5がASSESSMENT_QUESTIONSに対して行ったのと同じ要領で、まだ未実装の`PURPOSE_PROPOSALS`に差し替えた
 - `api/tests/test_assessment_report_prompt.py`／`test_assessment_precompute.py`（追加分）／`test_assessments_endpoint.py`／`test_worker_handler.py`（追加分）／`test_ai_emf.py`・`test_ai_runner.py`（`extra`/`extra_log_fields`の追加分）／`test_job.py`（追加分）：**完了条件「検証をすべて通る。成功時のみ1アイテム保存」**は`test_worker_handler.py::test_handler_generates_assessment_report_to_succeeded`（生成成功→アイテム保存、`articulation_reason`はアイテムに残らないことを確認）と`test_handler_does_not_save_an_item_when_ai_output_is_invalid`（2回目のスキーマ違反でも直らない→アイテムは何も残らない）で確認した
 - `make lint && make test`が通ることを確認済み。実際のBedrock・AWS実機での疎通確認は行っていない（本タスクの範囲外）
+
+**P2-9完了メモ（2026-08-15）：** S-15（現在地レポート生成中）とS-16（結果画面）を実装した。あわせて、S-16が結果を読むのに必要な`GET /assessments/{id}`（`09_API設計`5.4、未実装だった）も実装した。
+
+- **仕様上の欠けを1件、着手前に確認せず実装で埋めた（判断の記録）。** `09_API設計`エンドポイント一覧に`GET /assessments/{id}`は明記されていたが未実装だった。S-16はこれでレポート本文を取得する構成になっており、本タスクの完了条件を満たすために必須だったため、5.4の記述どおりに実装した。認可は`08_データモデル`2.3「所有者はCookieから分かる」のとおり、ASSESSMENTアイテムのPKが`owner`（`USER#<id>` / `GUEST#<id>`）そのものであることを利用し、`current_owner`のキーで引けなければ（存在しない／他人の所有のいずれでも）`403 ASSESSMENT_FORBIDDEN`とした。5.4は「それ以外は403」とのみ定め404には触れておらず、PKが所有者スコープである以上「存在しない」と「他人の所有」は区別できない（`GET /jobs/{id}`の「存在有無は漏らさない」と同じ考え方）
+- **仕様に明記のない判断を1件。** 成長段階（種・芽・苗・木）の表示は`06_ワイヤーフレーム`3章で「線画アイコンを4つ並べる」とあるが、アイコンの描き起こし（P2-10、担当**私**）と表示コンポーネント（P2-11、依存P2-10）はどちらも別タスクで未着手。既存画面（S-12/S-14）がすべてアイコン未導入でテキストラベルのみを使っている前例に合わせ、S-16でもアイコンなしでテキストラベル（種/芽/苗/木）＋点灯色のみの表示とした。P2-11着手時に表示コンポーネントとして切り出す想定
+- `api/app/api/v1/assessments.py`：`GET /assessments/{assessment_id}`を追加した。`repository.get_item(owner, assessment_sk(id))`で引き、無ければ403、あれば`result`（あだ名・4領域・言語化度/コミット度の段階）をそのまま返す
+- `api/tests/test_assessments_endpoint.py`：所有者本人（ゲスト・登録済み双方）が200で結果を取得できること、他人の所有・存在しないIDの両方で403になることを追加した
+- `web/src/api/assessments.ts`：`generateAssessmentReport`。`POST /assessments`→ジョブ完了待ち→`GET /assessments/{id}`までを1関数にまとめた。S-16は「AI生成が成功した場合のみ到達する画面」で状態バリエーションを持たない（06_ワイヤーフレーム3章）ため、結果取得の失敗もS-15側（この関数の中）で使い切り、S-16には成功した結果だけを渡す設計とした
+- `web/src/views/S-15.vue`：生成中画面。S-13と同じ構成（`GeneratingScreen`、失敗時は同画面の中身が入れ替わる、自動リトライしない）
+- `web/src/views/S-16.vue`：結果画面。あだ名（登場アニメーション）→免責→4領域（Career→Financial→Physical→Socialの順に並べ替え。AI出力の順序に依存しない）→言語化度・コミット度（4段階を並べ、該当のみ点灯。数値は出さない）→締め→「ありたい姿を作る」。`prefers-reduced-motion: reduce`ではアニメーションを付けない
+- `web/src/domain/growthStage.ts`：成長段階の4値と日本語ラベルを追加（`api/app/domain/growth_stage.py`と対応）
+- `web/src/stores/assessmentResult.ts`：S-15が取得した結果をS-16へ渡すストア（S-14→S-15の`freeTextAnswers`と同じ、URLではなくクライアント状態で渡す設計を踏襲）
+- `web/src/router/index.ts`：`/s-15`・`/s-16`を追加
+- 完了条件「上から下へ軽い→真面目の構成」は`web/src/views/S-16.spec.ts`（あだ名→4領域→言語化度・コミット度→締めの順に描画されること、4領域の並び順、該当段階のみ点灯・数値非表示）で確認した
+- `make lint && make test`が通ることを確認済み。加えて、AWS Bedrock/SQSがローカルにないため`POST /ai/assessment-questions`・`POST /assessments`・`GET /jobs/{id}`をネットワークレベルでフェイクに差し替えたPlaywrightスクリプトで、S-11→S-12×4→S-13→S-14→S-15→S-16の実画面遷移とS-16のライト/ダーク両方の描画、およびS-15の失敗表示を確認した（コンソールエラーなし）
 
 ---
 
