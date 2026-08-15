@@ -1,0 +1,179 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="データ寿命、キー、保護方針をIaCとテストで固定する"><title>P1-4 CDKでDynamoDBのDataStackを作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="4">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-4 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html" selected>P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 04</p>
+        <h1>P1-4<span>CDKでDynamoDBのDataStackを作る</span></h1>
+        <p class="hero-summary">データ寿命、キー、保護方針をIaCとテストで固定する。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT f9f4d65 / 5b0b787</span><span class="chip">LAYER AWS CDK・DynamoDB</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>単一テーブル設計の読み方</div><div class="learning-goal"><strong>理解 2</strong>PITR・削除保護・RETAINの違い</div><div class="learning-goal"><strong>理解 3</strong>CDK assertionが保証する範囲</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>f9f4d65 / 5b0b787</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>PK/SKはアクセスパターンを表す</h3><p>DynamoDBでは正規化された表から後で検索を考えるのではなく、取得したい単位からPK/SKを決めます。同じ利用者の複数種データを1パーティションへまとめられます。</p></article><article class="concept-card"><h3>TTLは即時削除ではない</h3><p>expires_atを過ぎたitemは読み取り時に期限切れとして扱い、DynamoDBの非同期削除を待ちません。TTLはストレージ清掃であり認可判定ではありません。</p></article><article class="concept-card"><h3>3層の保護</h3><p>PITRは誤更新からの復元、deletion protectionはDeleteTable防止、RETAINはstack削除時の保持です。異なる事故を防ぐため併用します。</p></article><article class="concept-card"><h3>記事を別テーブルにする理由</h3><p>公開記事はslug取得とcategory一覧という別アクセスパターン・寿命を持つため、認証セッション等の単一テーブルと分離しました。</p></article></div><div><p><code>flourish</code>はPK/SKを持つ単一テーブルです。USER、SESSION、JOB、IDEMなどが同じ物理テーブルに入り、文字列のprefixで論理的な種類を表します。利点は関連データを少ない往復で扱えること、注意点はキー生成を散在させると整合性を壊すことです。P1-9でキー関数とリポジトリ層を置く理由がここにあります。</p><p><code>flourish_article</code>のGSIはcategoryをpartition key、published_atをsort keyにします。GSIはbase tableのコピーではなく、指定キーを持つitemだけが現れる疎な索引としても使えます。更新は非同期なので、書いた直後のGSI読み取りは古い可能性があります。</p><p>CDKテストはAWSへアクセスせず、合成されたCloudFormationを検査します。リソースが宣言どおりであることは保証しますが、アカウントquota、既存同名テーブル、IAM権限、実際のPITR復元操作までは保証しません。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-4 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart TB
+  DATA[DataStack] --&gt; MAIN[(flourish
+PK + SK)]
+  DATA --&gt; ARTICLE[(flourish_article
+slug)]
+  MAIN --&gt; TTL[expires_at TTL]
+  MAIN --&gt; PITR1[PITR + deletion protection + RETAIN]
+  ARTICLE --&gt; GSI[category-index
+category + published_at]
+  ARTICLE --&gt; PITR2[PITR + deletion protection + RETAIN]</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart TB
+  DATA[DataStack] --&gt; MAIN[(flourish
+PK + SK)]
+  DATA --&gt; ARTICLE[(flourish_article
+slug)]
+  MAIN --&gt; TTL[expires_at TTL]
+  MAIN --&gt; PITR1[PITR + deletion protection + RETAIN]
+  ARTICLE --&gt; GSI[category-index
+category + published_at]
+  ARTICLE --&gt; PITR2[PITR + deletion protection + RETAIN]</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../infra/lib/data-stack.ts">infra/lib/data-stack.ts</a><span>flourishとflourish_articleの2テーブルをCDKで定義する</span></div><div class="file-row"><a href="../../../infra/bin/infra.ts">infra/bin/infra.ts</a><span>CDK AppへDataStackを登録する</span></div><div class="file-row"><a href="../../../infra/test/data-stack.test.ts">infra/test/data-stack.test.ts</a><span>CloudFormationテンプレートのキー・PITR・削除保護を検査する</span></div><div class="file-row"><a href="../../08_%E3%83%87%E3%83%BC%E3%82%BF%E3%83%A2%E3%83%87%E3%83%AB/logical-data-model.md">docs/08_データモデル/logical-data-model.md</a><span>単一テーブルのPK/SKパターンとエンティティを定義する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../infra/lib/data-stack.ts"><code>infra/lib/data-stack.ts</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>infra/lib/data-stack.ts</strong><span>AWS CDKのDynamoDB Construct · typescript</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>// L2 ConstructはDynamoDBテーブルと関連CloudFormationを型付きで生成する。
+this.table = new dynamodb.Table(this, &quot;FlourishTable&quot;, {
+  tableName: &quot;flourish&quot;,
+  partitionKey: { name: &quot;PK&quot;, type: dynamodb.AttributeType.STRING },
+  sortKey: { name: &quot;SK&quot;, type: dynamodb.AttributeType.STRING },
+
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // 使用量課金。capacity値は不要
+  encryption: dynamodb.TableEncryption.DEFAULT,      // AWS所有キーによる保存時暗号化
+  pointInTimeRecoverySpecification: {
+    pointInTimeRecoveryEnabled: true,                // 継続バックアップを有効化
+  },
+  timeToLiveAttribute: &quot;expires_at&quot;,                 // Unix秒のTTL属性名
+  deletionProtection: true,                          // APIの誤削除を拒否
+  removalPolicy: cdk.RemovalPolicy.RETAIN,           // stack削除でも表を残す
+});
+
+// GSIはcategory別にpublished_at順で記事をQueryするための別キー。
+this.articleTable.addGlobalSecondaryIndex({
+  indexName: &quot;category-index&quot;,
+  partitionKey: { name: &quot;category&quot;, type: dynamodb.AttributeType.STRING },
+  sortKey: { name: &quot;published_at&quot;, type: dynamodb.AttributeType.STRING },
+  projectionType: dynamodb.ProjectionType.ALL, // 記事表示に必要な全属性を索引へ投影
+});</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>手動作成はCDKの管理外リソースになります。同名テーブルを作ると後のcdk deployが衝突するため、学習用には別名を使うか、CDKと手動のどちらを真実の源にするか決めてください。</p><span class="manual-kind">AWS Management Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>リージョンを東京へ合わせる</h3><p>DynamoDB Consoleを開き、Asia Pacific (Tokyo) ap-northeast-1を選びます。</p><span class="expected">期待結果：画面右上がap-northeast-1</span></li><li><h3>メインテーブルを作る</h3><p>Create tableで名前flourish、partition key PK/String、sort key SK/Stringを設定し、Table settingsはCustomize settings、capacity modeはOn-demandを選びます。</p><span class="expected">期待結果：table statusがActive</span></li><li><h3>保護設定を有効にする</h3><p>BackupsでPoint-in-time recovery、Additional settingsでDeletion protection、Time to Liveで属性名<code>expires_at</code>を有効にします。</p><span class="expected">期待結果：PITR/TTL/deletion protectionがEnabled</span></li><li><h3>記事テーブルを作る</h3><p>名前flourish_article、partition key slug/String、sort keyなし、On-demand、PITRとDeletion protectionを同様に設定します。</p><span class="expected">期待結果：article tableがActive</span></li><li><h3>category-indexを追加する</h3><p>flourish_article → Indexes → Create indexでpartition key category/String、sort key published_at/String、projection Allを指定します。</p><span class="expected">期待結果：index statusがActive</span></li><li><h3>サンプルitemでQueryする</h3><p>Explore table itemsから同じcategoryでpublished_atの異なるitemを2件追加し、category-indexを選んでQueryします。</p><span class="expected">期待結果：published_at順で2件が返る</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>2テーブルがActive</span></label><label class="check-item"><input type="checkbox" value="1"><span>flourishのPK/SKがString</span></label><label class="check-item"><input type="checkbox" value="2"><span>PITR・削除保護が両表でEnabled</span></label><label class="check-item"><input type="checkbox" value="3"><span>TTLはflourishだけexpires_at</span></label><label class="check-item"><input type="checkbox" value="4"><span>category-indexがActiveでAll projection</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>2テーブルがActive</li><li>flourishのPK/SKがString</li><li>PITR・削除保護が両表でEnabled</li><li>TTLはflourishだけexpires_at</li><li>category-indexがActiveでAll projection</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>削除保護を解除しない限り誤削除は拒否される</li><li>PITR復元は元表を上書きせず新しい表を作る</li><li>CDK管理表をコンソール変更するとdriftになるため、正規変更はコードへ戻す</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-5-p1-4-cdkでdynamodbのdatastackを作る" data-heading="5. P1-4 CDKでDynamoDBのDataStackを作る" data-step="4">
+<header class="chapter-header"><span class="chapter-step">STEP 04</span><h2 id="5-p1-4-cdkでdynamodbのdatastackを作る" tabindex="-1">5. P1-4 CDKでDynamoDBのDataStackを作る<a class="heading-anchor" href="#5-p1-4-cdkでdynamodbのdatastackを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="4" aria-label="P1-4の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-4" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-4" aria-label="この見出しへのリンク">#</a></h3><p>アプリの永続データを保存する2つのDynamoDBテーブルを、手作業ではなくコードで再現可能に定義することです。</p><ul><li>主コミット：<code>f9f4d65</code></li><li>追加修正：<code>5b0b787</code>で不要になったプレースホルダーテストを削除</li><li>主なファイル：<a class="file-ref" href="../../../infra/lib/data-stack.ts" title="リポジトリ内のファイルを開く"><code>infra/lib/data-stack.ts</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra/test/data-stack.test.ts" title="リポジトリ内のファイルを開く"><code>infra/test/data-stack.test.ts</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra/bin/infra.ts" title="リポジトリ内のファイルを開く"><code>infra/bin/infra.ts</code><span aria-hidden="true">↗</span></a></li><li>実機確認：<code>ap-northeast-1</code>へデプロイし、2テーブルが<code>ACTIVE</code>であることを確認済み</li></ul><h3 id="51-iacとcdk" tabindex="-1">5.1 IaCとCDK<a class="heading-anchor" href="#51-iacとcdk" aria-label="この見出しへのリンク">#</a></h3><p><strong>IaC（Infrastructure as Code）</strong>は、クラウド上の設定をコードとして管理する考え方です。AWS CDKではTypeScriptなどのプログラミング言語で構造を記述し、最終的にCloudFormationテンプレートを生成します。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">export class DataStack extends cdk.Stack {
+  readonly table: dynamodb.Table;
+  readonly articleTable: dynamodb.Table;
+
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+    // リソース定義
+  }
+}</code></pre>
+    </div><p><strong>Stack</strong>は、まとめて作成・更新するAWSリソースの単位です。<code>readonly table</code>として外部へ公開しているため、後のP1-18で別StackのLambdaへテーブル参照を渡せます。</p><h3 id="52-メインテーブルflourish" tabindex="-1">5.2 メインテーブル<code>flourish</code><a class="heading-anchor" href="#52-メインテーブルflourish" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.table = new dynamodb.Table(this, &quot;FlourishTable&quot;, {
+  tableName: &quot;flourish&quot;,
+  partitionKey: { name: &quot;PK&quot;, type: dynamodb.AttributeType.STRING },
+  sortKey: { name: &quot;SK&quot;, type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+  timeToLiveAttribute: &quot;expires_at&quot;,
+  deletionProtection: true,
+  removalPolicy: cdk.RemovalPolicy.RETAIN,
+});</code></pre>
+    </div><p>このテーブルは、複数種類のデータを<code>PK</code>と<code>SK</code>の組み合わせで保存する<strong>単一テーブル設計</strong>です。</p><ul><li><code>PK</code>（Partition Key）：データを分散・検索する主なキー</li><li><code>SK</code>（Sort Key）：同じPK内で種類や順序を表すキー</li><li><code>PAY_PER_REQUEST</code>：読み書きした分に応じて課金するオンデマンド方式</li><li><code>expires_at</code>：期限切れデータを削除対象にするTTL属性</li><li><code>PITR</code>：過去の時点へ復元するためのPoint-in-Time Recovery</li><li><code>deletionProtection</code>：誤操作によるテーブル削除を防ぐ</li><li><code>RETAIN</code>：CDK Stackを削除してもテーブルを残す</li></ul><p><code>deletionProtection</code>と<code>RETAIN</code>は似ていますが、働く場所が異なります。前者はDynamoDB自体の削除保護、後者はCloudFormationがStack削除時にどう扱うかという方針です。重要データでは両方を設定しています。</p><h3 id="53-記事テーブルflourish_article" tabindex="-1">5.3 記事テーブル<code>flourish_article</code><a class="heading-anchor" href="#53-記事テーブルflourish_article" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.articleTable = new dynamodb.Table(this, &quot;FlourishArticleTable&quot;, {
+  tableName: &quot;flourish_article&quot;,
+  partitionKey: { name: &quot;slug&quot;, type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  deletionProtection: true,
+  removalPolicy: cdk.RemovalPolicy.RETAIN,
+});
+
+this.articleTable.addGlobalSecondaryIndex({
+  indexName: &quot;category-index&quot;,
+  partitionKey: { name: &quot;category&quot;, type: dynamodb.AttributeType.STRING },
+  sortKey: { name: &quot;published_at&quot;, type: dynamodb.AttributeType.STRING },
+  projectionType: dynamodb.ProjectionType.ALL,
+});</code></pre>
+    </div><p>記事はURLに使う<code>slug</code>で1件を取得します。一方、「あるカテゴリの記事を公開日時順で並べる」という別の検索方法も必要です。そのため、<code>category</code>と<code>published_at</code>をキーにした<strong>GSI</strong>を追加しています。</p><h3 id="54-cdkのテスト" tabindex="-1">5.4 CDKのテスト<a class="heading-anchor" href="#54-cdkのテスト" aria-label="この見出しへのリンク">#</a></h3><p><a class="file-ref" href="../../../infra/test/data-stack.test.ts" title="リポジトリ内のファイルを開く"><code>infra/test/data-stack.test.ts</code><span aria-hidden="true">↗</span></a>は、実際のAWSへ毎回デプロイせず、生成されるCloudFormationテンプレートを検査します。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">template.hasResourceProperties(&quot;AWS::DynamoDB::Table&quot;, {
+  TableName: &quot;flourish&quot;,
+  BillingMode: &quot;PAY_PER_REQUEST&quot;,
+  TimeToLiveSpecification: {
+    AttributeName: &quot;expires_at&quot;,
+    Enabled: true,
+  },
+});</code></pre>
+    </div><p>この種類のテストは、アプリの関数を検査するユニットテストとは少し違い、「インフラ定義から期待するリソースが合成されるか」を検査します。</p><h3 id="55-小さな追加コミットから学ぶ" tabindex="-1">5.5 小さな追加コミットから学ぶ<a class="heading-anchor" href="#55-小さな追加コミットから学ぶ" aria-label="この見出しへのリンク">#</a></h3><p><code>5b0b787</code>は、雛形時代の<code>placeholder.test.ts</code>を削除し忘れたことへの修正です。機能と無関係なテストを残すと、次の人が「このテストは仕様なのか」と迷います。小さな整理でも、目的が明確なら独立したコミットにする価値があります。</p><h3 id="用語メモ-4" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-4" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>DynamoDB</strong>：AWSのマネージドNoSQLデータベース</li><li><strong>NoSQL</strong>：表の結合を中心としないデータベース方式の総称</li><li><strong>GSI</strong>：Global Secondary Index。主キーとは別の検索経路</li><li><strong>TTL</strong>：Time to Live。データを期限切れにする仕組み</li><li><strong>PITR</strong>：Point-in-Time Recovery。指定時点への復元機能</li><li><strong>CloudFormation</strong>：AWSリソースをテンプレートから構築するサービス</li><li><strong>synth</strong>：CDKコードからCloudFormationテンプレートを合成する処理</li></ul><h3 id="この工程から学べる開発の定石-4" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-4" aria-label="この見出しへのリンク">#</a></h3><p>データは再生成できないため、アプリや静的ファイルより強く保護します。「何を作るか」だけでなく、「削除時にどうするか」「障害時に戻せるか」までIaCへ明記することが重要です。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html" target="_blank" rel="noreferrer"><span><strong>DynamoDB core components</strong><span>https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html</span></span></a><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.html" target="_blank" rel="noreferrer"><span><strong>DynamoDB global secondary indexes</strong><span>https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.html</span></span></a><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/pointintimerecovery_restores.html" target="_blank" rel="noreferrer"><span><strong>DynamoDB point-in-time recovery restore</strong><span>https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/pointintimerecovery_restores.html</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-03-domain-dns-tls.html"><small>← PREVIOUS P1-3</small><strong>ドメイン、DNS、TLS証明書を準備する</strong></a><a href="p1-05-cognito-auth-stack.html"><small>NEXT P1-5 →</small><strong>CognitoのAuthStackを作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-4</h2><p>AWS CDK・DynamoDB</p><div class="rail-stat"><span>commit</span><strong>f9f4d65</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

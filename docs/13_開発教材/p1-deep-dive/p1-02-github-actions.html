@@ -1,0 +1,171 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="PR検査、dev自動実行、prod承認の責務を分ける"><title>P1-2 GitHub ActionsでCI/CDの流れを作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="2">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-2 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html" selected>P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 02</p>
+        <h1>P1-2<span>GitHub ActionsでCI/CDの流れを作る</span></h1>
+        <p class="hero-summary">PR検査、dev自動実行、prod承認の責務を分ける。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT a215230</span><span class="chip">LAYER CI/CD</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>イベントとジョブの違い</div><div class="learning-goal"><strong>理解 2</strong>環境ごとの安全装置</div><div class="learning-goal"><strong>理解 3</strong>CIで再現性を担保する方法</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>a215230</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>workflow・job・step</h3><p>workflowは1ファイルの自動化、jobは独立した実行環境、stepはjob内の順番です。P1-2ではAPI/Web/infra/toolsを別jobにして並列化しました。</p></article><article class="concept-card"><h3>CIとCDの責務</h3><p>CIは変更が安全かを判定し、CDは成果物を環境へ反映します。この時点のdeployコマンドはプレースホルダーなので、“配線を作った”ことと“本番配信できる”ことを分けます。</p></article><article class="concept-card"><h3>Environmentは秘密と承認の境界</h3><p>production Environmentをjobへ指定すると、承認ルールと環境secretをそのjobだけへ適用できます。YAMLだけでなくGitHub設定画面側の構成も必要です。</p></article><article class="concept-card"><h3>最小権限を明記する</h3><p>workflowのpermissionsは将来AWS OIDCを追加するときにも重要です。暗黙の既定権限に頼らず、必要な権限だけを宣言するのが安全です。</p></article></div><div><p><code>pull_request</code>と<code>push</code>は同じコミットを対象にしても意味が違います。PR時点ではマージ可否を判断し、mainへ入った後は共有dev環境を更新する契機になります。本番はさらに<code>v*</code>タグと人の承認を要求し、事故の半径を小さくします。</p><p>各jobが毎回新しいrunnerで始まる点も大切です。ローカルPCに残った依存や環境変数に依存しているコードは、Actions上で失敗します。これは面倒ではなく、再現性の欠如を早期に見つける仕組みです。</p><p>現在の<code>make deploy-dev</code>とprodの最終stepは未実装です。深掘りでは、ワークフローが緑でもAWSへ反映されたとは限らないという読み方を維持します。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-2 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart LR
+  PR[Pull Request] --&gt; CI{4 jobs}
+  CI --&gt; A[api]
+  CI --&gt; W[web]
+  CI --&gt; I[infra]
+  CI --&gt; T[tools]
+  A --&gt; MERGE[mainへmerge]
+  W --&gt; MERGE
+  I --&gt; MERGE
+  T --&gt; MERGE
+  MERGE --&gt; DEV[dev workflow]
+  TAG[v* tag] --&gt; APPROVE[production承認]
+  APPROVE --&gt; PROD[prod workflow]</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart LR
+  PR[Pull Request] --&gt; CI{4 jobs}
+  CI --&gt; A[api]
+  CI --&gt; W[web]
+  CI --&gt; I[infra]
+  CI --&gt; T[tools]
+  A --&gt; MERGE[mainへmerge]
+  W --&gt; MERGE
+  I --&gt; MERGE
+  T --&gt; MERGE
+  MERGE --&gt; DEV[dev workflow]
+  TAG[v* tag] --&gt; APPROVE[production承認]
+  APPROVE --&gt; PROD[prod workflow]</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../.github/workflows/ci.yml">.github/workflows/ci.yml</a><span>main向けPRで4パッケージの検査を並列実行する</span></div><div class="file-row"><a href="../../../.github/workflows/deploy-dev.yml">.github/workflows/deploy-dev.yml</a><span>mainへのpushをdevデプロイ候補として扱う</span></div><div class="file-row"><a href="../../../.github/workflows/deploy-prod.yml">.github/workflows/deploy-prod.yml</a><span>v*タグとproduction Environment承認を本番入口にする</span></div><div class="file-row"><a href="../../../Makefile">Makefile</a><span>GitHub Actionsからもローカルと同じコマンドを呼ぶ</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../.github/workflows/ci.yml"><code>.github/workflows/ci.yml</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>.github/workflows/ci.yml</strong><span>GitHub Actionsのworkflow構文 · yaml</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>name: CI                         # Actions画面に表示するworkflow名
+
+on:
+  pull_request:
+    branches: [main]             # main向けPRだけを品質ゲートにする
+
+permissions:
+  contents: read                # checkoutに必要な読み取りだけを許可
+
+concurrency:
+  group: ci-${{ github.ref }}    # 同じPRの古い実行を同一グループにする
+  cancel-in-progress: true       # 新しいpush時に古い検査を止める
+
+jobs:
+  api:                          # jobごとに独立runnerが起動する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot; # ローカル設定と版を合わせる
+      - run: make setup-api      # Makefileを唯一の手順入口にする
+      - run: make lint-api
+      - run: make test-api
+
+  # web / infra / toolsも別jobにすると、失敗箇所が明確で並列実行できる</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>workflow本体はコードとして管理しますが、Actions許可、branch protection、production Environmentの承認者はGitHubのWeb画面で設定します。画面名はGitHubの更新で多少変わることがあります。</p><span class="manual-kind">GitHub Web Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>Actionsの利用可否を確認する</h3><p>GitHubのRepository → Settings → Actions → Generalを開き、組織ポリシー内で必要なActionsを許可します。外部Actionは信頼できる提供元と固定版を選びます。</p><span class="expected">期待結果：Actionsタブでworkflowを認識できる</span></li><li><h3>workflowファイルを配置する</h3><p><code>.github/workflows/</code>にci.yml、deploy-dev.yml、deploy-prod.ymlをcommitし、Actionsタブで構文エラーがないことを見ます。</p><span class="expected">期待結果：3つのworkflow名が一覧に現れる</span></li><li><h3>mainの保護ルールを作る</h3><p>Settings → Rules → Rulesets（またはBranches）でmainを対象に、Pull request必須・必要なstatus checks必須・直接push禁止を設定します。</p><span class="expected">期待結果：保護対象にmainが表示される</span></li><li><h3>production Environmentを作る</h3><p>Settings → Environments → New environmentでproductionを作り、Required reviewersと必要ならdeployment branchを設定します。</p><span class="expected">期待結果：prod jobが承認待ちで停止できる</span></li><li><h3>PRでCIを確認する</h3><p>小さな変更でPRを作り、ActionsまたはPRのChecksからapi/web/infra/toolsのログを開きます。意図的なlint違反を一時的に入れるとゲートの失敗も確認できます。</p><span class="expected">期待結果：4 jobが判定され、失敗時はmerge不可</span></li><li><h3>devとprodのトリガーを確認する</h3><p>main mergeでdev workflow、テスト用vタグでprod workflowが開始されることを確認します。現段階のdeploy stepはプレースホルダーであることもログで確認します。</p><span class="expected">期待結果：トリガーは動くがAWS更新はしない</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>PRに4つのstatus checkが出る</span></label><label class="check-item"><input type="checkbox" value="1"><span>失敗checkがあるPRをmainへ直接取り込めない</span></label><label class="check-item"><input type="checkbox" value="2"><span>prod jobがEnvironment承認を要求する</span></label><label class="check-item"><input type="checkbox" value="3"><span>ログに秘密値が表示されない</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>PRに4つのstatus checkが出る</li><li>失敗checkがあるPRをmainへ直接取り込めない</li><li>prod jobがEnvironment承認を要求する</li><li>ログに秘密値が表示されない</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>誤ったworkflowは新しい修正PRで直す</li><li>共有workflowの実行中止はActions画面のCancel workflowを使う</li><li>誤タグはデプロイ前にjobを止め、タグ削除だけで既実行を元に戻せないことを理解する</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-3-p1-2-github-actionsでcicdの流れを作る" data-heading="3. P1-2 GitHub ActionsでCI/CDの流れを作る" data-step="2">
+<header class="chapter-header"><span class="chapter-step">STEP 02</span><h2 id="3-p1-2-github-actionsでcicdの流れを作る" tabindex="-1">3. P1-2 GitHub ActionsでCI/CDの流れを作る<a class="heading-anchor" href="#3-p1-2-github-actionsでcicdの流れを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="2" aria-label="P1-2の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-2" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-2" aria-label="この見出しへのリンク">#</a></h3><p>ローカルでしか実行されないチェックを、GitHub上でも自動実行することです。また、<code>main</code>への反映と本番タグをデプロイのきっかけにする枠組みを作りました。</p><ul><li>対象コミット：<code>a215230</code></li><li>主なファイル：<a class="file-ref" href="../../../.github/workflows/ci.yml" title="リポジトリ内のファイルを開く"><code>.github/workflows/ci.yml</code><span aria-hidden="true">↗</span></a>、<code>deploy-dev.yml</code>、<code>deploy-prod.yml</code></li><li>完了条件：Pull RequestでCIが成功する</li></ul><h3 id="31-prごとに4つのジョブを並列実行した" tabindex="-1">3.1 PRごとに4つのジョブを並列実行した<a class="heading-anchor" href="#31-prごとに4つのジョブを並列実行した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="yaml">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>yaml</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-yaml">on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: &quot;3.12&quot;
+      - run: make setup-api
+      - run: make lint-api
+      - run: make test-api</code></pre>
+    </div><p>実際の<code>ci.yml</code>には<a class="file-ref" href="../../../api" title="リポジトリ内のファイルを開く"><code>api</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../tools" title="リポジトリ内のファイルを開く"><code>tools</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../web" title="リポジトリ内のファイルを開く"><code>web</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra" title="リポジトリ内のファイルを開く"><code>infra</code><span aria-hidden="true">↗</span></a>の4ジョブがあります。互いに独立したジョブにすると、次の利点があります。</p><ul><li>実行できる環境では並列化され、全体が早く終わる</li><li>どの層で失敗したかが一目で分かる</li><li>Pythonだけ、Nodeだけという実行環境を個別に設定できる</li></ul><h3 id="32-lock-fileを使って同じ依存関係を入れた" tabindex="-1">3.2 lock fileを使って同じ依存関係を入れた<a class="heading-anchor" href="#32-lock-fileを使って同じ依存関係を入れた" aria-label="この見出しへのリンク">#</a></h3><p>Node系では<code>npm install</code>ではなく<code>npm ci</code>を使います。</p>
+    <div class="code-shell" data-language="yaml">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>yaml</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-yaml">- uses: actions/setup-node@v4
+  with:
+    node-version: &quot;22&quot;
+    cache: npm
+    cache-dependency-path: web/package-lock.json
+- run: make setup-web</code></pre>
+    </div><p><code>npm ci</code>は<code>package-lock.json</code>を基準に、再現性の高いインストールを行います。開発者のPCとCIで異なるバージョンが入り、片方だけ失敗する状況を減らせます。</p><h3 id="33-devとprodのトリガーを分けた" tabindex="-1">3.3 devとprodのトリガーを分けた<a class="heading-anchor" href="#33-devとprodのトリガーを分けた" aria-label="この見出しへのリンク">#</a></h3><div class="table-wrap" role="region" aria-label="横スクロール可能な表" tabindex="0"><table><thead><tr><th scope="col">ワークフロー</th><th scope="col">起動条件</th><th scope="col">意図</th></tr></thead><tbody><tr><td>CI</td><td><code>main</code>向けPull Request</td><td>マージ前の検査</td></tr><tr><td>Deploy dev</td><td><code>main</code>へのpush</td><td>開発環境を最新化</td></tr><tr><td>Deploy prod</td><td><code>v*</code>タグのpush</td><td>明示した版だけ本番反映</td></tr></tbody></table></div><p>本番用ジョブには次の設定があります。</p>
+    <div class="code-shell" data-language="yaml">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>yaml</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-yaml">environment: production</code></pre>
+    </div><p>GitHub側のEnvironmentにRequired reviewersを設定すれば、タグを作っただけでは本番デプロイせず、人の承認を挟めます。</p><h3 id="34-この段階のデプロイは枠組みだけだった" tabindex="-1">3.4 この段階の「デプロイ」は枠組みだけだった<a class="heading-anchor" href="#34-この段階のデプロイは枠組みだけだった" aria-label="この見出しへのリンク">#</a></h3><p>ここは重要です。P1-2ではワークフローを作りましたが、現在の<a class="file-ref" href="../../../Makefile" title="リポジトリ内のファイルを開く"><code>Makefile</code><span aria-hidden="true">↗</span></a>でも<code>make deploy-dev</code>は次のプレースホルダーです。</p>
+    <div class="code-shell" data-language="make">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>make</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-make">deploy-dev:
+	@echo &quot;未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）&quot;</code></pre>
+    </div><p>本番ワークフローも実際の<code>cdk deploy</code>ではなくメッセージ出力です。つまり、<strong>CDのトリガーと承認経路はあるが、デプロイ本体は未完成</strong>です。</p><p>教材では「ワークフローのファイルがある」ことと「実際にデプロイできる」ことを混同してはいけません。</p><h3 id="用語メモ-2" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-2" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>CI（Continuous Integration）</strong>：変更のたびにビルド・lint・テストを自動実行する考え方</li><li><strong>CD（Continuous Delivery/Deployment）</strong>：検証済みの変更を環境へ届ける仕組み</li><li><strong>Pull Request／PR</strong>：変更内容をレビューし、ブランチへ取り込むための単位</li><li><strong>workflow</strong>：GitHub Actionsで自動実行する処理の定義</li><li><strong>job / step</strong>：workflow内の実行単位。jobの中に複数のstepがある</li><li><strong>タグ</strong>：特定コミットに<code>v1.0.0</code>などの名前を付けるGitの機能</li></ul><h3 id="この工程から学べる開発の定石-2" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-2" aria-label="この見出しへのリンク">#</a></h3><p>CIでは、ローカルと異なる独自コマンドを増やさず、<code>make lint</code>や<code>make test</code>を再利用します。「手元では通るのにCIでは別手順」という差を小さくすることが、安定した開発につながります。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax" target="_blank" rel="noreferrer"><span><strong>GitHub Actions workflow syntax</strong><span>https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax</span></span></a><a href="https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments" target="_blank" rel="noreferrer"><span><strong>GitHub Actions deployments and environments</strong><span>https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-01-repository-scaffold.html"><small>← PREVIOUS P1-1</small><strong>リポジトリの雛形を作る</strong></a><a href="p1-03-domain-dns-tls.html"><small>NEXT P1-3 →</small><strong>ドメイン、DNS、TLS証明書を準備する</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-2</h2><p>CI/CD</p><div class="rail-stat"><span>commit</span><strong>a215230</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 4</strong></div><progress id="check-progress-bar" max="4" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

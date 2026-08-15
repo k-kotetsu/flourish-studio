@@ -1,0 +1,430 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="fetchの揺れを型付き境界へ集め、キャンセル可能な待機を作る"><title>P1-17 フロントエンドのAPIクライアントとjob pollingを作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="17">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-17 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html" selected>P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 17</p>
+        <h1>P1-17<span>フロントエンドのAPIクライアントとjob pollingを作る</span></h1>
+        <p class="hero-summary">fetchの揺れを型付き境界へ集め、キャンセル可能な待機を作る。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 7ba0587</span><span class="chip">LAYER Fetch API・TypeScript</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>fetchがHTTP errorでrejectしない性質</div><div class="learning-goal"><strong>理解 2</strong>Cookie BFFとcredentials</div><div class="learning-goal"><strong>理解 3</strong>AbortSignalをsleepにも伝播する理由</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>7ba0587</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>HTTP errorとnetwork error</h3><p>fetchは404/500でもresolveし、response.okで判定が必要です。DNS/接続失敗はrejectします。ApiErrorのstatus 0でnetworkを区別します。</p></article><article class="concept-card"><h3>credentials include</h3><p>HttpOnly CookieはJSから読まず、browserへ同一origin/cross-origin policyに従って自動送信させます。token headerを組み立てません。</p></article><article class="concept-card"><h3>204 No Content</h3><p>成功でもbodyがないためresponse.json()は失敗します。status 204を先に判定してundefinedを返します。</p></article><article class="concept-card"><h3>AbortSignal</h3><p>画面離脱時にfetchだけでなくsetTimeout待機も止めます。待機だけ残ると、離脱後に次requestが発生します。</p></article></div><div><p>API clientはtransport boundaryです。componentごとにfetchを書くと、credentials、Content-Type、error parse、401遷移、Retry-Afterが少しずつ異なります。共通<code>request&lt;T&gt;</code>へ寄せ、各HTTP methodは薄いwrapperにします。TypeScriptの<code>T</code>はruntime検証ではないため、信頼境界が高いresponseにはschema parserを追加する余地があります。</p><p>Content-Typeはbodyがあるときだけ付けます。GETやbodyなしDELETEへ不必要なJSON headerを付けるとCORS preflight条件やserver routingへ影響しえます。Idempotency-Keyも生成POSTだけがoptionで明示します。</p><p>pollingはserverが返す<code>poll_after_ms</code>へ従い、client固定値を持ちません。serverが負荷や処理種別で間隔を調整できます。ただしP1-13のGET responseは現時点でこの値を返さない既知不一致があり、実結合時はerrorになります。契約不一致を隠すdefault値を入れず明示的に失敗させています。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-17 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">sequenceDiagram
+  participant V as Vue screen
+  participant C as api/client.ts
+  participant A as FastAPI
+  V-&gt;&gt;C: api.post + idempotencyKey
+  C-&gt;&gt;A: fetch credentials=include
+  A--&gt;&gt;C: 202 job_id + poll_after_ms
+  loop server指定間隔
+    C-&gt;&gt;C: abort可能なwait
+    C-&gt;&gt;A: GET /jobs/id
+    A--&gt;&gt;C: QUEUED/RUNNING + poll_after_ms
+  end
+  A--&gt;&gt;C: SUCCEEDED result / FAILED error
+  C--&gt;&gt;V: result / typed error</pre><details><summary>図のMermaidソースを表示</summary><pre>sequenceDiagram
+  participant V as Vue screen
+  participant C as api/client.ts
+  participant A as FastAPI
+  V-&gt;&gt;C: api.post + idempotencyKey
+  C-&gt;&gt;A: fetch credentials=include
+  A--&gt;&gt;C: 202 job_id + poll_after_ms
+  loop server指定間隔
+    C-&gt;&gt;C: abort可能なwait
+    C-&gt;&gt;A: GET /jobs/id
+    A--&gt;&gt;C: QUEUED/RUNNING + poll_after_ms
+  end
+  A--&gt;&gt;C: SUCCEEDED result / FAILED error
+  C--&gt;&gt;V: result / typed error</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../web/src/api/client.ts">web/src/api/client.ts</a><span>fetch、Cookie、JSON、ApiError、401 hook、AbortSignalを共通化する</span></div><div class="file-row"><a href="../../../web/src/api/errorMessages.ts">web/src/api/errorMessages.ts</a><span>server error codeを利用者向け文言へ変換する</span></div><div class="file-row"><a href="../../../web/src/api/jobs.ts">web/src/api/jobs.ts</a><span>server指定間隔でJOB terminal stateまでpollする</span></div><div class="file-row"><a href="../../../web/src/api/client.spec.ts">web/src/api/client.spec.ts</a><span>header、204、network、abort、error envelopeを検査する</span></div><div class="file-row"><a href="../../../web/src/api/jobs.spec.ts">web/src/api/jobs.spec.ts</a><span>fake timerでpolling間隔・成功・失敗・abortを検査する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../web/src/api/client.ts"><code>web/src/api/client.ts</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>web/src/api/client.ts</strong><span>Fetch API wrapperのrequest境界 · typescript</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>async function request&lt;T&gt;(method: Method, path: string, body: unknown, options: RequestOptions): Promise&lt;T&gt; {
+  const headers: Record&lt;string, string&gt; = {};
+  if (body !== undefined) headers[&quot;Content-Type&quot;] = &quot;application/json&quot;; // bodyなしGETには付けない
+  if (options.idempotencyKey) headers[&quot;Idempotency-Key&quot;] = options.idempotencyKey;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method,
+      credentials: &quot;include&quot;, // HttpOnly fs_guest/fs_sessionをbrowserに送信させる
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: options.signal,  // 画面離脱時のcancelをtransportへ渡す
+    });
+  } catch (cause) {
+    if (cause instanceof DOMException &amp;&amp; cause.name === &quot;AbortError&quot;) throw cause;
+    throw new ApiError(0, &quot;NETWORK_ERROR&quot;, &quot;network request failed&quot;);
+  }
+
+  if (response.status === 204) return undefined as T; // 空bodyをJSON parseしない
+  const payload: unknown = await response.json().catch(() =&gt; null);
+  if (!response.ok) {
+    const errorBody = (payload as { error?: ApiErrorBody } | null)?.error ?? {
+      code: &quot;UNKNOWN_ERROR&quot;, message: response.statusText,
+    };
+    if (response.status === 401) unauthorizedHandler?.();
+    throw new ApiError(response.status, errorBody.code, errorBody.message);
+  }
+  return payload as T;
+}</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>dev環境のNetwork panelでrequest/responseを観察します。Cookie値や利用者入力をスクリーンショットへ含めず、Preserve logの共有前に機密headerを確認してください。</p><span class="manual-kind">Browser DevTools Network + Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>devのVueとAPIを起動する</h3><p><code>make dev</code>でDynamoDB Local、API、Viteを起動し、/app/を開きます。Network tabをFetch/XHRで絞ります。</p><span class="expected">期待結果：3 processがrunning</span></li><li><h3>Cookie送信を見る</h3><p>guest/session作成後にAPIを呼び、Request HeadersのCookieがbrowserから送られ、JavaScript codeにtoken header生成がないことを確認します。</p><span class="expected">期待結果：credentials includeで送信</span></li><li><h3>body有無のheaderを比較する</h3><p>GETとPOSTを呼び、POST bodyありだけContent-Type application/json、生成POSTだけIdempotency-Keyがあることを見ます。</p><span class="expected">期待結果：不要headerなし</span></li><li><h3>共通errorを観察する</h3><p>401、429、存在しないrouteを呼び、Console/Vue stateでApiErrorのstatus/code/details/retryAfterSecondsを確認します。</p><span class="expected">期待結果：message文字列ではなくcodeで分岐</span></li><li><h3>network failureとabortを分ける</h3><p>DevTools OfflineでNETWORK_ERROR、画面離脱/AbortControllerでAbortErrorになることを確認します。abortを利用者向け障害表示にしません。</p><span class="expected">期待結果：2つの例外が別</span></li><li><h3>pollingの時間を見る</h3><p>job作成後のNetwork waterfallで最初のpollと次のpollの間隔がresponseのpoll_after_msに一致することを確認します。固定interval timerを使っていないことを見ます。</p><span class="expected">期待結果：同時pollが重ならない</span></li><li><h3>画面離脱で停止する</h3><p>poll中に別routeへ移動してAbortControllerをabortし、その後GET /jobsが増えないことをNetworkで確認します。</p><span class="expected">期待結果：waitとfetchの両方停止</span></li><li><h3>既知の契約不一致を確認する</h3><p>P1-13 APIがRUNNING時poll_after_msを返さない現状では、clientが明示errorにすることを確認し、修正タスクへ紐付けます。</p><span class="expected">期待結果：暗黙defaultで隠さない</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>fetchのresponse.okを判定</span></label><label class="check-item"><input type="checkbox" value="1"><span>204をparse前に処理</span></label><label class="check-item"><input type="checkbox" value="2"><span>HttpOnly tokenをJSで読まない</span></label><label class="check-item"><input type="checkbox" value="3"><span>networkとabortを区別</span></label><label class="check-item"><input type="checkbox" value="4"><span>server poll_after_msへ従う</span></label><label class="check-item"><input type="checkbox" value="5"><span>401 hookはrouter実装へ委譲</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>fetchのresponse.okを判定</li><li>204をparse前に処理</li><li>HttpOnly tokenをJSで読まない</li><li>networkとabortを区別</li><li>server poll_after_msへ従う</li><li>401 hookはrouter実装へ委譲</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>client変更はmethod wrapper単位ではなく共通requestをrevertする</li><li>polling不具合時はAbortControllerで止め、短い固定間隔へ勝手に変えない</li><li>error code mappingはserver契約と同時に戻す</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-18-p1-17-フロントエンドのapiクライアントとジョブポーリングを作る" data-heading="18. P1-17 フロントエンドのAPIクライアントとジョブポーリングを作る" data-step="17">
+<header class="chapter-header"><span class="chapter-step">STEP 17</span><h2 id="18-p1-17-フロントエンドのapiクライアントとジョブポーリングを作る" tabindex="-1">18. P1-17 フロントエンドのAPIクライアントとジョブポーリングを作る<a class="heading-anchor" href="#18-p1-17-フロントエンドのapiクライアントとジョブポーリングを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="17" aria-label="P1-17の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-17" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-17" aria-label="この見出しへのリンク">#</a></h3><p>すべてのVue画面が、同じURL、Cookie送信、JSON変換、エラー処理、401処理、冪等キー、キャンセル方法でAPIを呼べるようにすることです。非同期ジョブの待ち方と、サーバーのエラーコードをユーザー向け日本語へ変換する場所も共通化しました。</p><ul><li>対象コミット：<code>7ba0587</code></li><li>主なファイル：<a class="file-ref" href="../../../web/src/api/client.ts" title="リポジトリ内のファイルを開く"><code>web/src/api/client.ts</code><span aria-hidden="true">↗</span></a>、<code>errorMessages.ts</code>、<code>jobs.ts</code></li><li>主なテスト：対応する3つの<code>*.spec.ts</code></li><li>完了条件：ポーリングがサーバーの<code>poll_after_ms</code>に従う</li><li>範囲：個別エンドポイント関数や実画面への接続はまだない</li></ul><h3 id="181-fetchを直接使う場所を共通関数に集めた" tabindex="-1">18.1 <code>fetch</code>を直接使う場所を共通関数に集めた<a class="heading-anchor" href="#181-fetchを直接使う場所を共通関数に集めた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const API_BASE = &quot;/api/v1&quot;;
+
+async function request&lt;T&gt;(
+  method: Method,
+  path: string,
+  body: unknown,
+  options: RequestOptions,
+): Promise&lt;T&gt; {
+  // header構築、fetch、成功・失敗変換
+}
+
+export const api = {
+  get: &lt;T&gt;(path: string, options: RequestOptions = {}) =&gt;
+    request&lt;T&gt;(&quot;GET&quot;, path, undefined, options),
+  post: &lt;T&gt;(path: string, body?: unknown, options: RequestOptions = {}) =&gt;
+    request&lt;T&gt;(&quot;POST&quot;, path, body, options),
+  put: &lt;T&gt;(path: string, body?: unknown, options: RequestOptions = {}) =&gt;
+    request&lt;T&gt;(&quot;PUT&quot;, path, body, options),
+  patch: &lt;T&gt;(path: string, body?: unknown, options: RequestOptions = {}) =&gt;
+    request&lt;T&gt;(&quot;PATCH&quot;, path, body, options),
+  delete: &lt;T&gt;(path: string, options: RequestOptions = {}) =&gt;
+    request&lt;T&gt;(&quot;DELETE&quot;, path, undefined, options),
+};</code></pre>
+    </div><p>画面が毎回<code>fetch(&quot;/api/v1/...&quot;, {...})</code>を書くと、Cookieやエラー処理の指定漏れが起こります。共通ラッパを通し、画面は必要な型・path・bodyだけを指定します。</p><p>TypeScriptのジェネリクス<code>&lt;T&gt;</code>により、呼び出し側は期待するレスポンス型を指定できます。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const profile = await api.get&lt;Profile&gt;(&quot;/me&quot;);</code></pre>
+    </div><p>ただし、<code>payload as T</code>は実行時の構造を検査しません。サーバー契約が変わってもTypeScriptだけでは検出できないため、重要な境界ではruntime schema validationや契約テストを追加する選択肢があります。</p><h3 id="182-httponly-cookieをブラウザへ送らせた" tabindex="-1">18.2 HttpOnly Cookieをブラウザへ送らせた<a class="heading-anchor" href="#182-httponly-cookieをブラウザへ送らせた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">response = await fetch(`${API_BASE}${path}`, {
+  method,
+  credentials: &quot;include&quot;,
+  headers,
+  body: body !== undefined ? JSON.stringify(body) : undefined,
+  signal: options.signal,
+});</code></pre>
+    </div><p><code>fs_guest</code>と<code>fs_session</code>はHttpOnlyなので、JavaScriptは値を読めません。<code>credentials: &quot;include&quot;</code>を指定し、ブラウザがCookieを自動送信します。</p><p>この設計では、フロントエンドコードへAuthorization bearer tokenを保持する処理がありません。P1-11のBFFセッション方式と対応しています。</p><h3 id="183-bodyがあるときだけjsonヘッダーを付けた" tabindex="-1">18.3 bodyがあるときだけJSONヘッダーを付けた<a class="heading-anchor" href="#183-bodyがあるときだけjsonヘッダーを付けた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const headers: Record&lt;string, string&gt; = {};
+if (body !== undefined) {
+  headers[&quot;Content-Type&quot;] = &quot;application/json&quot;;
+}</code></pre>
+    </div><p>GETやbodyなしDELETEへ不要な<code>Content-Type</code>を付けません。bodyは<code>JSON.stringify()</code>して送ります。</p><h3 id="184-idempotency-keyをオプション化した" tabindex="-1">18.4 <code>Idempotency-Key</code>をオプション化した<a class="heading-anchor" href="#184-idempotency-keyをオプション化した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">export interface RequestOptions {
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+if (options.idempotencyKey) {
+  headers[&quot;Idempotency-Key&quot;] = options.idempotencyKey;
+}</code></pre>
+    </div><p>P1-12のサーバー側冪等性と対になる機能です。生成系POSTだけが必要なため、すべてのリクエストで必須にはしていません。</p><p>ユーザーが意図して「もう一度生成する」を押したときは新しいキーを作り、ネットワーク再送など同じ操作の再送では同じキーを使う必要があります。キー生成とライフサイクルは、後続の個別画面・API関数が担当します。</p><h3 id="185-apiエラーを型付きapierrorへ正規化した" tabindex="-1">18.5 APIエラーを型付き<code>ApiError</code>へ正規化した<a class="heading-anchor" href="#185-apiエラーを型付きapierrorへ正規化した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly details?: unknown;
+  readonly retryAfterSeconds?: number;
+
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    options?: {
+      details?: unknown;
+      retryAfterSeconds?: number;
+    },
+  ) {
+    super(message);
+    this.name = &quot;ApiError&quot;;
+    this.status = status;
+    this.code = code;
+    this.details = options?.details;
+    this.retryAfterSeconds = options?.retryAfterSeconds;
+  }
+}</code></pre>
+    </div><p>P1-10の<code>{&quot;error&quot;: {&quot;code&quot;, &quot;message&quot;, &quot;details&quot;}}</code>を読み、画面が扱いやすいErrorへ変換します。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const retryAfterHeader = response.headers.get(&quot;Retry-After&quot;);
+
+throw new ApiError(
+  response.status,
+  errorBody.code,
+  errorBody.message,
+  {
+    details: errorBody.details,
+    retryAfterSeconds: retryAfterHeader
+      ? Number(retryAfterHeader)
+      : undefined,
+  },
+);</code></pre>
+    </div><p>サーバーが想定形式ではないエラーを返した場合も、<code>UNKNOWN_ERROR</code>へフォールバックします。</p><h3 id="186-204-no-contentを特別扱いした" tabindex="-1">18.6 204 No Contentを特別扱いした<a class="heading-anchor" href="#186-204-no-contentを特別扱いした" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">if (response.status === 204) {
+  return undefined as T;
+}</code></pre>
+    </div><p>204にはJSON bodyがありません。先に<code>response.json()</code>するとparseエラーになるため、body解析より前に返します。ログアウトや削除APIでよく使うstatusです。</p><h3 id="187-ネットワークエラーとキャンセルを区別した" tabindex="-1">18.7 ネットワークエラーとキャンセルを区別した<a class="heading-anchor" href="#187-ネットワークエラーとキャンセルを区別した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">try {
+  response = await fetch(/* ... */);
+} catch (cause) {
+  if (
+    cause instanceof DOMException
+    &amp;&amp; cause.name === &quot;AbortError&quot;
+  ) {
+    throw cause;
+  }
+  throw new ApiError(
+    0,
+    &quot;NETWORK_ERROR&quot;,
+    &quot;network request failed&quot;,
+  );
+}</code></pre>
+    </div><ul><li>DNS失敗、オフライン、接続断：<code>NETWORK_ERROR</code>へ統一</li><li><code>AbortController</code>による意図的中断：<code>AbortError</code>のまま上位へ渡す</li></ul><p>意図的な画面離脱を「通信障害」としてユーザーへ表示しないための区別です。HTTP応答自体が来ていないため、ネットワークエラーの<code>status</code>は0としています。</p><h3 id="188-401の共通フックを用意した" tabindex="-1">18.8 401の共通フックを用意した<a class="heading-anchor" href="#188-401の共通フックを用意した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">let unauthorizedHandler: (() =&gt; void) | null = null;
+
+export function onUnauthorized(
+  handler: (() =&gt; void) | null,
+): void {
+  unauthorizedHandler = handler;
+}</code></pre>
+    </div>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">if (response.status === 401) {
+  unauthorizedHandler?.();
+}</code></pre>
+    </div><p>セッション切れのたびに各画面が同じ遷移を書くのではなく、Routerが登録した1つのhandlerでトップやログイン画面へ戻せるようにします。</p><p>P1-17時点では実際のS-01画面がまだないため、<code>router.push()</code>との配線は未実装です。フックという拡張点だけを用意しています。</p><h3 id="189-codeをユーザー向け文言へ変換した" tabindex="-1">18.9 <code>code</code>をユーザー向け文言へ変換した<a class="heading-anchor" href="#189-codeをユーザー向け文言へ変換した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const CODE_MESSAGES: Record&lt;string, string&gt; = {
+  UNAUTHENTICATED:
+    &quot;ログインが必要です。もう一度ログインしてみてください。&quot;,
+  RATE_LIMITED:
+    &quot;少し時間を置いてから、もう一度試してみてください。&quot;,
+  AI_PROVIDER_ERROR:
+    &quot;うまく作れませんでした。書いていただいた内容はそのまま残っています。もう一度試してみてください。&quot;,
+  // ...
+};
+
+const FALLBACK_MESSAGE =
+  &quot;うまくいきませんでした。もう一度試してみてください。&quot;;
+
+export function messageForCode(code: string): string {
+  return CODE_MESSAGES[code] ?? FALLBACK_MESSAGE;
+}</code></pre>
+    </div><p>P1-10の開発者向け英語<code>message</code>を画面へ出さず、安定した<code>code</code>からユーザー向け文言を選びます。</p><p>文言テストでは、既知codeと未知codeだけでなく、サービスの禁止語、謝罪語、感嘆符を含まないことを確認します。文言の品質規則も自動テストの対象です。</p><h3 id="1810-サーバー指示に従うジョブポーリング" tabindex="-1">18.10 サーバー指示に従うジョブポーリング<a class="heading-anchor" href="#1810-サーバー指示に従うジョブポーリング" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">export async function waitForJob&lt;T&gt;(
+  jobId: string,
+  initialPollAfterMs: number,
+  signal?: AbortSignal,
+): Promise&lt;T&gt; {
+  let nextDelayMs = initialPollAfterMs;
+
+  for (;;) {
+    await wait(nextDelayMs, signal);
+    const job = await api.get&lt;JobStatusResponse&lt;T&gt;&gt;(
+      `/jobs/${jobId}`,
+      { signal },
+    );
+
+    if (job.status === &quot;SUCCEEDED&quot;) {
+      return job.result as T;
+    }
+    if (job.status === &quot;FAILED&quot;) {
+      throw new JobFailedError(job.error as JobError);
+    }
+    if (job.poll_after_ms === undefined) {
+      throw new Error(
+        `GET /jobs/${jobId} did not return poll_after_ms `
+        + `while status=${job.status}`,
+      );
+    }
+    nextDelayMs = job.poll_after_ms;
+  }
+}</code></pre>
+    </div><p>最初の待ち時間は、ジョブ登録POSTの202応答から受け取ります。その後の待ち時間は、各GET応答の<code>poll_after_ms</code>へ更新します。</p><p>クライアントに<code>1500ms</code>などの固定値を持たせない理由は、サーバーが負荷やジョブ種別に応じて間隔を変更できるようにするためです。短すぎるポーリングはAPIとDBへ不要な負荷をかけ、長すぎると完了表示が遅れます。</p><h3 id="1811-abort可能な待機関数" tabindex="-1">18.11 abort可能な待機関数<a class="heading-anchor" href="#1811-abort可能な待機関数" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">function wait(
+  ms: number,
+  signal?: AbortSignal,
+): Promise&lt;void&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      &quot;abort&quot;,
+      () =&gt; {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}</code></pre>
+    </div><p>HTTPリクエストだけでなく、次のポーリングまでの<code>setTimeout</code>も中断できるようにします。画面を離れたのにtimerとGETが動き続ける<strong>メモリリーク／不要処理</strong>を防ぎます。</p><h3 id="1812-fake-timerで時間依存の処理をテストした" tabindex="-1">18.12 fake timerで時間依存の処理をテストした<a class="heading-anchor" href="#1812-fake-timerで時間依存の処理をテストした" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">vi.useFakeTimers();
+
+const promise = waitForJob(&quot;job-1&quot;, 1500);
+await vi.advanceTimersByTimeAsync(1499);
+expect(api.get).not.toHaveBeenCalled();
+await vi.advanceTimersByTimeAsync(1);</code></pre>
+    </div><p>テストが実時間で1.5秒、4秒と待つ必要はありません。Vitestのfake timerで時刻を進め、次を高速・決定的に確認します。</p><ul><li>初回はPOSTが返した間隔だけ待つ</li><li>以後もサーバーの新しい間隔へ従う</li><li>FAILEDなら<code>JobFailedError</code></li><li>実行中なのに<code>poll_after_ms</code>がなければ契約違反として失敗</li></ul><h3 id="1813-apiとの既知の契約不一致" tabindex="-1">18.13 APIとの既知の契約不一致<a class="heading-anchor" href="#1813-apiとの既知の契約不一致" aria-label="この見出しへのリンク">#</a></h3><p>P1-13の<code>GET /jobs/{id}</code>は、現時点で<code>poll_after_ms</code>を返しません。P1-17は仕様どおり、値がなければ例外を投げます。</p><p>テストはこの不足を隠す既定値を置かず、むしろ明示的に検知します。後続のP2で具体値を決め、APIを直す必要があります。</p><h3 id="1814-この時点で未実装のもの" tabindex="-1">18.14 この時点で未実装のもの<a class="heading-anchor" href="#1814-この時点で未実装のもの" aria-label="この見出しへのリンク">#</a></h3><ul><li><code>POST /assessments</code>など個別API関数</li><li>401フックとRouterの接続</li><li>各画面でのAbortController作成・破棄</li><li>Idempotency-Keyの実際の生成と再利用</li><li>サーバー側<code>poll_after_ms</code></li></ul><p>P1-17は、これらが乗る通信基盤だけを実装した工程です。</p><h3 id="用語メモ-17" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-17" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>fetch API</strong>：ブラウザからHTTP通信を行う標準API</li><li><strong>wrapper</strong>：既存APIを包み、共通処理や使いやすい形を加える関数・層</li><li><strong>generic</strong>：型を利用時に指定できるTypeScriptの仕組み</li><li><strong>AbortController / AbortSignal</strong>：非同期処理へ中断を通知するWeb標準API</li><li><strong>fake timer</strong>：テスト内の時刻・timerを仮想的に制御する機能</li><li><strong>contract</strong>：APIの入力・出力・statusなど、クライアントとサーバー間の約束</li><li><strong>runtime validation</strong>：プログラム実行時にデータ構造を検査すること</li></ul><h3 id="この工程から学べる開発の定石-17" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-17" aria-label="この見出しへのリンク">#</a></h3><p>HTTP通信は画面から分離し、認証、エラー、キャンセル、冪等性を共通化します。非同期ポーリングは固定間隔を埋め込まず、サーバーと契約を持たせると運用時に調整しやすくなります。同時に、契約不一致を黙って補正せずテストで落とすと、未実装を早く発見できます。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://developer.mozilla.org/docs/Web/API/Fetch_API" target="_blank" rel="noreferrer"><span><strong>MDN Fetch API</strong><span>https://developer.mozilla.org/docs/Web/API/Fetch_API</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-16-common-ui.html"><small>← PREVIOUS P1-16</small><strong>共通UIコンポーネントを作る</strong></a><a href="p1-18-dynamodb-wiring.html"><small>NEXT P1-18 →</small><strong>DataStackとAppStackを正しく配線する</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-17</h2><p>Fetch API・TypeScript</p><div class="rail-stat"><span>commit</span><strong>7ba0587</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 6</strong></div><progress id="check-progress-bar" max="6" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

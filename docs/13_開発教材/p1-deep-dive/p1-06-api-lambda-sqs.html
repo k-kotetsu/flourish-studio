@@ -1,0 +1,243 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="Lambda、API Gateway、SQS、Bedrock権限を一つの実行経路へ組む"><title>P1-6 AppStackでAPIと非同期処理を作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="6">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-6 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html" selected>P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 06</p>
+        <h1>P1-6<span>AppStackでAPIと非同期処理を作る</span></h1>
+        <p class="hero-summary">Lambda、API Gateway、SQS、Bedrock権限を一つの実行経路へ組む。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT cb7413a</span><span class="chip">LAYER Lambda・API Gateway・SQS</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>同期APIと非同期workerの分離</div><div class="learning-goal"><strong>理解 2</strong>SQS visibilityとLambda timeout</div><div class="learning-goal"><strong>理解 3</strong>response streamingの低レベル設定</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>cb7413a</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>キューは時間と障害を分離する</h3><p>APIはjobを受け付けて早く返し、重い生成はworkerが処理します。利用者のHTTP接続時間とAI処理時間を切り離せます。</p></article><article class="concept-card"><h3>visibility timeout</h3><p>workerが受けたmessageを一時的に他workerから隠す時間です。Lambda timeoutより長くしないと、処理中messageが再表示され重複実行されます。</p></article><article class="concept-card"><h3>この製品のDLQ方針は一般推奨と異なる</h3><p>通常AWSは複数回retryを推奨しますが、本製品はAI生成を自動retryしない規則のためmaxReceiveCount=1です。一般論より製品要件を優先した明示的例外です。</p></article><article class="concept-card"><h3>L2で足りないときのescape hatch</h3><p>CDKの高水準Constructが新しいResponseTransferModeを公開していなかったため、CfnMethodへproperty overrideを使っています。合成結果をテストする必要性が高まります。</p></article></div><div><p>API Lambdaは1,024MB/120秒、workerは1,769MB/300秒/予約同時実行5です。同じPythonコードを使っても、入口、時間制約、並列度が異なるため関数を分離します。workerの並列度5はBedrockへの突発負荷を抑える背圧として働きます。</p><p>コンテナイメージ採用によりLambdaの実行環境とローカルDockerの差を減らし、Lambda Web AdapterがFastAPIのASGIサーバーとLambda eventを橋渡しします。P1-6でP1-8のhealth endpointを一部前倒ししたのは、イメージをbuildして実デプロイするために最小アプリが必要だったからです。</p><p>Response streamingにはIntegration.ResponseTransferModeだけでなく、専用URIと<code>lambda:InvokeWithResponseStream</code>権限が必要です。どれか一つが欠けるとbuffered動作または権限エラーになるため、CloudFormation assertionと実機TTFB確認を組み合わせます。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-6 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart LR
+  CLIENT[Client] --&gt; APIGW[REST API
+STREAM]
+  APIGW --&gt; API[API Lambda
+FastAPI container]
+  API --&gt; Q[SQS flourish-job-queue]
+  Q --&gt; WORKER[Worker Lambda
+concurrency 5]
+  Q -.失敗.-&gt; DLQ[DLQ 14 days]
+  API --&gt; BEDROCK[Bedrock]
+  WORKER --&gt; BEDROCK</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart LR
+  CLIENT[Client] --&gt; APIGW[REST API
+STREAM]
+  APIGW --&gt; API[API Lambda
+FastAPI container]
+  API --&gt; Q[SQS flourish-job-queue]
+  Q --&gt; WORKER[Worker Lambda
+concurrency 5]
+  Q -.失敗.-&gt; DLQ[DLQ 14 days]
+  API --&gt; BEDROCK[Bedrock]
+  WORKER --&gt; BEDROCK</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../infra/lib/app-stack.ts">infra/lib/app-stack.ts</a><span>API/Worker Lambda、SQS/DLQ、API Gateway、IAMを定義する</span></div><div class="file-row"><a href="../../../api/Dockerfile">api/Dockerfile</a><span>FastAPIをLambda Web Adapterとともにコンテナ化する</span></div><div class="file-row"><a href="../../../api/Dockerfile.worker">api/Dockerfile.worker</a><span>同じコードベースからworker handlerを起動する</span></div><div class="file-row"><a href="../../../api/app/main.py">api/app/main.py</a><span>最低限のFastAPIアプリとhealth endpointを提供する</span></div><div class="file-row"><a href="../../../infra/test/app-stack.test.ts">infra/test/app-stack.test.ts</a><span>キュー、Lambda、event source、IAM、STREAM設定を検査する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../infra/lib/app-stack.ts"><code>infra/lib/app-stack.ts</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>infra/lib/app-stack.ts</strong><span>SQS・Lambda・API GatewayのCDK SDK · typescript</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>// 失敗messageの隔離先。調査時間を確保するため14日保持する。
+this.deadLetterQueue = new sqs.Queue(this, &quot;JobDeadLetterQueue&quot;, {
+  queueName: &quot;flourish-job-dlq&quot;,
+  retentionPeriod: cdk.Duration.days(14),
+});
+
+this.queue = new sqs.Queue(this, &quot;JobQueue&quot;, {
+  queueName: &quot;flourish-job-queue&quot;,
+  visibilityTimeout: cdk.Duration.seconds(330), // worker timeout 300秒より長い
+  deadLetterQueue: { queue: this.deadLetterQueue, maxReceiveCount: 1 },
+});
+
+// batchSize=1なら1回のinvokeが1 jobに対応し、失敗境界が明確になる。
+this.workerFunction.addEventSource(
+  new lambdaEventSources.SqsEventSource(this.queue, { batchSize: 1 }),
+);
+
+// L2未対応の新プロパティをCloudFormation階層へ直接追加する。
+for (const method of this.api.methods) {
+  const cfnMethod = method.node.defaultChild as apigateway.CfnMethod;
+  cfnMethod.addPropertyOverride(&quot;Integration.ResponseTransferMode&quot;, &quot;STREAM&quot;);
+  cfnMethod.addPropertyOverride(&quot;Integration.Uri&quot;, streamingInvocationUri);
+}</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>コンテナLambda作成には先にECRへイメージが必要です。コンソールで同等構成を作る手順を示しますが、再現性のため正規環境はCDKを推奨します。各リソースは料金・quotaへ影響します。</p><span class="manual-kind">AWS Management Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>ECRへ2つのimageを用意する</h3><p>ECRでrepositoryを作り、api/DockerfileとDockerfile.workerからARM64対応imageをbuild/pushします。tagではなくdigestも記録します。</p><span class="expected">期待結果：2 imageのscan結果とdigestを確認</span></li><li><h3>DLQとjob queueを作る</h3><p>SQSでflourish-job-dlq（retention 14日）を作り、次にflourish-job-queue（visibility 330秒）を作ってDLQ redrive policy、max receive count 1を設定します。</p><span class="expected">期待結果：source queueのDLQが正しい</span></li><li><h3>API Lambdaを作る</h3><p>Lambda → Create function → Container image。ARM64、memory 1024MB、timeout 120秒、JOB_QUEUE_URLを設定し、execution roleへSQS SendMessageと必要なBedrock model ARNだけを許可します。</p><span class="expected">期待結果：Testでhealth応答を確認</span></li><li><h3>worker Lambdaを作る</h3><p>worker imageでfunctionを作り、ARM64、memory 1769MB、timeout 300秒、reserved concurrency 5にします。execution roleへ必要な権限を付けます。</p><span class="expected">期待結果：設定値がCDKと一致</span></li><li><h3>SQS triggerを追加する</h3><p>worker → Add trigger → SQSでjob queueを選び、batch size 1を指定します。Lambda roleへpoll/delete権限が追加されることを確認します。</p><span class="expected">期待結果：event source mappingがEnabled</span></li><li><h3>REST APIを作る</h3><p>API GatewayでREST APIを作り、proxy resource <code>/{proxy+}</code>とroot ANYをAPI Lambdaのproxy integrationへ接続します。stage prodへdeployします。</p><span class="expected">期待結果：invoke URL /healthが200</span></li><li><h3>response streamingを設定する</h3><p>対象methodのIntegration requestでResponse transfer modeをStreamにし、Lambda resource policyへAPI GatewayのInvokeWithResponseStreamを許可します。コンソールが対応していない項目はOpenAPI importまたはCDKを使います。</p><span class="expected">期待結果：逐次応答でTTFBを確認</span></li><li><h3>キュー経路を実機確認する</h3><p>SQS consoleからテストmessageを送信し、workerのCloudWatch Logs、source queue、DLQを確認します。検証messageは実データと区別できるkindにします。</p><span class="expected">期待結果：messageが1回処理されqueueから消える</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>API/workerがARM64 container image</span></label><label class="check-item"><input type="checkbox" value="1"><span>visibility 330秒 > worker timeout 300秒</span></label><label class="check-item"><input type="checkbox" value="2"><span>worker reserved concurrency 5・batch size 1</span></label><label class="check-item"><input type="checkbox" value="3"><span>API roleだけSendMessage可能</span></label><label class="check-item"><input type="checkbox" value="4"><span>STREAMのURIと権限が両方ある</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>API/workerがARM64 container image</li><li>visibility 330秒 > worker timeout 300秒</li><li>worker reserved concurrency 5・batch size 1</li><li>API roleだけSendMessage可能</li><li>STREAMのURIと権限が両方ある</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>event source mappingをDisableして新規処理を止める</li><li>API Gateway stageは前deploymentへ戻す</li><li>Lambda imageは以前のdigestを再指定する</li><li>message削除前にDLQ内容を調査・エクスポートする</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-7-p1-6-appstackでapiと非同期処理のインフラを作る" data-heading="7. P1-6 AppStackでAPIと非同期処理のインフラを作る" data-step="6">
+<header class="chapter-header"><span class="chapter-step">STEP 06</span><h2 id="7-p1-6-appstackでapiと非同期処理のインフラを作る" tabindex="-1">7. P1-6 AppStackでAPIと非同期処理のインフラを作る<a class="heading-anchor" href="#7-p1-6-appstackでapiと非同期処理のインフラを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="6" aria-label="P1-6の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-6" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-6" aria-label="この見出しへのリンク">#</a></h3><p>FastAPIを動かすAPI Lambda、時間のかかる処理を担当するワーカーLambda、両者をつなぐSQS、HTTPの入口になるAPI Gatewayを作ることです。</p><ul><li>対象コミット：<code>cb7413a</code></li><li>主なファイル：<a class="file-ref" href="../../../infra/lib/app-stack.ts" title="リポジトリ内のファイルを開く"><code>infra/lib/app-stack.ts</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra/test/app-stack.test.ts" title="リポジトリ内のファイルを開く"><code>infra/test/app-stack.test.ts</code><span aria-hidden="true">↗</span></a></li><li>前倒しで追加：<a class="file-ref" href="../../../api/Dockerfile" title="リポジトリ内のファイルを開く"><code>api/Dockerfile</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../api/Dockerfile.worker" title="リポジトリ内のファイルを開く"><code>api/Dockerfile.worker</code><span aria-hidden="true">↗</span></a>、最小FastAPI、ワーカーハンドラ</li><li>実機確認：<code>ap-northeast-1</code>へデプロイし、<code>GET /health</code>が200を返すことを確認済み</li></ul><aside class="callout callout--warning"><span class="callout-icon" aria-hidden="true">i</span><div>注意：以下ではP1-6時点の役割を説明します。現行の<code>app-stack.ts</code>には、P1-13のSQS送信設定とP1-18のDynamoDB配線も追加されています。</div></aside><h3 id="71-apiとワーカーを分けた" tabindex="-1">7.1 APIとワーカーを分けた<a class="heading-anchor" href="#71-apiとワーカーを分けた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.apiFunction = new lambda.DockerImageFunction(this, &quot;ApiFunction&quot;, {
+  code: lambda.DockerImageCode.fromImageAsset(apiAssetDir, {
+    file: &quot;Dockerfile&quot;,
+  }),
+  architecture: lambda.Architecture.ARM_64,
+  memorySize: 1024,
+  timeout: cdk.Duration.seconds(120),
+});
+
+this.workerFunction = new lambda.DockerImageFunction(this, &quot;WorkerFunction&quot;, {
+  code: lambda.DockerImageCode.fromImageAsset(apiAssetDir, {
+    file: &quot;Dockerfile.worker&quot;,
+  }),
+  architecture: lambda.Architecture.ARM_64,
+  memorySize: 1769,
+  timeout: cdk.Duration.seconds(300),
+  reservedConcurrentExecutions: 5,
+});</code></pre>
+    </div><p>APIはユーザーへ比較的すぐ応答する役割、ワーカーはAI生成のように時間がかかる処理を後から実行する役割です。</p><p>ワーカーの<code>reservedConcurrentExecutions: 5</code>は、同時実行数を抑え、Bedrock側のスロットリングや急なコスト増加を避けるための制御です。</p><h3 id="72-コンテナイメージでlambdaを動かした" tabindex="-1">7.2 コンテナイメージでLambdaを動かした<a class="heading-anchor" href="#72-コンテナイメージでlambdaを動かした" aria-label="この見出しへのリンク">#</a></h3><p>API用Dockerfileの要点は次の通りです。</p>
+    <div class="code-shell" data-language="dockerfile">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>dockerfile</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-dockerfile">FROM public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 AS adapter
+FROM python:3.12-slim
+COPY --from=adapter /lambda-adapter /opt/extensions/lambda-adapter
+ENV AWS_LWA_INVOKE_MODE=response_stream
+ENV PORT=8080
+COPY . /app
+WORKDIR /app
+RUN pip install --no-cache-dir -r requirements.txt
+CMD [&quot;uvicorn&quot;, &quot;app.main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8080&quot;]</code></pre>
+    </div><p><strong>Lambda Web Adapter</strong>は、通常のWebサーバーとして動くFastAPI/UvicornとLambdaのイベント形式の間を変換します。これにより、ローカルでも本番でもUvicornを起動する同じ形を保ちやすくなります。</p><p>ワーカーはHTTPサーバーが不要なので、AWS Lambda用Pythonイメージでハンドラを直接呼びます。</p>
+    <div class="code-shell" data-language="dockerfile">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>dockerfile</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-dockerfile">FROM public.ecr.aws/lambda/python:3.12
+COPY app ${LAMBDA_TASK_ROOT}/app
+CMD [&quot;app.worker.handler.handler&quot;]</code></pre>
+    </div><h3 id="73-sqsとdlqを作った" tabindex="-1">7.3 SQSとDLQを作った<a class="heading-anchor" href="#73-sqsとdlqを作った" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.deadLetterQueue = new sqs.Queue(this, &quot;JobDeadLetterQueue&quot;, {
+  queueName: &quot;flourish-job-dlq&quot;,
+  retentionPeriod: cdk.Duration.days(14),
+});
+
+this.queue = new sqs.Queue(this, &quot;JobQueue&quot;, {
+  queueName: &quot;flourish-job-queue&quot;,
+  visibilityTimeout: cdk.Duration.seconds(330),
+  deadLetterQueue: {
+    queue: this.deadLetterQueue,
+    maxReceiveCount: 1,
+  },
+});</code></pre>
+    </div><ul><li><strong>SQS</strong>：メッセージを一時保存し、送信側と処理側を疎結合にするキュー</li><li><strong>DLQ（Dead Letter Queue）</strong>：正常処理できなかったメッセージの退避先</li><li><strong>visibility timeout</strong>：処理中のメッセージを他ワーカーから見えなくする時間</li><li><strong>maxReceiveCount</strong>：何回受信失敗したらDLQへ送るか</li></ul><p>このサービスでは「AI生成を自動リトライしない」という製品ルールに合わせ、<code>maxReceiveCount: 1</code>にしています。一般的なシステムでは数回リトライすることも多いですが、AI処理は再実行ごとに課金され、ユーザーの意図しない生成にもなるためです。</p><h3 id="74-sqsをワーカーのイベントソースにした" tabindex="-1">7.4 SQSをワーカーのイベントソースにした<a class="heading-anchor" href="#74-sqsをワーカーのイベントソースにした" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.workerFunction.addEventSource(
+  new lambdaEventSources.SqsEventSource(this.queue, { batchSize: 1 }),
+);</code></pre>
+    </div><p><code>batchSize: 1</code>により、ワーカーは1回に1ジョブずつ処理します。状態管理と失敗時の扱いが単純になり、1件の失敗で複数ジョブを巻き込みにくくなります。</p><h3 id="75-bedrock権限を最小化した" tabindex="-1">7.5 Bedrock権限を最小化した<a class="heading-anchor" href="#75-bedrock権限を最小化した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const bedrockPolicy = new iam.PolicyStatement({
+  actions: [&quot;bedrock:InvokeModel&quot;, &quot;bedrock:InvokeModelWithResponseStream&quot;],
+  resources: bedrockModelResourceArns(this.account),
+});</code></pre>
+    </div><p><code>Resource: &quot;*&quot;</code>ではなく、使用予定のモデルと推論プロファイルのARNだけを許可しています。これは<strong>最小権限の原則</strong>です。</p><h3 id="76-api-gatewayのストリーミング設定" tabindex="-1">7.6 API Gatewayのストリーミング設定<a class="heading-anchor" href="#76-api-gatewayのストリーミング設定" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const streamingInvocationUri =
+  `arn:aws:apigateway:${this.region}:lambda:path/2021-11-15/functions/` +
+  `${this.apiFunction.functionArn}/response-streaming-invocations`;
+
+for (const method of this.api.methods) {
+  const cfnMethod = method.node.defaultChild as apigateway.CfnMethod;
+  cfnMethod.addPropertyOverride(
+    &quot;Integration.ResponseTransferMode&quot;,
+    &quot;STREAM&quot;,
+  );
+  cfnMethod.addPropertyOverride(&quot;Integration.Uri&quot;, streamingInvocationUri);
+}</code></pre>
+    </div><p>当時のCDKの高水準APIでは必要な設定を直接表現できなかったため、生成されるCloudFormationのプロパティを上書きする<strong>エスケープハッチ</strong>を使いました。</p><p>さらに、API Gatewayがストリーム呼び出しできるIAM権限も追加しています。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.apiFunction.addPermission(&quot;ApiGatewayInvokeWithResponseStream&quot;, {
+  principal: new iam.ServicePrincipal(&quot;apigateway.amazonaws.com&quot;),
+  action: &quot;lambda:InvokeWithResponseStream&quot;,
+  sourceArn: this.api.arnForExecuteApi(),
+});</code></pre>
+    </div><h3 id="77-なぜp1-8の一部を前倒ししたか" tabindex="-1">7.7 なぜP1-8の一部を前倒ししたか<a class="heading-anchor" href="#77-なぜp1-8の一部を前倒ししたか" aria-label="この見出しへのリンク">#</a></h3><p><code>DockerImageFunction</code>を作るには、ビルドできるコンテナイメージのソースが必要です。そのため、P1-6では本来P1-8の範囲だった最小FastAPIと<code>/health</code>を先に用意しました。</p><p>これは現実の開発でよく起こる依存関係の調整です。タスク境界を守るためにデプロイ不能なコードを作るのではなく、必要最小限だけ前倒しし、その事実をバックログに記録しました。</p><h3 id="78-この工程で行ったテストと確認" tabindex="-1">7.8 この工程で行ったテストと確認<a class="heading-anchor" href="#78-この工程で行ったテストと確認" aria-label="この見出しへのリンク">#</a></h3><ul><li>LambdaがAPI用・ワーカー用の2つ存在する</li><li>ワーカーだけ予約同時実行数が5</li><li>SQSにDLQがあり、<code>maxReceiveCount=1</code></li><li>API Gatewayの統合が<code>STREAM</code></li><li>BedrockのIAM権限がワイルドカードではない</li><li>AWSへ実際にデプロイし、<code>GET /health</code>が200</li></ul><h3 id="用語メモ-6" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-6" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>Lambda</strong>：イベントに応じてコードを実行するサーバーレス実行環境</li><li><strong>API Gateway</strong>：HTTPリクエストをLambdaなどへ届ける入口</li><li><strong>コンテナイメージ</strong>：アプリと実行環境をまとめた配布単位</li><li><strong>ARM64</strong>：CPUアーキテクチャの一種</li><li><strong>ストリーミング</strong>：応答全体の完成を待たず、到着した部分から送る方式</li><li><strong>IAM</strong>：AWS上の権限を管理する仕組み</li><li><strong>ARN</strong>：AWSリソースを一意に表す名前</li><li><strong>疎結合</strong>：部品同士の直接依存を減らし、交換・障害分離をしやすくした状態</li></ul><h3 id="この工程から学べる開発の定石-6" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-6" aria-label="この見出しへのリンク">#</a></h3><p>時間のかかる処理をHTTPリクエストの中だけで完結させず、キューとワーカーへ分けると、タイムアウトやアクセス集中に強くなります。一方、分割すると「キューURLを渡す」「権限を与える」「状態をDBへ保存する」という配線が増えるため、後のP1-13とP1-18でそれを補います。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html" target="_blank" rel="noreferrer"><span><strong>Lambda SQS event source mapping</strong><span>https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html</span></span></a><a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/response-streaming-lambda-configure.html" target="_blank" rel="noreferrer"><span><strong>API Gateway Lambda response streaming</strong><span>https://docs.aws.amazon.com/apigateway/latest/developerguide/response-streaming-lambda-configure.html</span></span></a><a href="https://docs.aws.amazon.com/lambda/latest/dg/lambda-permissions.html" target="_blank" rel="noreferrer"><span><strong>Lambda execution permissions</strong><span>https://docs.aws.amazon.com/lambda/latest/dg/lambda-permissions.html</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-05-cognito-auth-stack.html"><small>← PREVIOUS P1-5</small><strong>CognitoのAuthStackを作る</strong></a><a href="p1-07-cloudfront-edge.html"><small>NEXT P1-7 →</small><strong>EdgeStackで配信・キャッシュ・防御を作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-6</h2><p>Lambda・API Gateway・SQS</p><div class="rail-stat"><span>commit</span><strong>cb7413a</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

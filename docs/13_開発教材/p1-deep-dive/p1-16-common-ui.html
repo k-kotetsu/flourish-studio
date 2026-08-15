@@ -1,0 +1,293 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="見た目だけでなく状態、操作、アクセシビリティを部品化する"><title>P1-16 共通UIコンポーネントを作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="16">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-16 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html" selected>P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 16</p>
+        <h1>P1-16<span>共通UIコンポーネントを作る</span></h1>
+        <p class="hero-summary">見た目だけでなく状態、操作、アクセシビリティを部品化する。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 71e931b</span><span class="chip">LAYER Vue SFC・アクセシビリティ</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>props/emit/slotの責務</div><div class="learning-goal"><strong>理解 2</strong>native semanticsとARIA</div><div class="learning-goal"><strong>理解 3</strong>状態組合せの目視・自動テスト</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>71e931b</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>component API</h3><p>propsは親からの入力、emitは利用者操作の通知、slotは内容差し替えです。内部DOMを直接触らせず意味のあるinterfaceを作ります。</p></article><article class="concept-card"><h3>disabledは見た目だけでない</h3><p>色を薄くするだけでなくnative <code>disabled</code>を付け、click・focus・form submitを止めます。理由文言はbutton外で説明します。</p></article><article class="concept-card"><h3>ARIAはnative HTMLの補足</h3><p>buttonはdiv+roleで作らずnative buttonを使います。progressbarは視覚だけでは伝わらない現在値をaria-valuenowで補います。</p></article><article class="concept-card"><h3>reduced motion</h3><p>OSが動きを減らす設定ならanimation/transitionを抑えます。装飾の好みではなく、前庭障害等へのアクセシビリティ要件です。</p></article></div><div><p>共通componentは重複CSSを減らすだけでなく、製品ルールを強制する場所です。例えばGeneratingScreenは失敗時に自動retryせず、retry buttonを利用者が押したときだけemitします。InterruptDialogは入力を失う操作に確認を挟みます。</p><p>progress barのpercentは親が計算し、componentは表示とARIAへ反映します。component内でstep数から再計算すると、画面flow仕様がUI部品へ漏れます。責務を狭く保つと、別flowでも同じ部品を使えます。</p><p>Galleryは全variant、長文、disabled、error、dark themeを一画面で比較します。snapshotだけでは色contrast、overflow、focus ring、motionは判断できないため、unit testと目視を補完関係にします。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-16 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart TB
+  TOKENS[Design tokens] --&gt; BTN[AppButton]
+  TOKENS --&gt; HEADERS[3 Headers]
+  TOKENS --&gt; PROGRESS[ProgressBar]
+  TOKENS --&gt; DIALOG[InterruptDialog]
+  TOKENS --&gt; GEN[GeneratingScreen]
+  BTN --&gt; GALLERY[Component Gallery]
+  HEADERS --&gt; GALLERY
+  PROGRESS --&gt; GALLERY
+  DIALOG --&gt; GALLERY
+  GEN --&gt; GALLERY
+  GALLERY --&gt; VISUAL[Light/Dark + states + focus目視]
+  BTN --&gt; TEST[Vitest component tests]</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart TB
+  TOKENS[Design tokens] --&gt; BTN[AppButton]
+  TOKENS --&gt; HEADERS[3 Headers]
+  TOKENS --&gt; PROGRESS[ProgressBar]
+  TOKENS --&gt; DIALOG[InterruptDialog]
+  TOKENS --&gt; GEN[GeneratingScreen]
+  BTN --&gt; GALLERY[Component Gallery]
+  HEADERS --&gt; GALLERY
+  PROGRESS --&gt; GALLERY
+  DIALOG --&gt; GALLERY
+  GEN --&gt; GALLERY
+  GALLERY --&gt; VISUAL[Light/Dark + states + focus目視]
+  BTN --&gt; TEST[Vitest component tests]</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../web/src/components/AppButton.vue">web/src/components/AppButton.vue</a><span>variant/disabled/type/slotを共通buttonへ集約する</span></div><div class="file-row"><a href="../../../web/src/components/AppHeaderFlow.vue">web/src/components/AppHeaderFlow.vue</a><span>戻る、中断、進捗を持つフロー用headerを提供する</span></div><div class="file-row"><a href="../../../web/src/components/AppProgressBar.vue">web/src/components/AppProgressBar.vue</a><span>視覚幅とARIA値を同じpercentから出す</span></div><div class="file-row"><a href="../../../web/src/components/InterruptDialog.vue">web/src/components/InterruptDialog.vue</a><span>入力消失前の確認とfocus制御を行う</span></div><div class="file-row"><a href="../../../web/src/components/GeneratingScreen.vue">web/src/components/GeneratingScreen.vue</a><span>生成中・失敗・明示再試行を同一画面状態で表す</span></div><div class="file-row"><a href="../../../web/src/views/ComponentGalleryView.vue">web/src/views/ComponentGalleryView.vue</a><span>Storybook相当の目視確認面を提供する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../web/src/components/AppProgressBar.vue"><code>web/src/components/AppProgressBar.vue</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>web/src/components/AppProgressBar.vue</strong><span>Vue SFCで視覚値とARIA値を同期する · vue</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>&lt;script setup lang=&quot;ts&quot;&gt;
+// 親がflow全体から計算したpercentだけを受け取る。
+const props = defineProps&lt;{ percent: number }&gt;();
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div
+    class=&quot;app-progress-bar&quot;
+    role=&quot;progressbar&quot;          &lt;!-- assistive technologyへ役割を伝える --&gt;
+    aria-valuemin=&quot;0&quot;
+    aria-valuemax=&quot;100&quot;
+    :aria-valuenow=&quot;props.percent&quot; &lt;!-- 視覚と同じsourceを使いずれを防ぐ --&gt;
+  &gt;
+    &lt;div
+      class=&quot;app-progress-bar__fill&quot;
+      :style=&quot;{ width: `${props.percent}%` }&quot;
+    /&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.app-progress-bar {
+  height: var(--progress-bar-height); /* design tokenへ集約 */
+  background: var(--surface-sub);
+}
+.app-progress-bar__fill { height: 100%; background: var(--primary); }
+&lt;/style&gt;</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>AWS Console作業はありません。内部Galleryをコンポーネント・カタログとして使い、keyboard、screen-reader向け属性、responsive、theme、reduced motionを手動確認します。</p><span class="manual-kind">Component Gallery + DevTools</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>Galleryを開く</h3><p>dev serverで<code>/app/_gallery</code>を開き、7 componentと全variant/stateが表示されることを確認します。これは利用者導線へ出さない内部routeです。</p><span class="expected">期待結果：欠けたstateがない</span></li><li><h3>keyboardだけで操作する</h3><p>Tab/Shift+Tab/Enter/Space/Escapeでbutton、dialogを操作し、focus順・focus ring・dialog close後のfocus復帰を確認します。</p><span class="expected">期待結果：mouseなしで完了可能</span></li><li><h3>disabledを確認する</h3><p>disabled buttonにTab focus/click/eventが発生せず、近くに理由文言があることを確認します。CSS classだけの無効化ではないことをElementsで見ます。</p><span class="expected">期待結果：native disabledあり</span></li><li><h3>ARIA値を確認する</h3><p>ProgressBarのElements/Accessibility paneでrole、min/max/nowを確認し、fill widthと同じ値であることを見ます。</p><span class="expected">期待結果：視覚値とaccessible value一致</span></li><li><h3>dialogの入力保護を確認する</h3><p>InterruptDialogを開き、backgroundが操作できない、Escape/close動作、破壊操作と継続操作の文言、focus trapを確認します。</p><span class="expected">期待結果：誤離脱を防ぐ</span></li><li><h3>生成失敗状態を確認する</h3><p>GeneratingScreenをloading→failedへ切替え、自動的にretryされずbutton操作時だけeventが出ることをVue DevToolsで確認します。</p><span class="expected">期待結果：明示操作のみ再実行</span></li><li><h3>theme/幅/motionを組み合わせる</h3><p>light/dark、320px/desktop、長文、日本語zoom 200%、prefers-reduced-motionを切替え、overflowとanimationを確認します。</p><span class="expected">期待結果：内容消失・横scrollなし</span></li><li><h3>component testを実行する</h3><p>各specを実行しprops、emit、ARIA、state分岐を確認します。目視結果はPR checklistへ記録します。</p><span class="expected">期待結果：自動testと目視の両方完了</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>全variantをGalleryで確認</span></label><label class="check-item"><input type="checkbox" value="1"><span>native button/dialog semantics</span></label><label class="check-item"><input type="checkbox" value="2"><span>progressの視覚/ARIA同期</span></label><label class="check-item"><input type="checkbox" value="3"><span>disabledは実際に操作不能</span></label><label class="check-item"><input type="checkbox" value="4"><span>reduced motion対応</span></label><label class="check-item"><input type="checkbox" value="5"><span>失敗時に自動retryしない</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>全variantをGalleryで確認</li><li>native button/dialog semantics</li><li>progressの視覚/ARIA同期</li><li>disabledは実際に操作不能</li><li>reduced motion対応</li><li>失敗時に自動retryしない</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>component API変更は全call siteを型検査して戻す</li><li>token回帰は個別componentの暫定上書きよりtoken変更をrevertする</li><li>accessibility修正を見た目都合で外さない</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-17-p1-16-共通uiコンポーネントを作る" data-heading="17. P1-16 共通UIコンポーネントを作る" data-step="16">
+<header class="chapter-header"><span class="chapter-step">STEP 16</span><h2 id="17-p1-16-共通uiコンポーネントを作る" tabindex="-1">17. P1-16 共通UIコンポーネントを作る<a class="heading-anchor" href="#17-p1-16-共通uiコンポーネントを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="16" aria-label="P1-16の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-16" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-16" aria-label="この見出しへのリンク">#</a></h3><p>複数画面で繰り返す操作・レイアウトを、再利用可能でアクセシブルなVueコンポーネントとして用意することです。画面ごとに似ているが微妙に違うボタンやヘッダーを作らないようにします。</p><ul><li>対象コミット：<code>71e931b</code></li><li>主なファイル：<code>web/src/components/*.vue</code>、各<code>*.spec.ts</code></li><li>確認用画面：<a class="file-ref" href="../../../web/src/views/ComponentGalleryView.vue" title="リポジトリ内のファイルを開く"><code>web/src/views/ComponentGalleryView.vue</code><span aria-hidden="true">↗</span></a></li><li>ルート：<code>/app/_gallery</code></li><li>完了条件：Storybook相当の一覧で全状態を確認できる</li></ul><h3 id="171-7つの共通コンポーネント" tabindex="-1">17.1 7つの共通コンポーネント<a class="heading-anchor" href="#171-7つの共通コンポーネント" aria-label="この見出しへのリンク">#</a></h3><div class="table-wrap" role="region" aria-label="横スクロール可能な表" tabindex="0"><table><thead><tr><th scope="col">コンポーネント</th><th scope="col">役割</th></tr></thead><tbody><tr><td><code>AppButton</code></td><td>主要・副次・テキスト・無効ボタン</td></tr><tr><td><code>AppHeaderHub</code></td><td>ホームのヘッダー</td></tr><tr><td><code>AppHeaderFlow</code></td><td>フロー中・入口・生成中のヘッダー</td></tr><tr><td><code>AppHeaderSingle</code></td><td>単独画面のヘッダー</td></tr><tr><td><code>AppProgressBar</code></td><td>フローの進行表示</td></tr><tr><td><code>InterruptDialog</code></td><td>入力を失う中断前の確認</td></tr><tr><td><code>GeneratingScreen</code></td><td>AI生成中と失敗状態</td></tr></tbody></table></div><p>「ヘッダー3型」はHub、Flow、Singleの3つです。Flow内では<code>leftAction</code>を変え、戻る・中断・何もなしを表現します。</p><h3 id="172-ボタンをpropsとslotで再利用した" tabindex="-1">17.2 ボタンをpropsとslotで再利用した<a class="heading-anchor" href="#172-ボタンをpropsとslotで再利用した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;script setup lang=&quot;ts&quot;&gt;
+withDefaults(
+  defineProps&lt;{
+    variant?: &quot;primary&quot; | &quot;secondary&quot; | &quot;text&quot;;
+    disabled?: boolean;
+    type?: &quot;button&quot; | &quot;submit&quot;;
+  }&gt;(),
+  {
+    variant: &quot;primary&quot;,
+    disabled: false,
+    type: &quot;button&quot;,
+  },
+);
+
+defineEmits&lt;{
+  click: [event: MouseEvent];
+}&gt;();
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;button
+    :type=&quot;type&quot;
+    class=&quot;app-button&quot;
+    :class=&quot;`app-button--${variant}`&quot;
+    :disabled=&quot;disabled&quot;
+    @click=&quot;$emit('click', $event)&quot;
+  &gt;
+    &lt;slot /&gt;
+  &lt;/button&gt;
+&lt;/template&gt;</code></pre>
+    </div><ul><li><strong>props</strong>：親から子へ渡す設定</li><li><strong>emit</strong>：子から親へ通知するイベント</li><li><strong>slot</strong>：親が子コンポーネント内へ差し込む内容</li></ul><p>ラベルをpropではなくdefault slotにすることで、単純な文字だけでなく、将来アイコンなども組み合わせやすくなります。</p><p>無効状態は見た目を薄くするだけでなく、本物の<code>disabled</code>属性を付けます。これによりクリックとキーボード操作が無効になり、支援技術にも状態が伝わります。</p>
+    <div class="code-shell" data-language="css">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>css</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-css">.app-button {
+  min-height: var(--tap-target-min);
+}
+
+.app-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}</code></pre>
+    </div><p>44px以上のタップ領域と、キーボードフォーカス表示も共通化しています。</p><h3 id="173-ヘッダーを画面の意味で分けた" tabindex="-1">17.3 ヘッダーを画面の意味で分けた<a class="heading-anchor" href="#173-ヘッダーを画面の意味で分けた" aria-label="この見出しへのリンク">#</a></h3><p><code>AppHeaderHub</code>はホーム用なので戻るボタンがなく、右側へテーマトグルを差し込むnamed slotだけを持ちます。</p>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;div class=&quot;app-header-hub__right&quot;&gt;
+  &lt;slot name=&quot;right&quot; /&gt;
+&lt;/div&gt;</code></pre>
+    </div><p><code>AppHeaderSingle</code>は単独画面用で、戻るとタイトルだけです。プログレスバーはありません。</p><p><code>AppHeaderFlow</code>は進行中の一連の画面に使い、次をpropsで変えます。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">defineProps&lt;{
+  title: string;
+  percent: number;
+  leftAction?: &quot;back&quot; | &quot;cancel&quot; | &quot;none&quot;;
+  step?: string | null;
+}&gt;();</code></pre>
+    </div><p>生成中は<code>leftAction=&quot;none&quot;</code>かつ<code>step</code>なしにし、ユーザーが処理中に誤って戻らないようにします。</p><h3 id="174-進捗を視覚とariaの両方で表現した" tabindex="-1">17.4 進捗を視覚とARIAの両方で表現した<a class="heading-anchor" href="#174-進捗を視覚とariaの両方で表現した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;div
+  class=&quot;app-progress-bar&quot;
+  role=&quot;progressbar&quot;
+  aria-valuemin=&quot;0&quot;
+  aria-valuemax=&quot;100&quot;
+  :aria-valuenow=&quot;props.percent&quot;
+&gt;
+  &lt;div
+    class=&quot;app-progress-bar__fill&quot;
+    :style=&quot;{ width: `${props.percent}%` }&quot;
+  /&gt;
+&lt;/div&gt;</code></pre>
+    </div><p>バーの幅だけではスクリーンリーダーが進捗を理解できないため、<code>role</code>と<code>aria-valuenow</code>を付けます。</p><p><strong>ARIA</strong>は、HTMLだけでは十分に表現できない役割・状態を支援技術へ伝える属性群です。</p><h3 id="175-中断ダイアログで入力消失を防いだ" tabindex="-1">17.5 中断ダイアログで入力消失を防いだ<a class="heading-anchor" href="#175-中断ダイアログで入力消失を防いだ" aria-label="この見出しへのリンク">#</a></h3><p>このサービスは入力途中をサーバーへ保存しません。そのため、中断すると入力を失います。<code>InterruptDialog</code>は必ず確認を挟みます。</p>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;div
+  class=&quot;interrupt-dialog&quot;
+  role=&quot;alertdialog&quot;
+  aria-modal=&quot;true&quot;
+  aria-labelledby=&quot;interrupt-dialog-title&quot;
+  aria-describedby=&quot;interrupt-dialog-body&quot;
+&gt;</code></pre>
+    </div><p>ダイアログは<code>Teleport to=&quot;body&quot;</code>でbody直下へ描画します。親の<code>overflow</code>やstacking contextの影響を受けにくくし、画面全体のoverlayとして扱います。</p>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">watch(
+  () =&gt; props.open,
+  async (open) =&gt; {
+    if (!open) return;
+    await nextTick();
+    continueButton.value?.$el?.focus();
+  },
+);</code></pre>
+    </div><p>開いた直後のフォーカスを主要ボタン「つづける」に置きます。入力を失う「やめる」を既定位置にせず、誤操作を減らします。</p><aside class="callout callout--info"><span class="callout-icon" aria-hidden="true">i</span><div>現時点の実装は初期フォーカスを設定しますが、Tabキーのフォーカスをダイアログ内へ閉じ込める完全なfocus trapやEscapeキー処理までは実装していません。最終的なアクセシビリティ検証はP7-4の範囲です。</div></aside><h3 id="176-生成中と失敗を同じ画面内で切り替えた" tabindex="-1">17.6 生成中と失敗を同じ画面内で切り替えた<a class="heading-anchor" href="#176-生成中と失敗を同じ画面内で切り替えた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;template v-if=&quot;!failed&quot;&gt;
+  &lt;div class=&quot;generating-screen__spinner&quot; aria-hidden=&quot;true&quot; /&gt;
+  &lt;p class=&quot;generating-screen__message&quot; role=&quot;status&quot;&gt;
+    {{ message }}
+  &lt;/p&gt;
+&lt;/template&gt;
+&lt;template v-else&gt;
+  &lt;!-- エラー説明、再試行、必要なら戻る --&gt;
+&lt;/template&gt;</code></pre>
+    </div><p>失敗時に別URLへ遷移せず、同じ画面の中身を置き換えます。ユーザーの文脈を保ち、手動再試行ボタンを表示できます。</p>
+    <div class="code-shell" data-language="vue">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>vue</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-vue">&lt;AppButton variant=&quot;primary&quot; @click=&quot;$emit('retry')&quot;&gt;
+  {{ retryLabel }}
+&lt;/AppButton&gt;</code></pre>
+    </div><p>コンポーネント自身は自動再試行しません。親画面が<code>retry</code>イベントを受け取ったときだけ、新しい生成を開始します。</p><p><code>errorMessage</code>は呼び出し側が具体的に渡し、AI失敗を無関係な定型コンテンツで埋めません。</p><h3 id="177-動きを抑えるos設定へ配慮した" tabindex="-1">17.7 動きを抑えるOS設定へ配慮した<a class="heading-anchor" href="#177-動きを抑えるos設定へ配慮した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="css">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>css</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-css">@media (prefers-reduced-motion: reduce) {
+  .generating-screen__spinner {
+    animation-duration: 4s;
+  }
+}</code></pre>
+    </div><p><code>prefers-reduced-motion</code>は、アニメーションを抑えたいというOS設定です。ここでは回転を完全停止せず緩やかにしています。P7-4でサービス全体の動きをさらに検証する予定です。</p><h3 id="178-scrimトークンを追加した" tabindex="-1">17.8 <code>--scrim</code>トークンを追加した<a class="heading-anchor" href="#178-scrimトークンを追加した" aria-label="この見出しへのリンク">#</a></h3><p>ダイアログ背面の半透明幕に必要な色がP1-15のトークンに不足していたため、ワイヤーフレームの値をもとにライト・ダーク用<code>--scrim</code>を追加しました。</p><p>これは、コンポーネント実装中に必要なデザイン値を発見し、局所的なRGBA直書きではなくトークンへ戻す流れです。</p><h3 id="179-storybook相当のgalleryを作った" tabindex="-1">17.9 Storybook相当のGalleryを作った<a class="heading-anchor" href="#179-storybook相当のgalleryを作った" aria-label="この見出しへのリンク">#</a></h3><p>このリポジトリにはStorybook自体を導入せず、<code>ComponentGalleryView.vue</code>に全状態を並べました。</p><ul><li>ボタン4種</li><li>プログレスバー17%、67%、100%</li><li>ヘッダー3型とFlow内の状態</li><li>中断ダイアログの開閉</li><li>生成中・失敗の切り替え</li></ul><p>ルートは<code>/_gallery</code>ですが、Routerのbaseが<code>/app/</code>なので実URLは<code>/app/_gallery</code>です。ユーザー導線へは出さない内部確認画面です。</p><h3 id="1710-自動テストと目視確認を組み合わせた" tabindex="-1">17.10 自動テストと目視確認を組み合わせた<a class="heading-anchor" href="#1710-自動テストと目視確認を組み合わせた" aria-label="この見出しへのリンク">#</a></h3><p>各コンポーネントのテストでは、次を確認します。</p><ul><li>propに応じたclass/表示/属性</li><li>ボタン操作で正しいemitが起こる</li><li><code>disabled</code>やARIAが付く</li><li>ダイアログがTeleport先へ描画される</li><li>生成失敗時に再試行が手動イベントになる</li></ul><p>さらにバックログの完了メモでは、Galleryをライト・ダーク両方でスクリーンショット確認し、ダイアログと生成失敗状態も操作し、コンソールエラーがないことを確認したと記録されています。</p><p>見た目の崩れはユニットテストだけでは見つからないため、目視も必要です。一方、目視だけではemitやARIA属性の退行を毎回確実に見つけにくいため、自動テストと組み合わせます。</p><h3 id="用語メモ-16" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-16" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>component</strong>：UIと振る舞いを再利用可能な単位にまとめたもの</li><li><strong>props / emits / slots</strong>：Vueで親子コンポーネント間を接続する仕組み</li><li><strong>Teleport</strong>：コンポーネントのDOMを別の場所へ描画するVue機能</li><li><strong>accessibility／a11y</strong>：障害や利用環境にかかわらず使えるようにする考え方</li><li><strong>focus</strong>：キーボード入力の対象になっている要素</li><li><strong>scrim</strong>：ダイアログ背面に敷く半透明の幕</li><li><strong>Storybook</strong>：UIコンポーネントを状態別に開発・確認するツール</li><li><strong>visual regression</strong>：見た目が意図せず変わる退行</li></ul><h3 id="この工程から学べる開発の定石-16" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-16" aria-label="この見出しへのリンク">#</a></h3><p>共通コンポーネントは見た目の再利用だけでなく、操作の安全性とアクセシビリティの再利用でもあります。<code>disabled</code>、フォーカス、ARIA、手動再試行といった振る舞いを一か所で正しく作ると、後続画面が同じ品質を引き継げます。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://vuejs.org/guide/introduction.html" target="_blank" rel="noreferrer"><span><strong>Vue 3 guide</strong><span>https://vuejs.org/guide/introduction.html</span></span></a><a href="https://www.w3.org/WAI/ARIA/apg/patterns/meter/" target="_blank" rel="noreferrer"><span><strong>WAI-ARIA progressbar pattern</strong><span>https://www.w3.org/WAI/ARIA/apg/patterns/meter/</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-15-vue-theme.html"><small>← PREVIOUS P1-15</small><strong>Vueの雛形、デザイントークン、テーマ管理を作る</strong></a><a href="p1-17-api-client-polling.html"><small>NEXT P1-17 →</small><strong>フロントエンドのAPIクライアントとjob pollingを作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-16</h2><p>Vue SFC・アクセシビリティ</p><div class="rail-stat"><span>commit</span><strong>71e931b</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 6</strong></div><progress id="check-progress-bar" max="6" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>
