@@ -89,15 +89,18 @@ describe("S-16", () => {
 
     const wrapper = mount(S16View);
 
-    const stageGroups = wrapper.findAll(".s16__stages");
+    const stageGroups = wrapper.findAll(".growth-stage-display__stages");
     expect(stageGroups).toHaveLength(2);
 
-    const articulationStages = stageGroups[0]!.findAll(".s16__stage");
+    const articulationStages = stageGroups[0]!.findAll(".growth-stage-display__stage");
     expect(articulationStages.map((el) => el.text())).toEqual(["種", "芽", "苗", "木"]);
-    expect(articulationStages[1]!.classes()).toContain("s16__stage--on"); // SPROUT = 芽
+    expect(articulationStages[1]!.classes()).toContain("growth-stage-display__stage--lit"); // SPROUT = 芽
+    expect(articulationStages[0]!.classes()).not.toContain("growth-stage-display__stage--lit");
+    expect(articulationStages[2]!.classes()).not.toContain("growth-stage-display__stage--lit");
+    expect(articulationStages[3]!.classes()).not.toContain("growth-stage-display__stage--lit");
 
-    const commitmentStages = stageGroups[1]!.findAll(".s16__stage");
-    expect(commitmentStages[2]!.classes()).toContain("s16__stage--on"); // SEEDLING = 苗
+    const commitmentStages = stageGroups[1]!.findAll(".growth-stage-display__stage");
+    expect(commitmentStages[2]!.classes()).toContain("growth-stage-display__stage--lit"); // SEEDLING = 苗
 
     expect(wrapper.text()).not.toContain("8"); // commitment_scoreを出さない
   });

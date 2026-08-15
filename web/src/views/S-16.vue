@@ -11,15 +11,15 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
-import { GROWTH_STAGES, GROWTH_STAGE_LABELS } from "../domain/growthStage";
+import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
 import { AREAS, AREA_META } from "../domain/questions";
 import { useAssessmentResultStore } from "../stores/assessmentResult";
 
 const router = useRouter();
 const resultStore = useAssessmentResultStore();
 
-// モーション(登場・点灯)は`prefers-reduced-motion: reduce`のときは付けない。
-// デフォルト(クラスなし)は常に最終状態(不透明・点灯済み)で描画されるため、これが遅れても表示は崩れない。
+// あだ名の登場アニメーションは`prefers-reduced-motion: reduce`のときは付けない。
+// デフォルト(クラスなし)は常に最終状態(不透明)で描画されるため、これが遅れても表示は崩れない。
 const animate = ref(false);
 
 onMounted(() => {
@@ -114,63 +114,19 @@ function goNext(): void {
       </div>
 
       <div class="s16__card s16__card--sunk">
-        <p class="s16__label">
-          言語化度
-        </p>
-        <p class="s16__stage-desc">
-          自分の考えが、どのくらい自分の言葉になっているか
-        </p>
-        <div
-          class="s16__stages"
-          role="img"
-          :aria-label="`言語化度: ${GROWTH_STAGE_LABELS[resultStore.result.articulation_stage]}`"
-        >
-          <div
-            v-for="stage in GROWTH_STAGES"
-            :key="stage"
-            class="s16__stage"
-            :class="{
-              's16__stage--on': stage === resultStore.result.articulation_stage,
-              's16__stage--enter': animate,
-            }"
-          >
-            <span
-              class="s16__stage-dot"
-              aria-hidden="true"
-            />
-            <span class="s16__stage-name">{{ GROWTH_STAGE_LABELS[stage] }}</span>
-          </div>
-        </div>
+        <GrowthStageDisplay
+          axis-name="言語化度"
+          axis-description="自分の考えが、どのくらい自分の言葉になっているか"
+          :stage="resultStore.result.articulation_stage"
+        />
 
         <div class="s16__stage-gap" />
 
-        <p class="s16__label">
-          コミット度
-        </p>
-        <p class="s16__stage-desc">
-          考えていることを、どのくらい行動につなげられているか
-        </p>
-        <div
-          class="s16__stages"
-          role="img"
-          :aria-label="`コミット度: ${GROWTH_STAGE_LABELS[resultStore.result.commitment_stage]}`"
-        >
-          <div
-            v-for="stage in GROWTH_STAGES"
-            :key="stage"
-            class="s16__stage"
-            :class="{
-              's16__stage--on': stage === resultStore.result.commitment_stage,
-              's16__stage--enter': animate,
-            }"
-          >
-            <span
-              class="s16__stage-dot"
-              aria-hidden="true"
-            />
-            <span class="s16__stage-name">{{ GROWTH_STAGE_LABELS[stage] }}</span>
-          </div>
-        </div>
+        <GrowthStageDisplay
+          axis-name="コミット度"
+          axis-description="考えていることを、どのくらい行動につなげられているか"
+          :stage="resultStore.result.commitment_stage"
+        />
       </div>
 
       <p class="s16__closing">
@@ -307,63 +263,6 @@ function goNext(): void {
   line-height: var(--line-height-body);
 }
 
-.s16__stage-desc {
-  margin: 0;
-  font-size: var(--font-size-caption);
-  color: var(--text-sub);
-  line-height: var(--line-height-caption);
-}
-
-.s16__stages {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.s16__stage {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.s16__stage-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.6px solid var(--control-border);
-}
-
-.s16__stage-name {
-  font-size: var(--font-size-caption);
-  color: var(--text-sub);
-}
-
-.s16__stage--on .s16__stage-dot {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-.s16__stage--on .s16__stage-name {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.s16__stage--on.s16__stage--enter .s16__stage-dot {
-  animation: s16-stage-glow 480ms cubic-bezier(0.34, 1.56, 0.5, 1) both;
-}
-
-@keyframes s16-stage-glow {
-  from {
-    transform: scale(0.75);
-    opacity: 0.6;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
 .s16__stage-gap {
   height: var(--space-2);
 }
@@ -382,8 +281,7 @@ function goNext(): void {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .s16__nickname--enter,
-  .s16__stage--on.s16__stage--enter .s16__stage-dot {
+  .s16__nickname--enter {
     animation: none;
   }
 }

@@ -11,6 +11,7 @@ import AppHeaderFlow from "../components/AppHeaderFlow.vue";
 import AppHeaderSingle from "../components/AppHeaderSingle.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import GeneratingScreen from "../components/GeneratingScreen.vue";
+import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
 import { GROWTH_STAGES, GROWTH_STAGE_ICONS, GROWTH_STAGE_LABELS } from "../domain/growthStage";
 
 const dialogOpen = ref(false);
@@ -169,7 +170,7 @@ const generatingFailed = ref(false);
     <section class="gallery__group">
       <h2>成長段階アイコン（P2-10。種・芽・苗・木）</h2>
       <p class="gallery__lede">
-        線画・24pxグリッド・線幅1.6px・塗りつぶしなし。4つ並べたときに成長の連続が読み取れることを確認する（`07_デザイン原則`7.6）。表示コンポーネント化（該当段階のみ`--primary`で点灯、点灯アニメーション）はP2-11で行う。
+        線画・24pxグリッド・線幅1.6px・塗りつぶしなし。4つ並べたときに成長の連続が読み取れることを確認する（`07_デザイン原則`7.6）。表示コンポーネント（該当段階のみ`--primary`で点灯、点灯アニメーション）はP2-11で下のセクションに実装した。
       </p>
       <div class="gallery__row">
         <div
@@ -220,6 +221,29 @@ const generatingFailed = ref(false);
             />
           </svg>
           <span class="gallery__label">{{ GROWTH_STAGE_LABELS[stage] }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gallery__group">
+      <h2>成長段階の表示（P2-11。`07_デザイン原則`7.7）</h2>
+      <p class="gallery__lede">
+        4段階すべてを並べ、該当する現在地だけを`--primary`で点灯する。数値は出さない。点灯は種側から現在地へ光が通り過ぎ、現在地で止まる（10.2）。
+      </p>
+      <div class="gallery__row">
+        <div
+          v-for="stage in GROWTH_STAGES"
+          :key="`display-${stage}`"
+          class="gallery__frame gallery__frame--narrow"
+        >
+          <p class="gallery__label">
+            現在地: {{ GROWTH_STAGE_LABELS[stage] }}
+          </p>
+          <GrowthStageDisplay
+            axis-name="言語化度"
+            axis-description="自分の考えが、どのくらい自分の言葉になっているか"
+            :stage="stage"
+          />
         </div>
       </div>
     </section>
