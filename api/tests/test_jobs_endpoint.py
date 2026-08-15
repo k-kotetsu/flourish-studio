@@ -29,7 +29,7 @@ def test_get_job_returns_queued_status_for_the_owner() -> None:
     response = _client_with_cookie(SESSION_COOKIE_NAME, token).get(f"/api/v1/jobs/{job_id}")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "QUEUED"}
+    assert response.json() == {"status": "QUEUED", "poll_after_ms": 1500}
 
 
 def test_get_job_returns_succeeded_with_result() -> None:
@@ -67,7 +67,7 @@ def test_get_job_allows_the_owning_guest() -> None:
     response = _client_with_cookie(GUEST_COOKIE_NAME, guest_token).get(f"/api/v1/jobs/{job_id}")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "QUEUED"}
+    assert response.json() == {"status": "QUEUED", "poll_after_ms": 1500}
 
 
 def test_get_job_returns_403_for_another_owner() -> None:

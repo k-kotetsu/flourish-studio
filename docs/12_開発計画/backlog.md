@@ -225,7 +225,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P2-2**~~ ✅ | CC | S | `POST /guest-sessions` と S-11 | `04_画面設計` S-11、`09_API設計` 5.1 | Cookie が発行され、再読込で増えない | P1-11、P1-16 |
 | ~~**P2-3**~~ ✅ | CC | L | **S-12 選択式24問（4画面）。** 目盛りUI、縦積み選択肢、プログレスバー | `05_質問・コンテンツ設計` 2章、`06_ワイヤーフレーム`、スキル `flourish-ui` | 4領域を通して回答でき、未回答では進めない。**タップ領域44px、コントラスト3:1** | P2-1、P1-16 |
 | ~~**P2-4**~~ ✅ | CC | M | **事前計算ロジック。** 最高／最低項目、例外パターン、タイブレーク、コミット度スコアと段階 | `05_質問・コンテンツ設計` 3.3、4.1、スキル `flourish-ai` | **全パターンのユニットテスト**（同点、全高、全低、全同値） | P2-1 |
-| **P2-5** | CC | M | P-01 プロンプト実装 ＋ `POST /ai/assessment-questions` | `10_AIプロンプト設計` 4.1 | 8件の問いが生成され、検証を通る | P1-14、P2-4 |
+| ~~**P2-5**~~ ✅ | CC | M | P-01 プロンプト実装 ＋ `POST /ai/assessment-questions` | `10_AIプロンプト設計` 4.1 | 8件の問いが生成され、検証を通る | P1-14、P2-4 |
 | **P2-6** | CC | S | S-13 生成中画面と失敗時の再試行 | `04_画面設計` S-13、`07_デザイン原則` 7.4 | 失敗時に同じ画面で中身が入れ替わる | P1-16、P2-5 |
 | **P2-7** | CC | M | S-14 自由記述8問。任意入力、1,000文字上限 | `04_画面設計` S-14、`05_質問・コンテンツ設計` 3章 | 全問空欄でも進める | P2-6 |
 | **P2-8** | CC | L | **P-02 プロンプト実装 ＋ `POST /assessments`。** あだ名・4領域の整理・言語化度 | `10_AIプロンプト設計` 4.2、スキル `flourish-ai` | 検証をすべて通る。**成功時のみ1アイテム保存** | P1-14、P2-4 |
@@ -270,6 +270,23 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `compute_commitment`：Q6の4領域合計（0〜16）と、4.1の閾値表に対応する段階（`GrowthStage`）を返す。段階の4値（種/芽/苗/木）は`app/domain/growth_stage.py`に切り出した。**言語化度（AI判定、P2-8）も同じ4段階を使う**ため、`questions.py`ではなく独立モジュールにした
 - `app/domain/assessment_precompute.py`の`ScaleAnswer`は、`09_API設計`5.2のリクエスト形式（`area`/`question_kind`/`item_code`/`score`）に対応する最小限のドメイン型。P2-5が実際のリクエストスキーマ（Pydantic）からこの型を組み立てて渡す想定で、本タスクではAPIエンドポイントは作らない
 - `api/tests/test_assessment_precompute.py`：完了条件どおり、通常時（タイブレークなし）、同点（一部のみ）、全部高い、全部低い、全部同スコア（全部同スコア×全部高いの組み合わせを含む）の5パターンと、コミット度の合計・4段階すべての境界値（0/3/4/7/8/11/12/16）を確認した。`make lint && make test`が通ることを確認済み
+
+**P2-5完了メモ（2026-08-15）：** P-01（`ASSESSMENT_QUESTIONS`）プロンプトと`POST /ai/assessment-questions`を実装した。
+
+- **仕様の矛盾を1件、着手前にユーザーへ確認した。** `ASSESSMENT_QUESTIONS`の`effort`/`max_tokens`が、参照ドキュメント`10_AIプロンプト設計`4.1（`medium`/8,000）とスキル`flourish-ai`の対応表（`low`/6,000）とで食い違っていた。ユーザーの指示によりドキュメント優先（`medium`/8,000）を採用した。スキル側の表は未修正のまま残っているため、次にこのスキルを読む際は注意が要る
+- `api/app/ai/prompts/assessment_questions.py`：個別ブロック・出力スキーマ（4.1から一字一句書き写した）、`QuestionTarget`（P2-4の`FreeTextTarget`にスコアを添えた、SQS転送用の平型dataclass）、`build_targets`（P2-4の`pick_free_text_targets`を呼び、対象項目にスコアを添える）、`build_messages`（`<targets>`ブロックの組み立て）、`validate_output`（4.1「サーバ側の検証」の4項目）、`generate_assessment_questions`（`app.ai.runner.generate`の呼び出し）を実装した
+- `app/domain/questions.py`：`AREA_LABELS`（プロンプト入力の「Career（仕事・働き方）」表記）を追加。`web/src/domain/questions.ts`の`AREA_META`のen/jpと値を揃えた
+- `app/domain/assessment_precompute.py`：`validate_scale_answers`を追加した。**P2-4完了時点では存在しなかった関数。** `09_API設計`5.2の「件数」「重複」の2検証は、期待される24通りの`(area, question_kind, item_code)`の集合と受け取った集合の一致判定1つにまとめられ、両方をカバーできる。重複時の`code`は仕様に明記がなく、**件数不足と同じ`ANSWERS_INCOMPLETE`を再利用する判断とした**（重複があれば必然的に別の組が欠けるため、意味的にも「揃っていない」で一貫する）。`POST /assessments`（P2-8）も同じ関数を使う想定
+- `app/queue/jobs.py`：`send_job_message`に任意の`payload`引数を追加した。**JOBアイテムは生成の入力を保存しない**（5.2「保存しない」）ため、AIの生成に入力が要るkindはSQSメッセージ自体に入力を乗せてワーカーへ渡す設計とした。`payload`省略時は従来どおりのメッセージ本文（既存テストに影響なし）
+- `app/worker/handler.py`：kindによる分岐を追加した。`ASSESSMENT_QUESTIONS`は実際にBedrock呼び出し・検証まで行い、それ以外は引き続きP1-13のダミー処理（即`SUCCEEDED`）のまま
+- `app/api/v1/ai_assessment_questions.py`：`POST /ai/assessment-questions`。`Idempotency-Key`ヘッダの読み取りと`idempotency.reserve_job_id`（P1-12）、登録済みユーザーのみのレート制限（`rate_limit.check_and_increment_user`）を組み込んだ。**ゲストのレート制限（1セッション3回）は掛けていない。** `09_API設計`2.4・7.3の「レポート生成は」という限定表現と、`08_データモデル`6.2の`report_generation_count`というフィールド名から、ゲストの回数制限は`POST /assessments`（P2-8、レポート生成本体）専用と読み、本エンドポイントには適用しない判断とした
+- **`GET /jobs/{id}`に`poll_after_ms`を追加した。** P1-17完了メモで「P2でジョブ生成系エンドポイントを実装するタスク（P2-5など）で一緒に行う」と名指しされていた積み残し。`QUEUED`/`RUNNING`中は固定値1,500msを返す（`09_API設計`3.1のシーケンス図にある唯一の具体値をそのまま採用した判断。仕様はkindごとの間隔を明記していない）。`web/src/api/jobs.ts`の該当する注記コメントも削除した
+- `api/tests/test_assessment_questions_prompt.py`：`build_targets`・`build_messages`（`<targets>`ブロックの整形、例外パターンの言い換え）・`validate_output`（合格、件数不足、`target_item_code`不一致）を確認
+- `api/tests/test_ai_assessment_questions_endpoint.py`：`scale_answers`が23件のときの`422 ANSWERS_INCOMPLETE`、正常系での`202`・ジョブ作成・SQS送信ペイロード、`Idempotency-Key`再送で新規ジョブを作らないことを確認（実際のBedrock・SQSは呼ばず`send_job_message`をフェイクに差し替え）
+- `api/tests/test_worker_handler.py`：**完了条件「8件の問いが生成され、検証を通る」**を、Bedrock呼び出しをフェイクに差し替えた統合テストで確認（`test_handler_generates_assessment_questions_to_succeeded`）。あわせてスキーマ違反が再生成（1回）でも直らない場合に`FAILED`・`AI_OUTPUT_INVALID`になることも確認した。既存の`test_handler_processes_multiple_records`は`ASSESSMENT_QUESTIONS`が実処理に切り替わったため、ダミー処理を確認する対象を未実装のkind（`AREA_PROPOSALS`）に差し替えた
+- `api/tests/test_jobs_endpoint.py`：`QUEUED`応答に`poll_after_ms`が含まれることを反映
+- テストは完了条件と主要な分岐（検証失敗・冪等性・レート制限の対象外化）に絞り、網羅的な組み合わせテストは追加していない（指示によりテストを最小限にした）
+- `make lint && make test`が通ることを確認済み。実際のBedrock・AWS実機での疎通確認は行っていない（本タスクの範囲外）
 
 ---
 

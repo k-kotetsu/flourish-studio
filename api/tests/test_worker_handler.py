@@ -1,8 +1,18 @@
+import dataclasses
 import json
 import uuid
+from types import SimpleNamespace
+from typing import Any
 
+import pytest
+
+from app.ai.prompts import assessment_questions
 from app.domain import job as job_domain
+from app.domain import questions
+from app.domain.assessment_precompute import ScaleAnswer
 from app.worker.handler import handler
+
+_QUESTION_SET = questions.get_question_set(questions.CURRENT_QUESTION_SET_VERSION)
 
 
 def _uid() -> str:
@@ -29,13 +39,15 @@ def test_handler_processes_a_dummy_job_to_succeeded() -> None:
 
 
 def test_handler_processes_multiple_records() -> None:
+    # ASSESSMENT_QUESTIONSはP2-5で実処理に分岐したため、ここでは未実装のまま
+    # ダミー処理(雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
     job_id_a, _ = job_domain.create_job(owner, "ASSESSMENT_REPORT")
-    job_id_b, _ = job_domain.create_job(owner, "ASSESSMENT_QUESTIONS")
+    job_id_b, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
     event = {
         "Records": [
             {"body": json.dumps({"job_id": job_id_a, "kind": "ASSESSMENT_REPORT"})},
-            {"body": json.dumps({"job_id": job_id_b, "kind": "ASSESSMENT_QUESTIONS"})},
+            {"body": json.dumps({"job_id": job_id_b, "kind": "AREA_PROPOSALS"})},
         ],
     }
 
@@ -47,3 +59,112 @@ def test_handler_processes_multiple_records() -> None:
     assert updated_b is not None
     assert updated_a["status"] == "SUCCEEDED"
     assert updated_b["status"] == "SUCCEEDED"
+
+
+QuestionTargets = list[assessment_questions.QuestionTarget]
+
+
+def _assessment_questions_payload() -> tuple[dict[str, Any], QuestionTargets]:
+    scale_answers = []
+    for area in questions.AREAS:
+        item_codes = [item.code for item in _QUESTION_SET.items if item.area == area]
+        for code, score in zip(item_codes, [4, 3, 2, 1, 0], strict=True):
+            scale_answers.append(
+                ScaleAnswer(
+                    area=area, question_kind=questions.SATISFACTION, item_code=code, score=score
+                )
+            )
+        scale_answers.append(ScaleAnswer(area=area, question_kind=questions.COMMITMENT, score=2))
+    targets = assessment_questions.build_targets(scale_answers, _QUESTION_SET)
+    payload = {
+        "question_set_version": _QUESTION_SET.version,
+        "targets": [dataclasses.asdict(target) for target in targets],
+    }
+    return payload, targets
+
+
+def _fake_response(text: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        content=[SimpleNamespace(type="text", text=text)],
+        stop_reason="end_turn",
+        usage=SimpleNamespace(input_tokens=500, output_tokens=200, cache_read_input_tokens=0),
+    )
+
+
+def _valid_questions_json(targets: list[assessment_questions.QuestionTarget]) -> str:
+    questions_out = []
+    for target in targets:
+        questions_out.append(
+            {
+                "area": target.area,
+                "slot": "SATISFIED",
+                "target_item_code": target.satisfied_item_code,
+                "text": "いまどんな状況ですか。",
+            }
+        )
+        questions_out.append(
+            {
+                "area": target.area,
+                "slot": "CONCERN",
+                "target_item_code": target.concern_item_code,
+                "text": "これからどうしていきたいですか。",
+            }
+        )
+    return json.dumps({"questions": questions_out})
+
+
+class _FakeMessages:
+    def __init__(self, responses: list[Any]) -> None:
+        self._responses = list(responses)
+
+    def create(self, **kwargs: Any) -> Any:
+        return self._responses.pop(0)
+
+
+class _FakeClient:
+    def __init__(self, responses: list[Any]) -> None:
+        self.messages = _FakeMessages(responses)
+
+
+def _assessment_questions_event(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    body = {"job_id": job_id, "kind": "ASSESSMENT_QUESTIONS", "payload": payload}
+    return {"Records": [{"body": json.dumps(body)}]}
+
+
+def test_handler_generates_assessment_questions_to_succeeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """完了条件「8件の問いが生成され、検証を通る」(P2-5)。"""
+    payload, targets = _assessment_questions_payload()
+    fake_client = _FakeClient([_fake_response(_valid_questions_json(targets))])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"GUEST#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "ASSESSMENT_QUESTIONS")
+
+    handler(_assessment_questions_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "SUCCEEDED"
+    assert len(updated["result"]["questions"]) == 8
+
+
+def test_handler_fails_assessment_questions_job_after_schema_violation_persists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload, _targets = _assessment_questions_payload()
+    invalid_text = json.dumps({"questions": []})  # 件数不足。再生成しても直らない
+    fake_client = _FakeClient([_fake_response(invalid_text), _fake_response(invalid_text)])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"GUEST#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "ASSESSMENT_QUESTIONS")
+
+    handler(_assessment_questions_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "FAILED"
+    assert updated["error"]["code"] == "AI_OUTPUT_INVALID"
+    assert updated["error"]["retryable"] is True
