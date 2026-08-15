@@ -29,6 +29,7 @@
 | `flourish-data` | DynamoDBに触れるとき |
 | `flourish-api` | エンドポイントを追加・変更するとき |
 | `flourish-ai` | Bedrock呼び出し・プロンプトを実装するとき |
+| `flourish-next-task` | backlog.mdの次のタスクを実装からマージまで進めるとき |
 
 ---
 
