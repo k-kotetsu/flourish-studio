@@ -1,0 +1,314 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="推測不能token、hash保存、安全なCookieで認証境界を作る"><title>P1-11 Cookieとセッションの基盤を作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="11">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-11 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html" selected>P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 11</p>
+        <h1>P1-11<span>Cookieとセッションの基盤を作る</span></h1>
+        <p class="hero-summary">推測不能token、hash保存、安全なCookieで認証境界を作る。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 65f9ec6</span><span class="chip">LAYER 認証・セキュリティ</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>session IDのentropy</div><div class="learning-goal"><strong>理解 2</strong>hash保存の被害軽減</div><div class="learning-goal"><strong>理解 3</strong>Cookie属性とCSRFの関係</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>65f9ec6</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>opaque token</h3><p>token自体にuser IDや期限を埋めず、十分な乱数だけにします。server側DBを見なければ意味を解釈できないため、失効や権限変更を中央管理できます。</p></article><article class="concept-card"><h3>hash保存</h3><p>DB漏えい時に保存hashをそのままCookieとして使えないよう、生tokenはbrowserだけ、DB keyにはSHA-256を置きます。ただし弱いtokenをhashしても安全にはならないので256bit乱数が前提です。</p></article><article class="concept-card"><h3>HttpOnlyとSecure</h3><p>HttpOnlyはJavaScriptから読ませずXSS時の直接窃取を減らし、SecureはHTTPSだけで送信します。どちらもXSS/CSRFを完全に防ぐ仕組みではありません。</p></article><article class="concept-card"><h3>SameSite=Lax</h3><p>通常のcross-site subrequestではCookie送信を抑えつつtop-level navigationを許容します。state変更endpointにはmethod制約やCSRF設計も必要です。</p></article></div><div><p><code>secrets.token_urlsafe(32)</code>は32byte=256bitの乱数をURL-safe Base64へします。UUID等の識別子ではなくsecurity用乱数generatorを使います。長さを文字数とbit数で混同せず、entropyの元となるbyte数で判断します。</p><p>DynamoDB TTLの削除は遅延します。そのためsession取得時に<code>expires_at</code>を現在時刻と比較し、期限切れを即座に無効と扱います。TTLは後からitemを掃除して費用を抑える仕組みです。</p><p>sliding expirationで毎request書き込むとreadがwriteへ膨らみます。残り寿命が閾値以下のときだけ延長することで、使い続ける利用者を維持しつつwrite負荷を間引きます。競合しても期限が前後するだけか、条件式が必要かを業務要件から決めます。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-11 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">sequenceDiagram
+  participant B as Browser
+  participant A as FastAPI
+  participant D as DynamoDB
+  A-&gt;&gt;A: secrets.token_urlsafe(32)
+  A-&gt;&gt;A: sha256(raw token)
+  A-&gt;&gt;D: PK=SESSION#hash, expires_at
+  A--&gt;&gt;B: Set-Cookie fs_session=raw; HttpOnly; Secure; SameSite=Lax
+  B-&gt;&gt;A: 次request（Cookie自動送信）
+  A-&gt;&gt;A: Cookieをhash
+  A-&gt;&gt;D: GetItem SESSION#hash
+  A-&gt;&gt;A: expires_atを即時確認</pre><details><summary>図のMermaidソースを表示</summary><pre>sequenceDiagram
+  participant B as Browser
+  participant A as FastAPI
+  participant D as DynamoDB
+  A-&gt;&gt;A: secrets.token_urlsafe(32)
+  A-&gt;&gt;A: sha256(raw token)
+  A-&gt;&gt;D: PK=SESSION#hash, expires_at
+  A--&gt;&gt;B: Set-Cookie fs_session=raw; HttpOnly; Secure; SameSite=Lax
+  B-&gt;&gt;A: 次request（Cookie自動送信）
+  A-&gt;&gt;A: Cookieをhash
+  A-&gt;&gt;D: GetItem SESSION#hash
+  A-&gt;&gt;A: expires_atを即時確認</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../api/app/core/security.py">api/app/core/security.py</a><span>token生成、SHA-256 hash、安全なCookie属性を共通化する</span></div><div class="file-row"><a href="../../../api/app/domain/guest_session.py">api/app/domain/guest_session.py</a><span>guest tokenとDynamoDB itemの寿命を管理する</span></div><div class="file-row"><a href="../../../api/app/domain/session.py">api/app/domain/session.py</a><span>login sessionの作成、取得、延長、期限確認を行う</span></div><div class="file-row"><a href="../../../api/app/api/deps.py">api/app/api/deps.py</a><span>FastAPI dependencyとしてcookieから現在利用者を解決する</span></div><div class="file-row"><a href="../../../api/tests/test_auth_flow.py">api/tests/test_auth_flow.py</a><span>Cookie発行からdependency解決までをHTTP境界で検査する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../api/app/core/security.py"><code>api/app/core/security.py</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>api/app/core/security.py</strong><span>Python標準security SDKとFastAPI Response Cookie · python</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>import hashlib
+import secrets
+from fastapi import Response
+
+SESSION_COOKIE_NAME = &quot;fs_session&quot;
+COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30 # browser側の最大保持30日
+_TOKEN_BYTES = 32                           # 32byte = 256bit entropy
+
+def generate_token() -&gt; str:
+    # security用途のCSPRNGを使い、URL/Cookieで安全な文字列へencodeする。
+    return secrets.token_urlsafe(_TOKEN_BYTES)
+
+def hash_token(token: str) -&gt; str:
+    # DBにはraw tokenを保存しない。UTF-8 bytesをSHA-256 digestへする。
+    return hashlib.sha256(token.encode(&quot;utf-8&quot;)).hexdigest()
+
+def set_auth_cookie(response: Response, name: str, token: str) -&gt; None:
+    response.set_cookie(
+        key=name, value=token, max_age=COOKIE_MAX_AGE_SECONDS, path=&quot;/&quot;,
+        httponly=True, # document.cookieから読めない
+        secure=True,   # HTTPS通信だけで送る
+        samesite=&quot;lax&quot;, # cross-site送信を抑える
+    )</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>本物のsession tokenをスクリーンショットやログへ貼らないでください。dev環境で専用account/itemを使い、確認後はCookieとitemを削除します。DevTools上でもtoken値のコピーは避けます。</p><span class="manual-kind">Browser DevTools + DynamoDB Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>guest/session作成routeを呼ぶ</h3><p>ローカルまたはdevでセッション作成フローを実行します。curlなら<code>-c cookie.txt</code>を使えますが、cookie.txtを.gitignore対象外へ置かないでください。</p><span class="expected">期待結果：Set-Cookie headerが返る</span></li><li><h3>Cookie属性を確認する</h3><p>Browser DevTools → Application → CookiesまたはNetwork response headersでfs_guest/fs_sessionのHttpOnly、Secure、SameSite=Lax、Path=/、Max-Ageを確認します。</p><span class="expected">期待結果：属性がすべて期待値</span></li><li><h3>JavaScriptから読めないことを見る</h3><p>Consoleで<code>document.cookie</code>を確認し、HttpOnly cookieが表示されないことを見ます。値自体をconsoleへ出力しません。</p><span class="expected">期待結果：fs_sessionがdocument.cookieにない</span></li><li><h3>DBがhashだけを持つことを見る</h3><p>DynamoDB Consoleで対応SESSION/GUEST itemを確認し、PKにhashがありraw cookie値、OAuth token、個人情報がないことを確認します。</p><span class="expected">期待結果：raw tokenが保存されていない</span></li><li><h3>期限切れを再現する</h3><p>local tableの検証itemだけexpires_atを過去へ変更し、Cookieが残っていてもAPIが未認証扱いすることを確認します。</p><span class="expected">期待結果：TTL物理削除前でも拒否</span></li><li><h3>Cookie削除を確認する</h3><p>logout/clear処理を呼び、同じPath/Secure/SameSiteで期限切れSet-Cookieが返り、次requestに送信されないことを見ます。</p><span class="expected">期待結果：browser storageから消える</span></li><li><h3>HTTP統合testを通す</h3><p>auth flow testでCookie jarを使い、作成→認証→期限切れ→削除を通します。</p><span class="expected">期待結果：token値そのものに依存しないtest</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>tokenはsecurity CSPRNG 256bit</span></label><label class="check-item"><input type="checkbox" value="1"><span>DBにはhashのみ</span></label><label class="check-item"><input type="checkbox" value="2"><span>HttpOnly/Secure/SameSite=Lax/Path=/</span></label><label class="check-item"><input type="checkbox" value="3"><span>expires_atをアプリでも検査</span></label><label class="check-item"><input type="checkbox" value="4"><span>clear時も同じPath属性</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>tokenはsecurity CSPRNG 256bit</li><li>DBにはhashのみ</li><li>HttpOnly/Secure/SameSite=Lax/Path=/</li><li>expires_atをアプリでも検査</li><li>clear時も同じPath属性</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>疑わしいsessionは対応itemを削除しCookieをexpireする</li><li>hash方式を変える場合は旧新を識別できるmigration期間を設ける</li><li>Secureをlocal都合で本番コードから外さず、local HTTP用の限定方法を検討する</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-12-p1-11-cookieとセッションの基盤を作る" data-heading="12. P1-11 Cookieとセッションの基盤を作る" data-step="11">
+<header class="chapter-header"><span class="chapter-step">STEP 11</span><h2 id="12-p1-11-cookieとセッションの基盤を作る" tabindex="-1">12. P1-11 Cookieとセッションの基盤を作る<a class="heading-anchor" href="#12-p1-11-cookieとセッションの基盤を作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="11" aria-label="P1-11の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-11" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-11" aria-label="この見出しへのリンク">#</a></h3><p>未登録ユーザーを識別する<code>fs_guest</code>と、登録・ログイン済みユーザーを識別する<code>fs_session</code>を安全に発行・検証できるようにすることです。Cognitoのトークンをブラウザへ直接渡さないBFF方式の土台でもあります。</p><ul><li>対象コミット：<code>65f9ec6</code></li><li>主なファイル：<a class="file-ref" href="../../../api/app/core/security.py" title="リポジトリ内のファイルを開く"><code>api/app/core/security.py</code><span aria-hidden="true">↗</span></a>、<code>domain/guest_session.py</code>、<code>domain/session.py</code>、<code>api/deps.py</code></li><li>主なテスト：<code>test_security.py</code>、<code>test_guest_session.py</code>、<code>test_session.py</code>、<code>test_auth_flow.py</code></li><li>範囲：セッション基盤のみ。実際の登録・ログインAPIとCognito呼び出しは後続フェーズ</li></ul><h3 id="121-推測できないランダムトークンを作った" tabindex="-1">12.1 推測できないランダムトークンを作った<a class="heading-anchor" href="#121-推測できないランダムトークンを作った" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">_TOKEN_BYTES = 32
+
+
+def generate_token() -&gt; str:
+    return secrets.token_urlsafe(_TOKEN_BYTES)</code></pre>
+    </div><p>32バイトは256ビットです。仕様の「128ビット以上」を満たし、URLやCookieで扱いやすい文字列へ変換します。</p><p>トークンの中にユーザーIDや時刻などの意味ある情報を埋め込まず、<strong>opaque token（不透明トークン）</strong>として扱います。意味はサーバー側のDBを参照しないと分かりません。</p><h3 id="122-セッショントークンをハッシュ化してdbへ保存した" tabindex="-1">12.2 セッショントークンをハッシュ化してDBへ保存した<a class="heading-anchor" href="#122-セッショントークンをハッシュ化してdbへ保存した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def hash_token(token: str) -&gt; str:
+    return hashlib.sha256(token.encode(&quot;utf-8&quot;)).hexdigest()</code></pre>
+    </div><p>ログインセッションのPKは次の形です。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">&quot;PK&quot;: session_pk(hash_token(token))</code></pre>
+    </div><p>ブラウザには生トークンを渡しますが、DBにはSHA-256ハッシュだけを保存します。DB内容が漏れた場合に、保存値をそのままCookieとして使われる危険を減らします。</p><p>これはパスワード保存とは事情が異なります。トークンは十分に長くランダムなので、低速なパスワードハッシュではなくSHA-256を使っています。</p><h3 id="123-安全なcookie属性を共通化した" tabindex="-1">12.3 安全なCookie属性を共通化した<a class="heading-anchor" href="#123-安全なcookie属性を共通化した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def set_auth_cookie(
+    response: Response,
+    name: str,
+    token: str,
+) -&gt; None:
+    response.set_cookie(
+        key=name,
+        value=token,
+        max_age=60 * 60 * 24 * 30,
+        path=&quot;/&quot;,
+        httponly=True,
+        secure=True,
+        samesite=&quot;lax&quot;,
+    )</code></pre>
+    </div><div class="table-wrap" role="region" aria-label="横スクロール可能な表" tabindex="0"><table><thead><tr><th scope="col">属性</th><th scope="col">意味</th></tr></thead><tbody><tr><td><code>HttpOnly</code></td><td>JavaScriptの<code>document.cookie</code>から読めなくする</td></tr><tr><td><code>Secure</code></td><td>HTTPS通信だけで送る</td></tr><tr><td><code>SameSite=Lax</code></td><td>クロスサイト送信を制限し、CSRFリスクを下げる</td></tr><tr><td><code>Path=/</code></td><td>サイト全体のリクエストで送る</td></tr><tr><td><code>Max-Age=2592000</code></td><td>30日間保持する</td></tr></tbody></table></div><p><code>HttpOnly</code>により、P1-17のJavaScriptクライアントはトークン値を読みません。ブラウザに<code>credentials: &quot;include&quot;</code>と指定し、Cookie送信を任せます。</p><h3 id="124-ゲストセッションを作った" tabindex="-1">12.4 ゲストセッションを作った<a class="heading-anchor" href="#124-ゲストセッションを作った" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def issue_guest_session() -&gt; tuple[str, Item]:
+    token = generate_token()
+    now = int(time.time())
+    item = {
+        &quot;PK&quot;: guest_pk(token),
+        &quot;SK&quot;: GUEST_SK,
+        &quot;entity&quot;: &quot;GUEST_SESSION&quot;,
+        &quot;converted_user_id&quot;: None,
+        &quot;report_generation_count&quot;: 0,
+        &quot;created_at&quot;: now,
+        &quot;expires_at&quot;: now + _TTL_SECONDS,
+    }
+    repository.put_item(item)
+    return token, item</code></pre>
+    </div><p>ゲストはCognitoアカウントを持ちません。<code>fs_guest</code>を使い、登録前のレポート生成などを同じ人の操作として結び付けます。</p><p>この設計ではゲストPKに生トークンを使い、ログインSESSIONだけをハッシュ化しています。これはリポジトリのデータモデル仕様に合わせた実装です。一般論としては、ゲストトークンも同様にハッシュ化する設計を選ぶことがあります。</p><p>登録時には、ゲストデータを新しいユーザーへ紐付けた記録を残します。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def mark_guest_converted(token: str, user_id: str) -&gt; None:
+    repository.update_item(
+        guest_pk(token),
+        GUEST_SK,
+        update_expression=(
+            &quot;SET converted_user_id = :uid, converted_at = :now&quot;
+        ),
+        # すでに変換済みなら更新しない条件式も渡す
+    )</code></pre>
+    </div><p>元のゲストデータをその場で物理削除せず、TTLへ委ねます。</p><h3 id="125-ログインセッションを作った" tabindex="-1">12.5 ログインセッションを作った<a class="heading-anchor" href="#125-ログインセッションを作った" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def create_session(user_id: str) -&gt; tuple[str, Item]:
+    token = generate_token()
+    now = int(time.time())
+    item = {
+        &quot;PK&quot;: session_pk(hash_token(token)),
+        &quot;SK&quot;: SESSION_SK,
+        &quot;entity&quot;: &quot;SESSION&quot;,
+        &quot;user_id&quot;: user_id,
+        &quot;created_at&quot;: now,
+        &quot;last_seen_at&quot;: now,
+        &quot;expires_at&quot;: now + _TTL_SECONDS,
+    }
+    repository.put_item(item)
+    return token, item</code></pre>
+    </div><p>ブラウザから送られた<code>fs_session</code>をハッシュ化し、同じPKのSESSIONアイテムを取得すると、<code>user_id</code>を特定できます。</p><p>これがBFF方式の要点です。ブラウザはCognitoのアクセストークンを管理せず、バックエンド発行のセッションだけを持ちます。</p><h3 id="126-ttlの削除を待たずアプリでも期限を確認した" tabindex="-1">12.6 TTLの削除を待たず、アプリでも期限を確認した<a class="heading-anchor" href="#126-ttlの削除を待たずアプリでも期限を確認した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def get_active_session(token: str) -&gt; Item | None:
+    item = repository.get_item(
+        session_pk(hash_token(token)),
+        SESSION_SK,
+    )
+    if item is None:
+        return None
+    if int(item[&quot;expires_at&quot;]) &lt;= int(time.time()):
+        return None
+    return item</code></pre>
+    </div><p>DynamoDB TTLは期限時刻ぴったりに削除する保証ではなく、非同期で削除されます。DBにアイテムが残っていても、アプリ側で期限切れと判定する必要があります。</p><h3 id="127-有効期限延長の書き込みを間引いた" tabindex="-1">12.7 有効期限延長の書き込みを間引いた<a class="heading-anchor" href="#127-有効期限延長の書き込みを間引いた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def touch_session(item: Item) -&gt; Item:
+    now = int(time.time())
+    if now - int(item[&quot;last_seen_at&quot;]) &lt; 60 * 60 * 24:
+        return item
+    return repository.update_item(
+        item[&quot;PK&quot;],
+        SESSION_SK,
+        update_expression=(
+            &quot;SET last_seen_at = :now, expires_at = :exp&quot;
+        ),
+        expression_attribute_values={
+            &quot;:now&quot;: now,
+            &quot;:exp&quot;: now + _TTL_SECONDS,
+        },
+    )</code></pre>
+    </div><p>毎リクエストで有効期限を延長すると、ページを開くたびにDynamoDB書き込みが発生します。前回延長から24時間未満なら書かず、セッションの使い勝手を維持しながらコストと負荷を抑えます。</p><p>この技法を<strong>write throttling（書き込みの間引き）</strong>と捉えられます。</p><h3 id="128-fastapiの依存関係として認証を実装した" tabindex="-1">12.8 FastAPIの依存関係として認証を実装した<a class="heading-anchor" href="#128-fastapiの依存関係として認証を実装した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def require_session(
+    fs_session: str | None = Cookie(default=None),
+) -&gt; str:
+    if fs_session is None:
+        raise UnauthorizedError(
+            &quot;UNAUTHENTICATED&quot;,
+            &quot;fs_session cookie is missing&quot;,
+        )
+
+    session_item = get_active_session(fs_session)
+    if session_item is None:
+        raise UnauthorizedError(
+            &quot;UNAUTHENTICATED&quot;,
+            &quot;session is invalid or expired&quot;,
+        )
+
+    touch_session(session_item)
+    return str(session_item[&quot;user_id&quot;])</code></pre>
+    </div><p>後続の要ログインAPIでは、<code>Depends(require_session)</code>と書くだけで、認証済み<code>user_id</code>を受け取れます。</p><h3 id="129-完了条件を最小ルートでテストした" tabindex="-1">12.9 完了条件を最小ルートでテストした<a class="heading-anchor" href="#129-完了条件を最小ルートでテストした" aria-label="この見出しへのリンク">#</a></h3><p>実際の<code>POST /guest-sessions</code>、<code>POST /auth/register</code>、<code>POST /auth/login</code>はまだありません。そこで<code>test_auth_flow.py</code>の中だけにテスト用ルートを作り、次の流れを確認しました。</p>
+    <div class="code-shell" data-language="text">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>text</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-text">ゲスト発行
+  ↓ 再訪しても新規ゲストを増やさない
+登録を模擬
+  ↓ fs_guestを消し、fs_sessionを発行
+保護ルートへアクセス
+  ↓
+同じuser_idを取得</code></pre>
+    </div><p>このテストは「Cognitoを含む登録機能が完成した」ことを意味しません。Cookie、DBセッション、FastAPI依存関係が正しく組み合わさることを検査する基盤テストです。</p><h3 id="用語メモ-11" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-11" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>session</strong>：複数リクエストを同じ利用者の操作として結び付ける仕組み</li><li><strong>Cookie</strong>：ブラウザが保存し、条件に応じてHTTPリクエストへ付ける小さなデータ</li><li><strong>opaque token</strong>：中身を解釈せず、照合用のランダム値として使うトークン</li><li><strong>hash</strong>：入力から固定長の値を作る一方向変換</li><li><strong>CSRF</strong>：利用者の意図しないリクエストを別サイトから送らせる攻撃</li><li><strong>XSS</strong>：ページへ悪意あるJavaScriptを混入させる攻撃</li><li><strong>dependency injection</strong>：必要な値や処理を外から注入する設計。FastAPIの<code>Depends</code>もその一種</li></ul><h3 id="この工程から学べる開発の定石-11" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-11" aria-label="この見出しへのリンク">#</a></h3><p>認証基盤は、Cookie発行、サーバー側保存、期限判定、延長、削除を一まとまりで考えます。DBのTTLは認可判定の代わりにはならず、アプリ側の期限確認が必要です。また、すべての機能が完成するまで待たず、基盤だけをテスト用の最小ルートで結合確認する方法は、段階開発で有効です。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://fastapi.tiangolo.com/" target="_blank" rel="noreferrer"><span><strong>FastAPI documentation</strong><span>https://fastapi.tiangolo.com/</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-10-api-error-contract.html"><small>← PREVIOUS P1-10</small><strong>APIのエラー応答を共通化する</strong></a><a href="p1-12-idempotency-rate-limit.html"><small>NEXT P1-12 →</small><strong>冪等性とレート制限を条件付き書き込みで作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-11</h2><p>認証・セキュリティ</p><div class="rail-stat"><span>commit</span><strong>65f9ec6</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

@@ -1,0 +1,207 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="環境差を型付き設定へ集約し、同じアプリ入口を各環境で使う"><title>P1-8 FastAPIの設定基盤とローカル起動を整える｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="8">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-8 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html" selected>P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 08</p>
+        <h1>P1-8<span>FastAPIの設定基盤とローカル起動を整える</span></h1>
+        <p class="hero-summary">環境差を型付き設定へ集約し、同じアプリ入口を各環境で使う。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 8e559ad</span><span class="chip">LAYER FastAPI・Pydantic</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>app factoryなしでも境界を作る方法</div><div class="learning-goal"><strong>理解 2</strong>BaseSettingsと環境変数</div><div class="learning-goal"><strong>理解 3</strong>lru_cacheとテストの関係</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>8e559ad</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>12-factor設定</h3><p>環境ごとに変わる値をコードへ埋めず環境変数から読むと、同一imageをlocal/dev/prodへ配れます。設定名と型はコードで管理します。</p></article><article class="concept-card"><h3>healthは依存の深さを選ぶ</h3><p>単純なlivenessはプロセスが応答できるか、readinessはDB等の依存まで使えるかを見ます。P1の<code>/health</code>は最小のlivenessです。</p></article><article class="concept-card"><h3>lru_cacheはprocess単位</h3><p>Settings生成を1回に抑えます。Lambda warm invocationでは再利用されますが、複数process間で共有されません。テストで環境変数を変えるときはcache clearが必要です。</p></article><article class="concept-card"><h3>ASGIとUvicorn</h3><p>FastAPIはASGIアプリ、Uvicornはそれをsocketへ公開するserverです。Lambda Web AdapterはLambda eventと同じHTTPアプリを橋渡しします。</p></article></div><div><p><code>Settings</code>は文字列環境変数をPythonの型へ変換し、environmentをlocal/dev/prodの3値へ制限します。誤った値は起動時に検出されるため、リクエスト処理の途中で初めて設定ミスに気づくより安全です。</p><p>DynamoDB endpoint URLはlocalだけ指定し、本番ではNoneにします。boto3はNoneなら通常のAWS endpointとcredential chainを使います。同じrepositoryコードのまま接続先だけ差し替えられる設計です。Bedrockだけus-east-1という例外も独立fieldへ分け、アプリ本体regionと混ぜません。</p><p>手動確認ではSwagger UIが便利ですが、production公開ではドキュメントの公開方針を別途決める必要があります。また<code>--reload</code>は開発専用で、変更監視processを増やすためLambda/productionでは使いません。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-8 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart LR
+  ENV[環境変数] --&gt; SETTINGS[Settings
+型検証]
+  SETTINGS --&gt; FASTAPI[FastAPI app]
+  FASTAPI --&gt; HEALTH[/health]
+  FASTAPI --&gt; ROUTERS[/api/v1 routers]
+  LOCAL[uvicorn --reload] --&gt; FASTAPI
+  LAMBDA[Lambda Web Adapter] --&gt; FASTAPI</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart LR
+  ENV[環境変数] --&gt; SETTINGS[Settings
+型検証]
+  SETTINGS --&gt; FASTAPI[FastAPI app]
+  FASTAPI --&gt; HEALTH[/health]
+  FASTAPI --&gt; ROUTERS[/api/v1 routers]
+  LOCAL[uvicorn --reload] --&gt; FASTAPI
+  LAMBDA[Lambda Web Adapter] --&gt; FASTAPI</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../api/app/main.py">api/app/main.py</a><span>FastAPIインスタンス、router、error handler、healthを登録する</span></div><div class="file-row"><a href="../../../api/app/core/config.py">api/app/core/config.py</a><span>環境変数をSettingsへ型付きで読み込む</span></div><div class="file-row"><a href="../../../api/Dockerfile">api/Dockerfile</a><span>Lambdaとローカルで同じuvicornアプリ入口を使う</span></div><div class="file-row"><a href="../../../Makefile">Makefile</a><span>DynamoDB Local、uvicorn、Viteを一度に起動する</span></div><div class="file-row"><a href="../../../api/tests/test_config.py">api/tests/test_config.py</a><span>既定値と環境変数overrideを検査する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../api/app/core/config.py"><code>api/app/core/config.py</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>api/app/core/config.py</strong><span>pydantic-settingsで環境変数を型へ変換する · python</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>from functools import lru_cache
+from typing import Literal
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    # Literalによりtypo（例: production）を起動時ValidationErrorにする。
+    environment: Literal[&quot;local&quot;, &quot;dev&quot;, &quot;prod&quot;] = &quot;local&quot;
+    aws_region: str = &quot;ap-northeast-1&quot;
+    dynamodb_table_name: str = &quot;flourish&quot;
+
+    # localはhttp://localhost:8000、本番はNoneでAWS標準endpointを使う。
+    dynamodb_endpoint_url: str | None = None
+    job_queue_url: str | None = None  # AppStackがLambda環境変数へ注入
+    bedrock_region: str = &quot;us-east-1&quot; # model availabilityのため本体regionと分離
+
+@lru_cache
+def get_settings() -&gt; Settings:
+    # 同一process中は同じimmutable相当の設定を再利用する。
+    return Settings()
+
+# テストでos.environを書き換えた後は get_settings.cache_clear() を呼ぶ。</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>FastAPIのコードをAWS Consoleだけで作る工程ではありません。ローカルterminalで起動し、ブラウザのSwagger UIとcurlでHTTP境界を手動確認します。</p><span class="manual-kind">ローカル端末 + Swagger UI</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>Python環境を作る</h3><p>リポジトリ直下で<code>make setup-api</code>を実行し、api/.venvへ依存を入れます。system Pythonへ直接pip installしません。</p><span class="expected">期待結果：api/.venv/bin/pythonが3.12</span></li><li><h3>local設定でAPIを起動する</h3><p><code>cd api</code>後、必要な環境変数を設定して<code>.venv/bin/uvicorn app.main:app --reload --port 8080</code>を実行します。</p><span class="expected">期待結果：startup errorがなくlocalhost:8080でlisten</span></li><li><h3>healthをcurlで確認する</h3><p>別terminalから<code>curl -i http://localhost:8080/health</code>を実行し、status、Content-Type、JSON bodyを見ます。</p><span class="expected">期待結果：HTTP 200と期待JSON</span></li><li><h3>Swagger UIを開く</h3><p>ブラウザで<code>http://localhost:8080/docs</code>を開き、登録routeを確認します。Try it outでhealthを呼びます。</p><span class="expected">期待結果：OpenAPIにhealthが表示される</span></li><li><h3>環境変数overrideを試す</h3><p><code>ENVIRONMENT=dev AWS_REGION=us-east-1</code>等を付けて起動し、Settingsを一時debug表示またはPython shellで確認します。secret値は表示しません。</p><span class="expected">期待結果：指定値へ型変換される</span></li><li><h3>不正設定を確認する</h3><p><code>ENVIRONMENT=production</code>のような許可外値で起動し、早期にValidationErrorになることを確認して元へ戻します。</p><span class="expected">期待結果：リクエスト前に設定ミスを検出</span></li><li><h3>テストを実行する</h3><p><code>make lint-api</code>と<code>make test-api</code>を実行し、config cacheをテスト間でclearしていることを確認します。</p><span class="expected">期待結果：lint/type/testがすべて成功</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>health 200</span></label><label class="check-item"><input type="checkbox" value="1"><span>環境変数で既定値をoverride可能</span></label><label class="check-item"><input type="checkbox" value="2"><span>許可外environmentが起動時エラー</span></label><label class="check-item"><input type="checkbox" value="3"><span>production起動に--reloadがない</span></label><label class="check-item"><input type="checkbox" value="4"><span>secretをSettingsのrepr/logへ出さない</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>health 200</li><li>環境変数で既定値をoverride可能</li><li>許可外environmentが起動時エラー</li><li>production起動に--reloadがない</li><li>secretをSettingsのrepr/logへ出さない</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>設定変更は環境変数を以前の値へ戻してprocessを再起動する</li><li>image rollbackは以前のdigestへ戻す</li><li>healthを依存深く変更して障害時に全instanceが落ちないよう段階導入する</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-9-p1-8-fastapiの設定基盤とローカル起動を整える" data-heading="9. P1-8 FastAPIの設定基盤とローカル起動を整える" data-step="8">
+<header class="chapter-header"><span class="chapter-step">STEP 08</span><h2 id="9-p1-8-fastapiの設定基盤とローカル起動を整える" tabindex="-1">9. P1-8 FastAPIの設定基盤とローカル起動を整える<a class="heading-anchor" href="#9-p1-8-fastapiの設定基盤とローカル起動を整える" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="8" aria-label="P1-8の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-8" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-8" aria-label="この見出しへのリンク">#</a></h3><p>P1-6で前倒しした最小FastAPIを、環境ごとの設定を読み込めるアプリの土台へ育て、ローカルとLambdaコンテナで同じ起動方式を使えるようにすることです。</p><ul><li>対象コミット：<code>8e559ad</code></li><li>主なファイル：<a class="file-ref" href="../../../api/app/core/config.py" title="リポジトリ内のファイルを開く"><code>api/app/core/config.py</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../api/app/main.py" title="リポジトリ内のファイルを開く"><code>api/app/main.py</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../api/tests/test_config.py" title="リポジトリ内のファイルを開く"><code>api/tests/test_config.py</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../api/tests/test_main.py" title="リポジトリ内のファイルを開く"><code>api/tests/test_main.py</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../Makefile" title="リポジトリ内のファイルを開く"><code>Makefile</code><span aria-hidden="true">↗</span></a></li><li>完了確認：ローカルUvicornとDockerイメージの両方で<code>/health</code>が200</li></ul><h3 id="91-fastapiアプリの入口" tabindex="-1">9.1 FastAPIアプリの入口<a class="heading-anchor" href="#91-fastapiアプリの入口" aria-label="この見出しへのリンク">#</a></h3><p>現行の<a class="file-ref" href="../../../api/app/main.py" title="リポジトリ内のファイルを開く"><code>api/app/main.py</code><span aria-hidden="true">↗</span></a>は次の構成です。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">from fastapi import FastAPI
+
+from app.api.v1 import jobs
+from app.core.config import get_settings
+from app.core.error_handlers import register_error_handlers
+
+settings = get_settings()
+
+app = FastAPI(
+    title=&quot;Flourish Studio API&quot;,
+    debug=settings.environment == &quot;local&quot;,
+)
+register_error_handlers(app)
+app.include_router(jobs.router, prefix=&quot;/api/v1&quot;)
+
+
+@app.get(&quot;/health&quot;)
+def health() -&gt; dict[str, str]:
+    return {&quot;status&quot;: &quot;ok&quot;}</code></pre>
+    </div><p>P1-8時点では、後から追加されたジョブルーターと共通エラーハンドラはまだありませんでした。核になるのは、<code>get_settings()</code>で設定を取得し、<code>local</code>だけデバッグを有効にする部分と、<code>/health</code>です。</p><h3 id="92-pydantic-settingsで環境変数を型付きで読む" tabindex="-1">9.2 pydantic-settingsで環境変数を型付きで読む<a class="heading-anchor" href="#92-pydantic-settingsで環境変数を型付きで読む" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">class Settings(BaseSettings):
+    environment: Literal[&quot;local&quot;, &quot;dev&quot;, &quot;prod&quot;] = &quot;local&quot;
+
+
+@lru_cache
+def get_settings() -&gt; Settings:
+    return Settings()</code></pre>
+    </div><p>P1-8時点の設定は<code>environment</code>だけでした。その後、DynamoDB、SQS、Bedrockの工程で次の項目が増えています。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">class Settings(BaseSettings):
+    environment: Literal[&quot;local&quot;, &quot;dev&quot;, &quot;prod&quot;] = &quot;local&quot;
+    aws_region: str = &quot;ap-northeast-1&quot;
+    dynamodb_table_name: str = &quot;flourish&quot;
+    dynamodb_endpoint_url: str | None = None
+    job_queue_url: str | None = None
+    bedrock_region: str = &quot;us-east-1&quot;</code></pre>
+    </div><p><code>BaseSettings</code>は、たとえば<code>ENVIRONMENT=dev</code>という環境変数を<code>environment</code>へ読み込みます。設定値をコード中へ散らさず、型と既定値を一か所に集められます。</p><p><code>Literal[&quot;local&quot;, &quot;dev&quot;, &quot;prod&quot;]</code>により、<code>production2</code>のような未定義の値を早く検出できます。</p><h3 id="93-lru_cacheを使う理由" tabindex="-1">9.3 <code>lru_cache</code>を使う理由<a class="heading-anchor" href="#93-lru_cacheを使う理由" aria-label="この見出しへのリンク">#</a></h3><p><code>get_settings()</code>を呼ぶたびに環境変数を解析して新しいオブジェクトを作る必要はありません。<code>@lru_cache</code>により、プロセス内では同じSettingsを再利用します。</p><p>テストで環境変数を変えるときは、キャッシュも消します。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">monkeypatch.setenv(&quot;ENVIRONMENT&quot;, &quot;dev&quot;)
+get_settings.cache_clear()
+try:
+    assert get_settings().environment == &quot;dev&quot;
+finally:
+    get_settings.cache_clear()</code></pre>
+    </div><p><code>finally</code>を使うのは、アサーションが失敗しても後続テストへキャッシュ状態を残さないためです。</p><h3 id="94-ヘルスチェックの意味" tabindex="-1">9.4 ヘルスチェックの意味<a class="heading-anchor" href="#94-ヘルスチェックの意味" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">@app.get(&quot;/health&quot;)
+def health() -&gt; dict[str, str]:
+    return {&quot;status&quot;: &quot;ok&quot;}</code></pre>
+    </div><p>ヘルスチェックは、少なくとも次を確認できます。</p><ul><li>コンテナが起動した</li><li>Uvicornがポートをlistenしている</li><li>FastAPIがリクエストを処理できる</li><li>API GatewayからLambda Web Adapterまでの経路が通る</li></ul><p>ただし、この<code>/health</code>はDynamoDBやBedrockへの疎通までは確認しません。「200だから全依存先が正常」とは限らない点に注意します。</p><h3 id="95-ローカルと本番で同じサーバーを起動する" tabindex="-1">9.5 ローカルと本番で同じサーバーを起動する<a class="heading-anchor" href="#95-ローカルと本番で同じサーバーを起動する" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="make">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>make</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-make">dev:
+	cd api &amp;&amp; .venv/bin/uvicorn app.main:app --reload --port 8080</code></pre>
+    </div><p>P1-8時点ではAPIだけを起動しました。P1-9でDynamoDB Local、P1-15でVueが加わり、現行の<code>make dev</code>は3つをまとめて起動します。</p><p>Dockerfileでも同じ<code>uvicorn app.main:app</code>を使っているため、ローカルだけ独自のサーバーを使う差を減らしています。</p><h3 id="96-この工程で行ったテスト" tabindex="-1">9.6 この工程で行ったテスト<a class="heading-anchor" href="#96-この工程で行ったテスト" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def test_health_returns_200() -&gt; None:
+    response = client.get(&quot;/health&quot;)
+    assert response.status_code == 200
+    assert response.json() == {&quot;status&quot;: &quot;ok&quot;}</code></pre>
+    </div><p>FastAPIの<code>TestClient</code>を使えば、実際に別プロセスでサーバーを起動せず、HTTPに近い形でルートをテストできます。加えて、ローカル起動とDockerビルド・起動を実際に確認しました。</p><h3 id="用語メモ-8" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-8" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>FastAPI</strong>：Pythonの型ヒントを活用するWeb APIフレームワーク</li><li><strong>Uvicorn</strong>：ASGIアプリを動かすWebサーバー</li><li><strong>ASGI</strong>：Pythonの非同期Webアプリとサーバーの標準インターフェース</li><li><strong>環境変数</strong>：プロセス外から渡す設定値</li><li><strong>Pydantic</strong>：Pythonのデータ検証・設定管理ライブラリ</li><li><strong>health check</strong>：サービスが応答可能かを調べるための軽量なエンドポイント</li><li><strong>hot reload</strong>：ファイル変更時に開発サーバーを自動再起動する機能</li></ul><h3 id="この工程から学べる開発の定石-8" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-8" aria-label="この見出しへのリンク">#</a></h3><p>設定はコードへ直接埋め込まず、型付きの設定クラスへ集約します。また、ローカルと本番で可能な限り同じ起動方法を使うと、「ローカルでは動くがコンテナでは動かない」という差を小さくできます。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://fastapi.tiangolo.com/" target="_blank" rel="noreferrer"><span><strong>FastAPI documentation</strong><span>https://fastapi.tiangolo.com/</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-07-cloudfront-edge.html"><small>← PREVIOUS P1-7</small><strong>EdgeStackで配信・キャッシュ・防御を作る</strong></a><a href="p1-09-dynamodb-repository.html"><small>NEXT P1-9 →</small><strong>DynamoDBリポジトリ層を作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-8</h2><p>FastAPI・Pydantic</p><div class="rail-stat"><span>commit</span><strong>8e559ad</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

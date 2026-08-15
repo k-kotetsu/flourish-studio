@@ -1,0 +1,333 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="boto3の詳細を一箇所へ閉じ込め、キーと更新規則を守る"><title>P1-9 DynamoDBリポジトリ層を作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="9">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-9 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html" selected>P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 09</p>
+        <h1>P1-9<span>DynamoDBリポジトリ層を作る</span></h1>
+        <p class="hero-summary">boto3の詳細を一箇所へ閉じ込め、キーと更新規則を守る。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 979be0a</span><span class="chip">LAYER boto3・DynamoDB Local</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>resource APIとclient APIの違い</div><div class="learning-goal"><strong>理解 2</strong>条件付き書き込みの例外境界</div><div class="learning-goal"><strong>理解 3</strong>楽観的排他とversion履歴</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>979be0a</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>repositoryはSDKを隠す境界</h3><p>domain層がboto3のresponse形やClientError codeを知らず、Itemとアプリ例外だけを扱えるようにします。</p></article><article class="concept-card"><h3>高水準resourceと低水準client</h3><p>resource APIはPython値を自動変換しますが、TransactWriteItemsは低水準DynamoDB-JSONを要求します。TypeSerializerで境界を合わせます。</p></article><article class="concept-card"><h3>QueryとScan</h3><p>PK等のkey conditionを使うQueryは対象partitionへ絞れます。全itemを見るScanを通常機能へ持ち込まないことで、データ増加時の遅延と費用を抑えます。</p></article><article class="concept-card"><h3>楽観的排他</h3><p>読んだversionと現在versionが一致するときだけ書く条件式で、同時更新の片方を失敗させます。lockを保持せず競合を検出する方式です。</p></article></div><div><p>単一テーブルはキー命名が事実上のschemaです。<code>USER#...</code>や<code>JOB#...</code>の文字列生成を各機能へ散らすと、文字ケースや区切りの差だけで読めないitemを作ります。<code>keys.py</code>を唯一の生成場所にすることで、data modelの規則を実行可能な形にします。</p><p><code>put_versioned</code>は現行itemを読み、古いversionをhistory SKへ保存し、新しい現行itemを条件付きPutする2操作をtransactionにまとめます。途中で片方だけ成功しません。ただし最初のreadからtransactionまでに競合しうるため、<code>version = :v</code>が必要です。</p><p>DynamoDB Local統合テストは条件式・serialization・transactionというmockで見逃しやすい部分を検証します。一方、IAM、PITR、実AWSのthrottling、GSIのeventual consistencyは再現しないため、CDKテストとdev実機確認も残ります。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-9 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">flowchart LR
+  DOMAIN[Domain service] --&gt; REPO[repository.py]
+  REPO --&gt; KEYS[keys.py]
+  REPO --&gt; TABLE[client.py get_table]
+  TABLE --&gt;|resource API| DDB[(DynamoDB)]
+  REPO --&gt;|TypeSerializer + client API| TX[TransactWriteItems]
+  TX --&gt; DDB
+  CONFIG[Settings] --&gt; TABLE
+  CONFIG --&gt; TX</pre><details><summary>図のMermaidソースを表示</summary><pre>flowchart LR
+  DOMAIN[Domain service] --&gt; REPO[repository.py]
+  REPO --&gt; KEYS[keys.py]
+  REPO --&gt; TABLE[client.py get_table]
+  TABLE --&gt;|resource API| DDB[(DynamoDB)]
+  REPO --&gt;|TypeSerializer + client API| TX[TransactWriteItems]
+  TX --&gt; DDB
+  CONFIG[Settings] --&gt; TABLE
+  CONFIG --&gt; TX</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../api/app/db/client.py">api/app/db/client.py</a><span>設定からboto3 DynamoDB resourceとTableを作る</span></div><div class="file-row"><a href="../../../api/app/db/keys.py">api/app/db/keys.py</a><span>PK/SKのprefixと生成関数を一元管理する</span></div><div class="file-row"><a href="../../../api/app/db/repository.py">api/app/db/repository.py</a><span>get/put/update/query/batch/transaction/versioned updateを提供する</span></div><div class="file-row"><a href="../../../api/app/db/local_bootstrap.py">api/app/db/local_bootstrap.py</a><span>DynamoDB Localへ同じキーのテーブルを準備する</span></div><div class="file-row"><a href="../../../api/tests/test_repository.py">api/tests/test_repository.py</a><span>実DynamoDB互換APIで条件式とtransactionを統合テストする</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../api/app/db/repository.py"><code>api/app/db/repository.py</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>api/app/db/repository.py</strong><span>boto3 transactionをPython値で扱うadapter · python</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>from boto3.dynamodb.types import TypeSerializer
+from botocore.exceptions import ClientError
+
+_serializer = TypeSerializer()
+
+def _serialize_transact_item(item: dict[str, Any]) -&gt; dict[str, Any]:
+    # {&quot;Put&quot;: {...}} のaction名とbodyを1組取り出す。
+    action, body = next(iter(item.items()))
+    serialized = {&quot;TableName&quot;: get_settings().dynamodb_table_name}
+    for key, value in body.items():
+        if key in (&quot;Item&quot;, &quot;Key&quot;, &quot;ExpressionAttributeValues&quot;):
+            # Pythonのstr/int/dictをDynamoDB-JSON（S/N/M等）へ変換する。
+            serialized[key] = {k: _serializer.serialize(v) for k, v in value.items()}
+        else:
+            serialized[key] = value  # ConditionExpression等は文字列のまま
+    return {action: serialized}
+
+def transact_write_items(items: list[dict[str, Any]]) -&gt; None:
+    client = boto3.client(
+        &quot;dynamodb&quot;,
+        region_name=get_settings().aws_region,
+        endpoint_url=get_settings().dynamodb_endpoint_url, # localだけ差し替え
+    )
+    try:
+        client.transact_write_items(
+            TransactItems=[_serialize_transact_item(item) for item in items],
+        )
+    except ClientError as error:
+        if error.response[&quot;Error&quot;][&quot;Code&quot;] == &quot;TransactionCanceledException&quot;:
+            raise ConditionalCheckFailed from error # SDK例外をdomain向けへ翻訳
+        raise # 未知の障害を条件競合として隠さない</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>コード実装はローカルで行い、手動確認はDynamoDB Localの統合テストとAWS ConsoleのExplore itemsを使います。本番表で学習用itemを作る場合はprefixと削除手順を決めてください。</p><span class="manual-kind">DynamoDB Local + AWS Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>DynamoDB Localを起動する</h3><p>Dockerを起動し、リポジトリ直下で<code>make dynamodb-local-up</code>を実行します。<code>docker compose ps</code>でport 8000を確認します。</p><span class="expected">期待結果：dynamodb-local serviceがrunning</span></li><li><h3>local tableをbootstrapする</h3><p>LOCAL_AWS_ENV相当（ダミーcredentialとendpoint URL）を設定し、local_bootstrapを実行します。AWS実表を誤操作しないようendpointを必ず確認します。</p><span class="expected">期待結果：flourish local tableがActive</span></li><li><h3>基本CRUDを試す</h3><p>Python shellまたはテストからput_item、get_item、update_itemを順に呼び、PK/SKとReturnValuesの結果を確認します。</p><span class="expected">期待結果：書いたitemが同じkeyで読める</span></li><li><h3>条件失敗を確認する</h3><p>同じPKへ<code>attribute_not_exists(PK)</code>付きPutを2回行い、2回目がConditionalCheckFailedへ変換されることを確認します。</p><span class="expected">期待結果：ClientErrorがdomainへ漏れない</span></li><li><h3>prefix Queryを確認する</h3><p>同一PKでSK prefixの異なるitemを作り、query_by_sk_prefixが対象だけをsort順で返すことを確認します。</p><span class="expected">期待結果：Scanなしで期待件数</span></li><li><h3>version競合を再現する</h3><p>同じ現行itemを並行更新し、一方が成功、他方が条件失敗になるテストを実行します。history itemとcurrent versionを読みます。</p><span class="expected">期待結果：lost updateが発生しない</span></li><li><h3>AWS Consoleで実表構造を見る</h3><p>DynamoDB → flourish → Explore table itemsでPK/SK prefix、expires_at、versionを確認します。編集はdevの検証itemだけに限定します。</p><span class="expected">期待結果：logical modelとitem形が一致</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>local endpointを外した本番設定でlocalhostへ接続しない</span></label><label class="check-item"><input type="checkbox" value="1"><span>condition failure以外のClientErrorを再送出</span></label><label class="check-item"><input type="checkbox" value="2"><span>transaction itemがDynamoDB-JSONへserializeされる</span></label><label class="check-item"><input type="checkbox" value="3"><span>QueryにPK条件がある</span></label><label class="check-item"><input type="checkbox" value="4"><span>並行更新の片方だけ成功</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>local endpointを外した本番設定でlocalhostへ接続しない</li><li>condition failure以外のClientErrorを再送出</li><li>transaction itemがDynamoDB-JSONへserializeされる</li><li>QueryにPK条件がある</li><li>並行更新の片方だけ成功</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>検証itemはPK/SKを特定して個別削除する。Scan一括削除をしない</li><li>schema-lessでもkey属性の型変更は破壊的なので新table/migrationを計画する</li><li>repository interface変更は呼び出し側と統合テストを同じcommitで戻す</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-10-p1-9-dynamodbリポジトリ層を作る" data-heading="10. P1-9 DynamoDBリポジトリ層を作る" data-step="9">
+<header class="chapter-header"><span class="chapter-step">STEP 09</span><h2 id="10-p1-9-dynamodbリポジトリ層を作る" tabindex="-1">10. P1-9 DynamoDBリポジトリ層を作る<a class="heading-anchor" href="#10-p1-9-dynamodbリポジトリ層を作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="9" aria-label="P1-9の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-9" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-9" aria-label="この見出しへのリンク">#</a></h3><p>DynamoDBの低レベルな読み書き、条件式、トランザクション、キー生成を一か所へ集約し、後続の各機能が同じ安全なパターンを再利用できるようにすることです。</p><ul><li>対象コミット：<code>979be0a</code></li><li>主なファイル：<a class="file-ref" href="../../../api/app/db/client.py" title="リポジトリ内のファイルを開く"><code>api/app/db/client.py</code><span aria-hidden="true">↗</span></a>、<code>keys.py</code>、<code>repository.py</code>、<code>local_bootstrap.py</code></li><li>ローカル環境：<a class="file-ref" href="../../../docker-compose.yml" title="リポジトリ内のファイルを開く"><code>docker-compose.yml</code><span aria-hidden="true">↗</span></a>のDynamoDB Local</li><li>主なテスト：<a class="file-ref" href="../../../api/tests/test_repository.py" title="リポジトリ内のファイルを開く"><code>api/tests/test_repository.py</code><span aria-hidden="true">↗</span></a></li><li>完了条件：DynamoDB Localに対する統合テストが成功する</li></ul><h3 id="101-リポジトリ層とは" tabindex="-1">10.1 リポジトリ層とは<a class="heading-anchor" href="#101-リポジトリ層とは" aria-label="この見出しへのリンク">#</a></h3><p>ここでいう<strong>リポジトリ層</strong>は、アプリケーションの他の部分からデータベース操作の詳細を隠す層です。</p>
+    <div class="code-shell" data-language="text">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>text</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-text">APIルーター / ドメインロジック
+          ↓
+   repository.py
+          ↓
+    boto3 / DynamoDB</code></pre>
+    </div><p>後続のセッション、冪等性、ジョブなどは、直接<code>boto3.resource(...).Table(...).put_item(...)</code>を繰り返さず、<code>repository.put_item()</code>を呼びます。</p><p>利点は次の通りです。</p><ul><li>例外変換を一か所にまとめられる</li><li>条件付き書き込みの書き方を統一できる</li><li>ローカルの接続先とAWSの接続先を設定で切り替えられる</li><li>テストしやすい</li><li>エンティティ固有ロジックとDB SDKの詳細を分離できる</li></ul><h3 id="102-クライアントを設定から作る" tabindex="-1">10.2 クライアントを設定から作る<a class="heading-anchor" href="#102-クライアントを設定から作る" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">@lru_cache
+def get_table() -&gt; Table:
+    settings = get_settings()
+    resource = boto3.resource(
+        &quot;dynamodb&quot;,
+        region_name=settings.aws_region,
+        endpoint_url=settings.dynamodb_endpoint_url,
+    )
+    return resource.Table(settings.dynamodb_table_name)</code></pre>
+    </div><p>本番では<code>endpoint_url=None</code>なので通常のAWS DynamoDBへ接続します。ローカルでは<code>DYNAMODB_ENDPOINT_URL=http://localhost:8000</code>を渡し、DynamoDB Localへ向けます。</p><p>コードを分岐させるのではなく、接続先の設定だけを変えるのがポイントです。</p><h3 id="103-pkskを文字列結合で散らさない" tabindex="-1">10.3 PK/SKを文字列結合で散らさない<a class="heading-anchor" href="#103-pkskを文字列結合で散らさない" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def user_pk(user_id: str) -&gt; str:
+    return f&quot;USER#{user_id}&quot;
+
+
+def job_pk(job_id: str) -&gt; str:
+    return f&quot;JOB#{job_id}&quot;
+
+
+def history_sk(prefix: str, version: int) -&gt; str:
+    return f&quot;HIST#{prefix}#{version:06d}&quot;</code></pre>
+    </div><p>キーの書式を<code>keys.py</code>へまとめることで、<code>USER-123</code>と<code>USER#123</code>のような表記揺れを防ぎます。</p><p><code>version:06d</code>は、1を<code>000001</code>へ整形します。DynamoDBの文字列ソートでも、<code>1, 10, 2</code>ではなく<code>000001, 000002, 000010</code>の期待順になります。</p><h3 id="104-基本のgetputupdate" tabindex="-1">10.4 基本のget/put/update<a class="heading-anchor" href="#104-基本のgetputupdate" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def get_item(pk: str, sk: str) -&gt; Item | None:
+    response = get_table().get_item(Key={&quot;PK&quot;: pk, &quot;SK&quot;: sk})
+    return response.get(&quot;Item&quot;)</code></pre>
+    </div>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def put_item(
+    item: Item,
+    condition_expression: str | None = None,
+    expression_attribute_values: dict[str, Any] | None = None,
+) -&gt; None:
+    # kwargsを組み立ててTable.put_itemへ渡す</code></pre>
+    </div><p><code>put_item</code>と<code>update_item</code>は、任意の条件式を受け取れるようにしています。これがP1-12の冪等性・レート制限に使われます。</p><h3 id="105-dynamodbの例外をアプリ内の例外へ変換した" tabindex="-1">10.5 DynamoDBの例外をアプリ内の例外へ変換した<a class="heading-anchor" href="#105-dynamodbの例外をアプリ内の例外へ変換した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">class ConditionalCheckFailed(Exception):
+    &quot;&quot;&quot;条件付き書き込みの条件式が満たされなかった。&quot;&quot;&quot;</code></pre>
+    </div>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">except ClientError as error:
+    if error.response[&quot;Error&quot;][&quot;Code&quot;] == &quot;ConditionalCheckFailedException&quot;:
+        raise ConditionalCheckFailed from error
+    raise</code></pre>
+    </div><p>AWS SDK固有の長い例外を上位層へ漏らさず、アプリが意味を理解できる<code>ConditionalCheckFailed</code>へ変換します。上位のコードは、boto3のレスポンス構造を知らずに「競合した」と判断できます。</p><h3 id="106-複数取得とprefix検索" tabindex="-1">10.6 複数取得とprefix検索<a class="heading-anchor" href="#106-複数取得とprefix検索" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def batch_get_items(keys: list[tuple[str, str]]) -&gt; list[Item]:
+    # 複数のPK/SKを1回のAPI呼び出しで取得</code></pre>
+    </div>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def query_by_sk_prefix(
+    pk: str,
+    sk_prefix: str,
+    scan_index_forward: bool = True,
+    limit: int | None = None,
+) -&gt; list[Item]:
+    kwargs = {
+        &quot;KeyConditionExpression&quot;: (
+            Key(&quot;PK&quot;).eq(pk) &amp; Key(&quot;SK&quot;).begins_with(sk_prefix)
+        ),
+        &quot;ScanIndexForward&quot;: scan_index_forward,
+    }</code></pre>
+    </div><p>たとえば、同じユーザーPKの中から<code>AREA#</code>で始まるSKだけを取得できます。NoSQLでは、必要な取得パターンを先に考え、それに合うキーを設計します。</p><h3 id="107-トランザクションをpythonの値で扱えるようにした" tabindex="-1">10.7 トランザクションをPythonの値で扱えるようにした<a class="heading-anchor" href="#107-トランザクションをpythonの値で扱えるようにした" aria-label="この見出しへのリンク">#</a></h3><p>DynamoDBの低レベルクライアントは、文字列を<code>{&quot;S&quot;: &quot;...&quot;}</code>のようなAttributeValue形式で要求します。呼び出し側にその形式を露出しないため、<code>TypeSerializer</code>で変換します。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def _serialize_transact_item(item: TransactItem) -&gt; dict[str, Any]:
+    action, body = next(iter(item.items()))
+    serialized = {&quot;TableName&quot;: get_settings().dynamodb_table_name}
+    for key, value in body.items():
+        if key in (&quot;Item&quot;, &quot;Key&quot;, &quot;ExpressionAttributeValues&quot;):
+            serialized[key] = {
+                k: _serializer.serialize(v) for k, v in value.items()
+            }
+        else:
+            serialized[key] = value
+    return {action: serialized}</code></pre>
+    </div><p><strong>トランザクション</strong>は、複数の操作を「すべて成功」または「すべて失敗」にする仕組みです。途中まで保存される状態を防ぎます。</p><h3 id="108-現行版と履歴を同時に更新するput_versioned" tabindex="-1">10.8 現行版と履歴を同時に更新する<code>put_versioned</code><a class="heading-anchor" href="#108-現行版と履歴を同時に更新するput_versioned" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def put_versioned(
+    pk: str,
+    current_sk: str,
+    history_sk_prefix: str,
+    new_attributes: Item,
+) -&gt; Item:
+    old = get_item(pk, current_sk)
+    version = int(old[&quot;version&quot;]) if old is not None else 0
+    new_item = {
+        **new_attributes,
+        &quot;PK&quot;: pk,
+        &quot;SK&quot;: current_sk,
+        &quot;version&quot;: version + 1,
+    }
+
+    transact_items = []
+    if old is not None:
+        transact_items.append({
+            &quot;Put&quot;: {
+                &quot;Item&quot;: {
+                    **old,
+                    &quot;SK&quot;: history_sk(history_sk_prefix, version),
+                },
+            },
+        })
+    transact_items.append({
+        &quot;Put&quot;: {
+            &quot;Item&quot;: new_item,
+            &quot;ConditionExpression&quot;: (
+                &quot;attribute_not_exists(PK) OR version = :v&quot;
+            ),
+            &quot;ExpressionAttributeValues&quot;: {&quot;:v&quot;: version},
+        },
+    })
+    transact_write_items(transact_items)
+    return new_item</code></pre>
+    </div><p>流れは次の通りです。</p><ol><li>現行版を読む</li><li>現行版があれば履歴用SKへコピーする</li><li><code>version + 1</code>の新版を現行SKへ書く</li><li>2と3を1トランザクションで行う</li><li>読んだあと別処理が更新していれば、<code>version = :v</code>条件で競合を検出する</li></ol><p>これは<strong>楽観的ロック</strong>に近い考え方です。最初から全処理をロックするのではなく、書き込み時に「読んだときの版から変わっていないか」を確認します。</p><h3 id="109-dynamodb-localをdocker-composeで起動した" tabindex="-1">10.9 DynamoDB LocalをDocker Composeで起動した<a class="heading-anchor" href="#109-dynamodb-localをdocker-composeで起動した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="yaml">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>yaml</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-yaml">services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - &quot;8000:8000&quot;
+    command: [&quot;-jar&quot;, &quot;DynamoDBLocal.jar&quot;, &quot;-inMemory&quot;, &quot;-sharedDb&quot;]</code></pre>
+    </div><p><code>local_bootstrap.py</code>は、ローカルテーブルがなければ作成します。ただし、本番テーブルの真実の源はあくまで<a class="file-ref" href="../../../infra/lib/data-stack.ts" title="リポジトリ内のファイルを開く"><code>infra/lib/data-stack.ts</code><span aria-hidden="true">↗</span></a>です。ローカル補助コードを本番IaCの代わりにしません。</p><p>Makefileでは、boto3クライアント生成に必要なダミー認証情報と接続先を渡します。</p>
+    <div class="code-shell" data-language="make">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>make</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-make">LOCAL_AWS_ENV := AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
+	DYNAMODB_ENDPOINT_URL=http://localhost:8000</code></pre>
+    </div><p>DynamoDB Localは署名を検証しませんが、boto3は認証情報なしではクライアントを作れないため、意味のないローカル値を使います。</p><h3 id="1010-ユニットテストではなく統合テストを選んだ理由" tabindex="-1">10.10 ユニットテストではなく統合テストを選んだ理由<a class="heading-anchor" href="#1010-ユニットテストではなく統合テストを選んだ理由" aria-label="この見出しへのリンク">#</a></h3><p><code>test_repository.py</code>は実際のDynamoDB Localへ接続し、次を確認します。</p><ul><li>putしたデータをgetできる</li><li>同じ冪等キーの条件付きputが失敗する</li><li>カウンタが上限を超えた条件付きupdateは失敗する</li><li>現行版の更新で旧版が履歴へ移る</li><li>ConditionCheck失敗時に他の書き込みもロールバックされる</li><li>batch getとprefix queryが動く</li></ul><p>条件式やトランザクションは、SDK呼び出しをモックするだけではDynamoDB自身の挙動を確認できません。そのためローカル実装との<strong>統合テスト</strong>を選びました。</p><h3 id="1011-この時点では実装しなかったもの" tabindex="-1">10.11 この時点では実装しなかったもの<a class="heading-anchor" href="#1011-この時点では実装しなかったもの" aria-label="この見出しへのリンク">#</a></h3><p>P1-9は汎用層だけです。<code>ASSESSMENT</code>、<code>PURPOSE</code>、<code>AREA_PLAN</code>など、機能固有の必須属性や業務制約は後続タスクで実装する計画です。</p><p>汎用リポジトリへ何でも詰め込むと、特定機能に依存して再利用しにくくなります。</p><h3 id="用語メモ-9" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-9" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>repository pattern</strong>：データ保存の詳細を上位ロジックから分離する設計パターン</li><li><strong>boto3</strong>：Python用AWS SDK</li><li><strong>条件付き書き込み</strong>：条件が成立した場合だけput/updateするDynamoDB機能</li><li><strong>atomic／原子的</strong>：処理が途中状態を見せず、1単位として成立する性質</li><li><strong>トランザクション</strong>：複数操作をまとめて成功または失敗にする仕組み</li><li><strong>楽観的ロック</strong>：更新時に版を確認して競合を検出する方式</li><li><strong>統合テスト</strong>：複数コンポーネントを実際に組み合わせて確認するテスト</li><li><strong>モック</strong>：本物の依存先の代わりに制御可能な偽物を使うこと</li></ul><h3 id="この工程から学べる開発の定石-9" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-9" aria-label="この見出しへのリンク">#</a></h3><p>DBアクセスの基盤では、単純なCRUDだけでなく、同時実行時の安全性を先に用意します。Webアプリでは同じユーザーが二重クリックしたり、複数リクエストが同時到着したりします。「先に読んで、空いていれば後から書く」だけでは競合するため、データベース自身の条件付き書き込みとトランザクションを使うことが重要です。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html" target="_blank" rel="noreferrer"><span><strong>Boto3 DynamoDB service resource</strong><span>https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html</span></span></a><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html" target="_blank" rel="noreferrer"><span><strong>DynamoDB core components</strong><span>https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-08-fastapi-settings.html"><small>← PREVIOUS P1-8</small><strong>FastAPIの設定基盤とローカル起動を整える</strong></a><a href="p1-10-api-error-contract.html"><small>NEXT P1-10 →</small><strong>APIのエラー応答を共通化する</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-9</h2><p>boto3・DynamoDB Local</p><div class="rail-stat"><span>commit</span><strong>979be0a</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

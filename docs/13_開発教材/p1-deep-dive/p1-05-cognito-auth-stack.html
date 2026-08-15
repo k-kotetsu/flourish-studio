@@ -1,0 +1,200 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="Google OAuthとUser PoolをBFF方式の前提に合わせる"><title>P1-5 CognitoのAuthStackを作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="5">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-5 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html" selected>P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html">P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 05</p>
+        <h1>P1-5<span>CognitoのAuthStackを作る</span></h1>
+        <p class="hero-summary">Google OAuthとUser PoolをBFF方式の前提に合わせる。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT 02fec8a</span><span class="chip">LAYER Cognito・Secrets Manager</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>OAuthのリダイレクト往復</div><div class="learning-goal"><strong>理解 2</strong>BFFとclient secretの関係</div><div class="learning-goal"><strong>理解 3</strong>コードとsecretを分離する方法</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>02fec8a</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>User PoolとIdentity Poolを混同しない</h3><p>この工程は認証ユーザーを管理するUser Poolです。AWSサービス用一時credentialをブラウザへ渡すIdentity Poolではありません。</p></article><article class="concept-card"><h3>authorization code grant</h3><p>ブラウザには短命なcodeだけを戻し、バックエンドがclient secretを使ってtokenへ交換します。tokenをブラウザ保管しないBFF方針と整合します。</p></article><article class="concept-card"><h3>GoogleとCognitoのredirect URIは2種類</h3><p>GoogleにはCognitoの<code>/oauth2/idpresponse</code>を登録し、Cognito app clientには自サービスの<code>/auth/google/callback</code>を登録します。向きを混ぜるとredirect mismatchになります。</p></article><article class="concept-card"><h3>SecretValueは値を埋め込まない</h3><p>CDKはSecrets Managerの参照をCloudFormationへ渡します。client secret実値をソース、context、output、ログへ出しません。</p></article></div><div><p>認証フローにはブラウザ、FlourishのBFF、Cognito、Googleの4者が登場します。Googleで本人確認した結果はCognitoへ戻り、Cognitoが統一したcodeをFlourishへ返します。Flourishのバックエンドがcodeをtokenへ交換し、最終的には独自の<code>fs_session</code> Cookieを発行する設計です。</p><p><code>generateSecret: true</code>のapp clientは秘密を保持できるサーバー向けです。SPAからCognitoへ直接token交換するとclient secretを安全に隠せないため、この設定と矛盾します。フロントは同一originのBFF APIだけを呼びます。</p><p>Cognitoの標準メール確認を無効にしている点も仕様上重要です。確認処理を独自フローで行う前提なので、コンソールで作り直すときに既定の自動検証をそのまま有効にすると、ユーザー体験とAPI契約が変わります。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-5 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">sequenceDiagram
+  participant B as Browser
+  participant F as Flourish BFF
+  participant C as Cognito
+  participant G as Google
+  B-&gt;&gt;F: Googleログイン開始
+  F--&gt;&gt;B: Cognito /authorizeへredirect
+  B-&gt;&gt;C: authorization request
+  C--&gt;&gt;B: Googleへredirect
+  B-&gt;&gt;G: 認証・同意
+  G--&gt;&gt;C: /oauth2/idpresponse
+  C--&gt;&gt;F: /auth/google/callback?code=...
+  F-&gt;&gt;C: code + client secretでtoken交換
+  F--&gt;&gt;B: HttpOnly fs_session Cookie</pre><details><summary>図のMermaidソースを表示</summary><pre>sequenceDiagram
+  participant B as Browser
+  participant F as Flourish BFF
+  participant C as Cognito
+  participant G as Google
+  B-&gt;&gt;F: Googleログイン開始
+  F--&gt;&gt;B: Cognito /authorizeへredirect
+  B-&gt;&gt;C: authorization request
+  C--&gt;&gt;B: Googleへredirect
+  B-&gt;&gt;G: 認証・同意
+  G--&gt;&gt;C: /oauth2/idpresponse
+  C--&gt;&gt;F: /auth/google/callback?code=...
+  F-&gt;&gt;C: code + client secretでtoken交換
+  F--&gt;&gt;B: HttpOnly fs_session Cookie</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../infra/lib/auth-stack.ts">infra/lib/auth-stack.ts</a><span>User Pool、Google IdP、app client、managed login domainを定義する</span></div><div class="file-row"><a href="../../../infra/bin/infra.ts">infra/bin/infra.ts</a><span>環境別ドメインとGoogle client IDをAuthStackへ渡す</span></div><div class="file-row"><a href="../../../infra/test/auth-stack.test.ts">infra/test/auth-stack.test.ts</a><span>OAuth flow、callback URL、secret参照をテンプレートで検査する</span></div><div class="file-row"><strong>AWS Secrets Manager: flourish/google-oauth-client-secret</strong><span>Google client secretの実値をGit外で保持する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../infra/lib/auth-stack.ts"><code>infra/lib/auth-stack.ts</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>infra/lib/auth-stack.ts</strong><span>CognitoとSecrets ManagerのCDK Construct · typescript</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>// Secret Constructは保管場所だけをIaCで作り、値はAWS Consoleから手動投入する。
+this.googleOAuthClientSecret = new secretsmanager.Secret(this, &quot;GoogleOAuthClientSecret&quot;, {
+  secretName: &quot;flourish/google-oauth-client-secret&quot;,
+  description: &quot;Google OAuth client secret. Value is entered manually.&quot;,
+});
+
+// Google IdP SDKはGoogleのclient IDとsecret参照をUser Poolへ関連付ける。
+const googleIdp = new cognito.UserPoolIdentityProviderGoogle(this, &quot;GoogleIdentityProvider&quot;, {
+  userPool: this.userPool,
+  clientId: props.googleClientId,             // 公開情報なのでpropsで渡せる
+  clientSecretValue: cdk.SecretValue.secretsManager(
+    this.googleOAuthClientSecret.secretArn,   // 実値ではなくARN参照
+  ),
+  scopes: [&quot;openid&quot;, &quot;email&quot;, &quot;profile&quot;],  // Googleから必要な属性だけ要求
+  attributeMapping: { email: cognito.ProviderAttribute.GOOGLE_EMAIL },
+});
+
+// BFFがcodeを交換するため、secret付きclient + code grantにする。
+this.userPoolClient = this.userPool.addClient(&quot;UserPoolClient&quot;, {
+  generateSecret: true,
+  oAuth: {
+    flows: { authorizationCodeGrant: true },
+    scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+    callbackUrls: [`https://${props.domainName}/auth/google/callback`],
+  },
+  supportedIdentityProviders: [
+    cognito.UserPoolClientIdentityProvider.COGNITO,
+    cognito.UserPoolClientIdentityProvider.GOOGLE,
+  ],
+});
+this.userPoolClient.node.addDependency(googleIdp); // IdP作成後にclientを作る順序を保証</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>2つの管理画面を往復します。secret値はコピー時だけ扱い、教材、issue、スクリーンショット、Gitへ残さないでください。既存secretを更新する場合は利用中versionへの影響を確認します。</p><span class="manual-kind">Google Cloud + AWS Console</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>Google OAuth clientを作る</h3><p>Google Cloud Console → APIs & Services → CredentialsでOAuth client ID（Web application）を作ります。Authorized redirect URIは後で得るCognitoの<code>/oauth2/idpresponse</code>です。</p><span class="expected">期待結果：client IDとclient secretを一度だけ安全に取得</span></li><li><h3>User Poolを作る</h3><p>Amazon Cognito → User pools → Create user pool。email sign-in、self sign-up、必須email、8文字以上で英小文字と数字必須、recoveryはemailを選びます。</p><span class="expected">期待結果：flourish-users相当のpoolがActive</span></li><li><h3>Cognito domainを設定する</h3><p>User pool → Branding/Domainから一意なprefix（例 flour​​ish-st-dev）を設定し、表示されたdomainを記録します。</p><span class="expected">期待結果：managed login domainが有効</span></li><li><h3>Secrets Managerへsecretを保存する</h3><p>Secrets Manager → Store a new secret → Other typeでGoogle client secretを保存し、名前を<code>flourish/google-oauth-client-secret</code>にします。閲覧権限を最小化します。</p><span class="expected">期待結果：secret ARNがあり値をGitへ置いていない</span></li><li><h3>Google IdPを追加する</h3><p>User pool → Social and external providers → Add identity provider → Googleでclient ID/secret、scope openid email profile、email mappingを設定します。</p><span class="expected">期待結果：Google providerがEnabled</span></li><li><h3>app clientを設定する</h3><p>App clientsでconfidential clientを作り、authorization code grant、openid/email/profile、callback <code>https://dev.flourish-st.com/auth/google/callback</code>、CognitoとGoogle providerを有効にします。</p><span class="expected">期待結果：client secretあり・implicit grantなし</span></li><li><h3>Google側redirectを確定する</h3><p>Cognitoのdomainから<code>https://PREFIX.auth.REGION.amazoncognito.com/oauth2/idpresponse</code>を組み、Google OAuth clientのAuthorized redirect URIへ正確に登録します。</p><span class="expected">期待結果：末尾パスまで完全一致</span></li><li><h3>managed loginで往復を確認する</h3><p>App clientのView login pageまたはauthorize URLを開き、Google選択後にFlourish callbackまでcodeが戻ることを確認します。P1時点でcallback APIが未実装なら404でもcode付与までを確認します。</p><span class="expected">期待結果：redirect_uri_mismatchが発生しない</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>Google secretがGit履歴とCloudFormation outputにない</span></label><label class="check-item"><input type="checkbox" value="1"><span>app clientはauthorization code grant</span></label><label class="check-item"><input type="checkbox" value="2"><span>GoogleとFlourishの2つのredirect URIを混同していない</span></label><label class="check-item"><input type="checkbox" value="3"><span>User Poolのリージョンとdomainを記録した</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>Google secretがGit履歴とCloudFormation outputにない</li><li>app clientはauthorization code grant</li><li>GoogleとFlourishの2つのredirect URIを混同していない</li><li>User Poolのリージョンとdomainを記録した</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>漏えい疑いのclient secretはGoogle側でrotateしSecrets Managerを更新する</li><li>誤ったcallback URLは削除前に正しいURLを追加してログインを確認する</li><li>User Pool削除はユーザーを失うためRETAIN対象として扱う</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-6-p1-5-cognitoのauthstackを作る" data-heading="6. P1-5 CognitoのAuthStackを作る" data-step="5">
+<header class="chapter-header"><span class="chapter-step">STEP 05</span><h2 id="6-p1-5-cognitoのauthstackを作る" tabindex="-1">6. P1-5 CognitoのAuthStackを作る<a class="heading-anchor" href="#6-p1-5-cognitoのauthstackを作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="5" aria-label="P1-5の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-5" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-5" aria-label="この見出しへのリンク">#</a></h3><p>メールアドレス・パスワードとGoogleログインを扱うユーザーディレクトリを用意し、秘密情報をコードから分離することです。</p><ul><li>対象コミット：<code>02fec8a</code></li><li>主なファイル：<a class="file-ref" href="../../../infra/lib/auth-stack.ts" title="リポジトリ内のファイルを開く"><code>infra/lib/auth-stack.ts</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra/test/auth-stack.test.ts" title="リポジトリ内のファイルを開く"><code>infra/test/auth-stack.test.ts</code><span aria-hidden="true">↗</span></a>、<a class="file-ref" href="../../../infra/bin/infra.ts" title="リポジトリ内のファイルを開く"><code>infra/bin/infra.ts</code><span aria-hidden="true">↗</span></a></li><li>人の作業：Google CloudでOAuthクライアントを作成し、実シークレットをSecrets Managerへ投入</li><li>実機確認：<code>ap-northeast-1</code>へデプロイし、Google IdPとUser Pool Clientを確認済み</li></ul><h3 id="61-cognito-user-poolを定義した" tabindex="-1">6.1 Cognito User Poolを定義した<a class="heading-anchor" href="#61-cognito-user-poolを定義した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.userPool = new cognito.UserPool(this, &quot;UserPool&quot;, {
+  userPoolName: &quot;flourish-users&quot;,
+  selfSignUpEnabled: true,
+  signInAliases: { email: true },
+  standardAttributes: {
+    email: { required: true, mutable: true },
+  },
+  passwordPolicy: {
+    minLength: 8,
+    requireLowercase: true,
+    requireUppercase: false,
+    requireDigits: true,
+    requireSymbols: false,
+  },
+  accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+  removalPolicy: cdk.RemovalPolicy.RETAIN,
+});</code></pre>
+    </div><p><strong>User Pool</strong>は、ユーザーのアカウントを管理するCognitoの機能です。このサービスでは電話番号を収集しないため、アカウント復旧もメールだけにしています。</p><p>パスワードポリシーは「8文字以上、英字と数字」を表現しています。ただし、よく使われる流出パスワードの拒否はCognitoのこの設定だけでは実現できないため、後続のバックエンド実装へ残しています。</p><h3 id="62-googleをidentity-providerとして追加した" tabindex="-1">6.2 GoogleをIdentity Providerとして追加した<a class="heading-anchor" href="#62-googleをidentity-providerとして追加した" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">const googleIdp = new cognito.UserPoolIdentityProviderGoogle(
+  this,
+  &quot;GoogleIdentityProvider&quot;,
+  {
+    userPool: this.userPool,
+    clientId: props.googleClientId,
+    clientSecretValue: cdk.SecretValue.secretsManager(
+      this.googleOAuthClientSecret.secretArn,
+    ),
+    scopes: [&quot;openid&quot;, &quot;email&quot;, &quot;profile&quot;],
+    attributeMapping: {
+      email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+    },
+  },
+);</code></pre>
+    </div><ul><li><strong>IdP（Identity Provider）</strong>：ユーザーの本人確認を行う提供者</li><li><strong>OAuth 2.0</strong>：別サービスの認可を安全に委譲する仕組み</li><li><strong>OpenID Connect</strong>：OAuth 2.0の上でログイン情報を扱う仕組み</li><li><strong>scope</strong>：取得を許可してもらう情報の範囲</li></ul><h3 id="63-シークレットをgitへ入れなかった" tabindex="-1">6.3 シークレットをGitへ入れなかった<a class="heading-anchor" href="#63-シークレットをgitへ入れなかった" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.googleOAuthClientSecret = new secretsmanager.Secret(
+  this,
+  &quot;GoogleOAuthClientSecret&quot;,
+  {
+    secretName: &quot;flourish/google-oauth-client-secret&quot;,
+  },
+);</code></pre>
+    </div><p>クライアントIDは公開されても認証の突破には直結しない識別子ですが、クライアントシークレットは秘密です。コードには「Secrets Managerのどの秘密を参照するか」だけを書き、値は外部から手動投入しました。</p><h3 id="64-認可コードフローとbff方式" tabindex="-1">6.4 認可コードフローとBFF方式<a class="heading-anchor" href="#64-認可コードフローとbff方式" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="ts">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>ts</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-ts">this.userPoolClient = this.userPool.addClient(&quot;UserPoolClient&quot;, {
+  generateSecret: true,
+  oAuth: {
+    flows: { authorizationCodeGrant: true },
+    callbackUrls: [`https://${props.domainName}/auth/google/callback`],
+  },
+});</code></pre>
+    </div><p>このリポジトリは<strong>BFF（Backend for Frontend）方式</strong>を採用しています。CognitoのトークンをブラウザのJavaScriptへ直接持たせず、バックエンドが認証結果を受け取り、ブラウザには独自のセッションCookieを発行します。Cookieとセッションの実装はP1-11で行います。</p><h3 id="65-cdkテストで確認したこと" tabindex="-1">6.5 CDKテストで確認したこと<a class="heading-anchor" href="#65-cdkテストで確認したこと" aria-label="この見出しへのリンク">#</a></h3><ul><li>パスワードが8文字以上で英字・数字を要求する</li><li>復旧手段がメールのみ</li><li>Cognito Hosted Domainがある</li><li>User Pool Clientが認可コードフローとシークレットを持つ</li><li>Google用Secrets Managerリソースがある</li><li>User Poolが<code>RETAIN</code>される</li></ul><h3 id="用語メモ-5" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-5" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>Cognito</strong>：AWSのユーザー管理・認証サービス</li><li><strong>BFF</strong>：特定のフロントエンドのために認証やAPI統合を担うバックエンド</li><li><strong>認可コードグラント</strong>：ブラウザへ直接アクセストークンを露出しにくいOAuthフロー</li><li><strong>callback URL</strong>：外部ログイン後に戻るURL</li><li><strong>Secrets Manager</strong>：APIキーやパスワードなどの秘密を安全に保存するAWSサービス</li><li><strong>Cognito Hosted Domain</strong>：Cognitoが提供するログイン処理用ドメイン</li></ul><h3 id="この工程から学べる開発の定石-5" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-5" aria-label="この見出しへのリンク">#</a></h3><p>認証では「ログインできること」だけでなく、トークンや秘密情報をどこに置くかが重要です。公開してよい識別子と、漏れてはいけないシークレットを区別し、後者をソース管理から外します。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-social-idp.html" target="_blank" rel="noreferrer"><span><strong>Cognito user pool social identity providers</strong><span>https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-social-idp.html</span></span></a><a href="https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html" target="_blank" rel="noreferrer"><span><strong>Cognito managed login</strong><span>https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-04-dynamodb-data-stack.html"><small>← PREVIOUS P1-4</small><strong>CDKでDynamoDBのDataStackを作る</strong></a><a href="p1-06-api-lambda-sqs.html"><small>NEXT P1-6 →</small><strong>AppStackでAPIと非同期処理を作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-5</h2><p>Cognito・Secrets Manager</p><div class="rail-stat"><span>commit</span><strong>02fec8a</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 4</strong></div><progress id="check-progress-bar" max="4" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>

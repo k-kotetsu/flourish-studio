@@ -1,0 +1,220 @@
+<!doctype html><html lang="ja"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f1f3ed">
+  <meta name="description" content="競合するrequestの勝者をDynamoDB自身に決めさせる"><title>P1-12 冪等性とレート制限を条件付き書き込みで作る｜Flourish Studio 深掘り</title>
+  <script>try{const t=localStorage.getItem("fs-deep-dive-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="stylesheet" href="assets/deep-dive.css">
+</head><body data-step="12">
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="深掘り教材一覧へ">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21V10"/><path d="M12 14c-4.5 0-7-2.4-7-6.5 4.7-.4 7 2 7 6.5Z"/><path d="M12 10c4.4 0 6.6-2.3 6.6-6.3-4.5-.3-6.6 2-6.6 6.3Z"/></svg></span>
+      <span><strong>Flourish Studio</strong><small>P1 Deep Dive</small></span>
+    </a>
+    <label class="page-search" aria-label="このページを検索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="page-search" type="search" placeholder="このページを検索"><kbd>⌘ F</kbd></label>
+    <div class="top-actions">
+      <button class="icon-button theme-button" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9c0-5-4-9-9-9Z"/><path d="M12 3v18"/></svg></button>
+      <button class="icon-button print-button" type="button" aria-label="印刷" title="印刷"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="back-link" href="../p1-foundation-development-textbook.html">← 総合教材へ戻る</a>
+      <div class="step-switcher"><strong>P1-12 / 18</strong><select id="step-switcher" aria-label="工程を切り替える"><option value="p1-01-repository-scaffold.html">P1-1 リポジトリの雛形を作る</option><option value="p1-02-github-actions.html">P1-2 GitHub ActionsでCI/CDの流れを作る</option><option value="p1-03-domain-dns-tls.html">P1-3 ドメイン、DNS、TLS証明書を準備する</option><option value="p1-04-dynamodb-data-stack.html">P1-4 CDKでDynamoDBのDataStackを作る</option><option value="p1-05-cognito-auth-stack.html">P1-5 CognitoのAuthStackを作る</option><option value="p1-06-api-lambda-sqs.html">P1-6 AppStackでAPIと非同期処理を作る</option><option value="p1-07-cloudfront-edge.html">P1-7 EdgeStackで配信・キャッシュ・防御を作る</option><option value="p1-08-fastapi-settings.html">P1-8 FastAPIの設定基盤とローカル起動を整える</option><option value="p1-09-dynamodb-repository.html">P1-9 DynamoDBリポジトリ層を作る</option><option value="p1-10-api-error-contract.html">P1-10 APIのエラー応答を共通化する</option><option value="p1-11-cookie-session.html">P1-11 Cookieとセッションの基盤を作る</option><option value="p1-12-idempotency-rate-limit.html" selected>P1-12 冪等性とレート制限を条件付き書き込みで作る</option><option value="p1-13-async-jobs.html">P1-13 非同期ジョブの状態管理とSQS連携を作る</option><option value="p1-14-bedrock-runner.html">P1-14 Bedrockクライアントとプロンプト実行基盤を作る</option><option value="p1-15-vue-theme.html">P1-15 Vueの雛形、デザイントークン、テーマ管理を作る</option><option value="p1-16-common-ui.html">P1-16 共通UIコンポーネントを作る</option><option value="p1-17-api-client-polling.html">P1-17 フロントエンドのAPIクライアントとjob pollingを作る</option><option value="p1-18-dynamodb-wiring.html">P1-18 DataStackとAppStackを正しく配線する</option></select></div>
+      <p class="sidebar-label">On this page</p>
+      <nav class="section-nav" aria-label="ページ内目次">
+        <a href="#deep">設計を深く理解する</a><a href="#architecture">処理と依存関係</a><a href="#files">ファイルの責務</a><a href="#sdk">コメント付きコード</a><a href="#manual">手動作業手順</a><a href="#verify">確認と切り戻し</a><a href="#original">元教材の章</a><a href="#references">参照資料</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <p class="eyebrow">P1 Foundation · Deep Dive 12</p>
+        <h1>P1-12<span>冪等性とレート制限を条件付き書き込みで作る</span></h1>
+        <p class="hero-summary">競合するrequestの勝者をDynamoDB自身に決めさせる。実装履歴、現在のコード、SDKの動き、手作業で再現する方法を一つのページで結び付けます。</p>
+        <div class="meta-row"><span class="chip">COMMIT c8c3b8a</span><span class="chip">LAYER 並行処理・DynamoDB</span><span class="chip">TARGET main @ a9b388e</span></div>
+        <div class="learning-goals"><div class="learning-goal"><strong>理解 1</strong>read-then-writeのrace</div><div class="learning-goal"><strong>理解 2</strong>conditional expressionの原子性</div><div class="learning-goal"><strong>理解 3</strong>WAF制限との二層構造</div></div>
+      </section>
+
+      <section class="content-section" id="deep"><p class="section-kicker">Deep understanding</p><h2>設計を深く理解する</h2><aside class="callout "><span class="callout-icon" aria-hidden="true">i</span><div><strong>履歴と現行コードの読み分け</strong><p>工程コミット <code>c8c3b8a</code> で追加した意図を中心に説明し、コード例は <code>main @ a9b388e</code> の現行形へ教材用コメントを加えています。後続工程で変わった部分は元教材の章と照合してください。</p></div></aside><div class="concept-grid"><article class="concept-card"><h3>冪等性</h3><p>同じ意図のrequestを複数回送っても、効果が一回分になる性質です。network timeout後の再送でも二重jobを防ぎます。</p></article><article class="concept-card"><h3>compare-and-set</h3><p>値が条件を満たすときだけ更新する原子的操作です。アプリ内lockと違い、複数Lambda processをまたいでDynamoDBが判定します。</p></article><article class="concept-card"><h3>時間bucket</h3><p>user rateは現在UTC時間を<code>YYYY-MM-DDTHH</code>へ切り、時間ごとに別counter itemを作ります。古いbucketはTTLで掃除できます。</p></article><article class="concept-card"><h3>Retry-Afterの計算</h3><p>userは現在hour endまで、guestはsession expiryまでを返します。clientが再試行可能時刻を一貫して扱えます。</p></article></div><div><p>危険な実装は「itemをGetし、なければPut」です。同時requestが両方Getで“なし”を読み、別jobを作れます。<code>attribute_not_exists(PK)</code>付きPutなら、DynamoDBの一操作が存在確認と書き込みを原子的に行い、成功は一方だけです。</p><p>rate counterも同様に「現在値を読んで+1」をアプリで行いません。<code>ADD #c :one</code>と<code>#c &lt; :limit</code>を同じUpdateItemへ渡します。上限判定と加算の間へ別requestが割り込めません。</p><p>idempotency itemのTTLは24時間です。期限後に同じkeyを使うと新しい効果を許す設計ですが、TTLの物理削除遅延を考慮するとexpires_atを条件へ含める拡張も検討対象です。またpayloadが異なるのに同じkeyを使った場合を検出するにはrequest hash保存が必要です。</p></div></section>
+
+      <section class="content-section" id="architecture"><p class="section-kicker">Execution model</p><h2>処理と依存関係</h2><figure class="flow"><figcaption class="flow-head"><span>P1-12 の処理・依存関係</span><span>Mermaid</span></figcaption><pre class="mermaid">sequenceDiagram
+  participant R1 as Request A
+  participant R2 as Request B
+  participant D as DynamoDB
+  R1-&gt;&gt;D: Put IDEM (attribute_not_exists PK)
+  R2-&gt;&gt;D: Put IDEM (attribute_not_exists PK)
+  D--&gt;&gt;R1: Success: candidate job ID
+  D--&gt;&gt;R2: ConditionalCheckFailed
+  R2-&gt;&gt;D: Get existing IDEM
+  D--&gt;&gt;R2: same job ID
+  Note over R1,R2: 両requestは同じjobを返す</pre><details><summary>図のMermaidソースを表示</summary><pre>sequenceDiagram
+  participant R1 as Request A
+  participant R2 as Request B
+  participant D as DynamoDB
+  R1-&gt;&gt;D: Put IDEM (attribute_not_exists PK)
+  R2-&gt;&gt;D: Put IDEM (attribute_not_exists PK)
+  D--&gt;&gt;R1: Success: candidate job ID
+  D--&gt;&gt;R2: ConditionalCheckFailed
+  R2-&gt;&gt;D: Get existing IDEM
+  D--&gt;&gt;R2: same job ID
+  Note over R1,R2: 両requestは同じjobを返す</pre></details></figure></section>
+
+      <section class="content-section" id="files"><p class="section-kicker">Repository map</p><h2>ファイルごとの責務</h2><p>コードを読むときは、入口から依存先へ移動します。ファイル名をクリックするとリポジトリ内の実ファイルを開けます。</p><div class="file-list"><div class="file-row"><a href="../../../api/app/domain/idempotency.py">api/app/domain/idempotency.py</a><span>Idempotency-Keyごとにjob IDを条件付きPutで予約する</span></div><div class="file-row"><a href="../../../api/app/domain/rate_limit.py">api/app/domain/rate_limit.py</a><span>user時間枠とguest sessionのcounterをatomic updateする</span></div><div class="file-row"><a href="../../../api/tests/test_idempotency.py">api/tests/test_idempotency.py</a><span>同一keyの並行実行が同じjob IDになることを検査する</span></div><div class="file-row"><a href="../../../api/tests/test_rate_limit.py">api/tests/test_rate_limit.py</a><span>上限直前・上限超過・並行加算・Retry-Afterを検査する</span></div></div></section>
+
+      <section class="content-section" id="sdk"><p class="section-kicker">Annotated SDK code</p><h2>SDK・フレームワーク部分をコメント付きで読む</h2><p>ファイル名：<a href="../../../api/app/domain/rate_limit.py"><code>api/app/domain/rate_limit.py</code></a></p><p class="comment-guide">コメントは処理内容だけでなく、設定理由・失敗時の意味・次工程との接続を説明します。</p><div class="code-card"><div class="code-head"><span class="code-file"><strong>api/app/domain/rate_limit.py</strong><span>DynamoDB UpdateExpressionによるatomic rate limit · python</span></span><button class="copy-code" type="button">コピー</button></div><pre><code>def check_and_increment_user(owner: str, limit: int = USER_HOURLY_LIMIT) -&gt; None:
+    now = int(time.time())
+    window, window_end = _current_hour_window(now) # UTC hour bucket
+    try:
+        repository.update_item(
+            rate_pk(owner, window), # user + hourから一意なPKを生成
+            RATE_SK,
+            update_expression=&quot;ADD #c :one SET expires_at = :exp&quot;,
+            expression_attribute_names={&quot;#c&quot;: &quot;count&quot;}, # count予約語衝突を避けるalias
+            expression_attribute_values={
+                &quot;:one&quot;: 1,
+                &quot;:exp&quot;: window_end + 3600, # window終了後も1時間残して調査可能にする
+                &quot;:limit&quot;: limit,
+            },
+            condition_expression=&quot;attribute_not_exists(#c) OR #c &lt; :limit&quot;,
+        )
+    except repository.ConditionalCheckFailed as error:
+        raise RateLimitedError(
+            &quot;RATE_LIMITED&quot;, &quot;hourly generation limit exceeded&quot;,
+            retry_after=window_end - now, # HTTP Retry-Afterへ渡す秒数
+        ) from error</code></pre></div></section>
+
+      <section class="content-section" id="manual"><p class="section-kicker">Hands-on runbook</p><h2>同じ作業を手動で行う手順書</h2><div class="manual-overview"><p>AWS Consoleの手クリックだけでは競合を正確に再現できません。DynamoDB Localまたはdev tableに対し、terminalから同時requestを送り、Consoleでは結果itemを観察します。</p><span class="manual-kind">DynamoDB Local + 並行テスト</span></div><aside class="callout warning"><span class="callout-icon" aria-hidden="true">i</span><div><strong>先に名前と対象環境を固定する</strong><p>画面操作を始める前に、AWSアカウントID・リージョン・環境名・作業対象リソースをメモします。コンソールの既定値は更新されることがあるため、現在値を読み取ってから確定してください。</p></div></aside><ol class="procedure"><li><h3>DynamoDB LocalとAPI環境を起動する</h3><p>P1-9のlocal tableを起動し、テスト用ownerとguest itemを作ります。system clockとUTCを確認します。</p><span class="expected">期待結果：対象itemの初期countが明確</span></li><li><h3>同一idempotency keyを逐次実行する</h3><p>同じowner/key、異なるcandidate job IDでreserveを2回呼び、2回目も最初のjob IDを返すことを確認します。</p><span class="expected">期待結果：IDEM itemは1件</span></li><li><h3>同一keyを並行実行する</h3><p>ThreadPoolExecutor等で同じkeyを同時に呼び、全responseのjob IDが一致することを確認します。</p><span class="expected">期待結果：複数jobが作られない</span></li><li><h3>user上限を確認する</h3><p>limitを小さくしたtestで上限回までは成功し、次が429/RateLimitedになること、counterが上限を越えないことを確認します。</p><span class="expected">期待結果：Retry-Afterがhour endまで</span></li><li><h3>guest上限を確認する</h3><p>guest itemのreport_generation_countを増やし、session limitで拒否され、Retry-Afterがexpires_at基準になることを確認します。</p><span class="expected">期待結果：専用RATE itemを作らない</span></li><li><h3>DynamoDB Consoleで条件を見る</h3><p>dev tableのExplore itemsでIDEM/RATE/GUEST itemのPK/SK、count、expires_atを確認します。Console編集でcounterを直す運用はしません。</p><span class="expected">期待結果：TTL属性がUnix秒</span></li><li><h3>WAFとの違いを確認する</h3><p>別IP相当を用意せずとも、同じownerの業務上限はアプリで拒否されます。WAF sampled requestsとは別metric/ログであることを確認します。</p><span class="expected">期待結果：2層を混同しない</span></li></ol></section>
+
+      <section class="content-section" id="verify"><p class="section-kicker">Definition of done</p><h2>確認項目と安全な切り戻し</h2><h3>手動確認チェックリスト</h3><p>チェック状態はこのブラウザだけに保存されます。</p><div class="checklist"><label class="check-item"><input type="checkbox" value="0"><span>同一key並行呼び出しが同じjob ID</span></label><label class="check-item"><input type="checkbox" value="1"><span>counterが上限を越えない</span></label><label class="check-item"><input type="checkbox" value="2"><span>read-then-writeを使わない</span></label><label class="check-item"><input type="checkbox" value="3"><span>user/guestで別のRetry-After</span></label><label class="check-item"><input type="checkbox" value="4"><span>TTLが後片付けとして設定される</span></label></div><div class="manual-columns"><article class="manual-card"><h3>完了条件</h3><ul><li>同一key並行呼び出しが同じjob ID</li><li>counterが上限を越えない</li><li>read-then-writeを使わない</li><li>user/guestで別のRetry-After</li><li>TTLが後片付けとして設定される</li></ul></article><article class="manual-card"><h3>切り戻し・事故防止</h3><ul><li>limit値を戻しても既存counterは残るためbucket切替時刻を考慮する</li><li>誤ったIDEM itemは影響owner/keyを特定して削除する</li><li>productionで全counterを一括削除せず対象範囲を計測する</li></ul></article></div></section>
+
+      <section class="content-section" id="original"><p class="section-kicker">Full context</p><h2>元の総合教材にあるP1-${step.n}の章</h2><p>情報を落とさないため、総合教材の該当章も折りたたんで収録しています。上の深掘り解説と、工程当時の詳細なコード・テスト・用語を続けて確認できます。</p><details class="original-details"><summary>元教材の章をすべて表示する</summary><div class="original-content"><section class="chapter chapter--step" id="chapter-13-p1-12-冪等性とレート制限を条件付き書き込みで作る" data-heading="13. P1-12 冪等性とレート制限を条件付き書き込みで作る" data-step="12">
+<header class="chapter-header"><span class="chapter-step">STEP 12</span><h2 id="13-p1-12-冪等性とレート制限を条件付き書き込みで作る" tabindex="-1">13. P1-12 冪等性とレート制限を条件付き書き込みで作る<a class="heading-anchor" href="#13-p1-12-冪等性とレート制限を条件付き書き込みで作る" aria-label="この章へのリンク">#</a></h2><button class="chapter-info" type="button" data-step-info="12" aria-label="P1-12の補足を開く"><span aria-hidden="true">i</span> 補足</button></header><h3 id="この工程の目的-12" tabindex="-1">この工程の目的<a class="heading-anchor" href="#この工程の目的-12" aria-label="この見出しへのリンク">#</a></h3><p>同じ生成リクエストが二重送信されてもジョブを重複作成しないことと、利用回数の上限を同時アクセス下でも正しく守ることです。</p><ul><li>対象コミット：<code>c8c3b8a</code></li><li>主なファイル：<a class="file-ref" href="../../../api/app/domain/idempotency.py" title="リポジトリ内のファイルを開く"><code>api/app/domain/idempotency.py</code><span aria-hidden="true">↗</span></a>、<code>rate_limit.py</code></li><li>主なテスト：<code>test_idempotency.py</code>、<code>test_rate_limit.py</code></li><li>完了条件：同時リクエストでも二重生成・上限超過が起きない</li></ul><h3 id="131-冪等とは" tabindex="-1">13.1 「冪等」とは<a class="heading-anchor" href="#131-冪等とは" aria-label="この見出しへのリンク">#</a></h3><p><strong>冪等性（idempotency）</strong>は、同じ操作を複数回行っても、1回行ったときと同じ結果になる性質です。</p><p>たとえば、ユーザーが生成ボタンを押した直後に通信が切れ、ブラウザが同じPOSTを再送したとします。冪等性がなければ、AIジョブが2つ作られ、二重課金と異なる結果が発生する可能性があります。</p><p>クライアントは<code>Idempotency-Key</code>を送り、サーバーは同じ所有者・同じキーに同じ<code>job_id</code>を返します。</p><h3 id="132-読んでから書かず条件付きputで勝者を決めた" tabindex="-1">13.2 読んでから書かず、条件付きPutで勝者を決めた<a class="heading-anchor" href="#132-読んでから書かず条件付きputで勝者を決めた" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def reserve_job_id(
+    owner: str,
+    idempotency_key: str,
+    candidate_job_id: str,
+) -&gt; str:
+    item = {
+        &quot;PK&quot;: idem_pk(owner, idempotency_key),
+        &quot;SK&quot;: IDEM_SK,
+        &quot;job_id&quot;: candidate_job_id,
+        &quot;expires_at&quot;: int(time.time()) + 60 * 60 * 24,
+    }
+    try:
+        repository.put_item(
+            item,
+            condition_expression=&quot;attribute_not_exists(PK)&quot;,
+        )
+    except repository.ConditionalCheckFailed:
+        existing = repository.get_item(
+            idem_pk(owner, idempotency_key),
+            IDEM_SK,
+        )
+        if existing is None:
+            return candidate_job_id
+        return str(existing[&quot;job_id&quot;])
+    return candidate_job_id</code></pre>
+    </div><p>重要なのは、次の実装にしなかったことです。</p>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python"># 競合する危険がある概念例
+if repository.get_item(pk, sk) is None:
+    repository.put_item(new_item)</code></pre>
+    </div><p>2つのリクエストが同時に<code>get_item</code>すると、両方とも「存在しない」と判断できます。その後、両方が書いてしまいます。条件付きPutなら、DynamoDBが原子的に判定し、片方だけが成功します。</p><p>呼び出し側は、戻り値が自分の候補IDと一致したときだけ、新しいJOBアイテムとSQSメッセージを作ります。</p><h3 id="133-登録ユーザーの時間単位レート制限" tabindex="-1">13.3 登録ユーザーの時間単位レート制限<a class="heading-anchor" href="#133-登録ユーザーの時間単位レート制限" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def check_and_increment_user(
+    owner: str,
+    limit: int = 30,
+) -&gt; None:
+    now = int(time.time())
+    window, window_end = _current_hour_window(now)
+    try:
+        repository.update_item(
+            rate_pk(owner, window),
+            RATE_SK,
+            update_expression=&quot;ADD #c :one SET expires_at = :exp&quot;,
+            expression_attribute_names={&quot;#c&quot;: &quot;count&quot;},
+            expression_attribute_values={
+                &quot;:one&quot;: 1,
+                &quot;:exp&quot;: window_end + 60 * 60,
+                &quot;:limit&quot;: limit,
+            },
+            condition_expression=(
+                &quot;attribute_not_exists(#c) OR #c &lt; :limit&quot;
+            ),
+        )
+    except repository.ConditionalCheckFailed as error:
+        raise RateLimitedError(
+            &quot;RATE_LIMITED&quot;,
+            &quot;hourly generation limit exceeded&quot;,
+            retry_after=window_end - now,
+        ) from error</code></pre>
+    </div><p>キーに<code>2026-08-11T14</code>のようなUTC時間枠を含めます。時間が変わると別アイテムになるため、新しいカウンタが始まります。古いカウンタはTTLで消えます。</p><p><code>ADD #c :one</code>と<code>#c &lt; :limit</code>を同じUpdateItemへ入れるため、10件が同時に来ても上限3なら成功は3件だけです。</p><h3 id="134-ゲストのセッション単位レート制限" tabindex="-1">13.4 ゲストのセッション単位レート制限<a class="heading-anchor" href="#134-ゲストのセッション単位レート制限" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">def check_and_increment_guest(
+    guest_token: str,
+    limit: int = 3,
+) -&gt; None:
+    try:
+        repository.update_item(
+            guest_pk(guest_token),
+            GUEST_SK,
+            update_expression=&quot;ADD report_generation_count :one&quot;,
+            expression_attribute_values={&quot;:one&quot;: 1, &quot;:limit&quot;: limit},
+            condition_expression=&quot;report_generation_count &lt; :limit&quot;,
+        )
+    except repository.ConditionalCheckFailed as error:
+        # 429へ変換</code></pre>
+    </div><p>ゲストは別のRATEアイテムを作らず、P1-11のGUEST_SESSIONにある<code>report_generation_count</code>を直接増やします。上限は1セッション3回です。</p><h3 id="135-wafのレート制限との違い" tabindex="-1">13.5 WAFのレート制限との違い<a class="heading-anchor" href="#135-wafのレート制限との違い" aria-label="この見出しへのリンク">#</a></h3><div class="table-wrap" role="region" aria-label="横スクロール可能な表" tabindex="0"><table><thead><tr><th scope="col">層</th><th scope="col">識別単位</th><th scope="col">目的</th></tr></thead><tbody><tr><td>P1-7 WAF</td><td>IPアドレス</td><td>攻撃・異常な大量アクセスの防御</td></tr><tr><td>P1-12 アプリ</td><td>USER/GUEST</td><td>製品の利用回数ルール、AIコスト制御</td></tr></tbody></table></div><p>同じ「レート制限」という言葉でも、役割が違います。共有Wi-Fiでは複数ユーザーが同じIPになるため、製品上の個人回数をWAFだけで正確に数えることはできません。</p><h3 id="136-threadpoolexecutorで競合をテストした" tabindex="-1">13.6 <code>ThreadPoolExecutor</code>で競合をテストした<a class="heading-anchor" href="#136-threadpoolexecutorで競合をテストした" aria-label="この見出しへのリンク">#</a></h3>
+    <div class="code-shell" data-language="python">
+      <div class="code-toolbar">
+        <span class="code-language"><span class="status-dot"></span>python</span>
+        <span class="code-actions">
+          <button class="code-toggle" type="button" aria-expanded="true">折りたたむ</button>
+          <button class="code-copy" type="button">コピー</button>
+        </span>
+      </div>
+      <pre><code class="language-python">with ThreadPoolExecutor(max_workers=2) as pool:
+    results = list(pool.map(attempt, [&quot;job-a&quot;, &quot;job-b&quot;]))
+
+assert results[0] == results[1]</code></pre>
+    </div><p>レート制限も10並列で呼び、成功数が厳密に上限と一致することを確認しています。逐次テストだけでは、競合時の安全性を証明できません。</p><h3 id="137-名前はミドルウェアだが実装は再利用関数" tabindex="-1">13.7 名前は「ミドルウェア」だが、実装は再利用関数<a class="heading-anchor" href="#137-名前はミドルウェアだが実装は再利用関数" aria-label="この見出しへのリンク">#</a></h3><p>バックログ名は「冪等性とレート制限のミドルウェア」ですが、この工程で作ったものはStarlette/FastAPIのHTTP middlewareではなく、ドメイン層の再利用可能な関数です。</p><p>この時点では生成系エンドポイントがまだないため、<code>Idempotency-Key</code>ヘッダーの取得や各エンドポイントへの組み込みは未実装です。後続の生成APIがこれらの関数を呼ぶ想定です。</p><h3 id="用語メモ-12" tabindex="-1">用語メモ<a class="heading-anchor" href="#用語メモ-12" aria-label="この見出しへのリンク">#</a></h3><ul><li><strong>冪等性</strong>：同じ操作を繰り返しても結果が変わらない性質</li><li><strong>race condition／競合状態</strong>：実行タイミングによって結果が変わる問題</li><li><strong>atomic counter</strong>：同時実行でも正しく増減できるカウンタ</li><li><strong>rate limit</strong>：一定期間・範囲の利用回数を制限すること</li><li><strong>time window</strong>：カウント対象にする時間枠</li><li><strong>middleware</strong>：リクエストの前後へ共通処理を挟む仕組み。本工程の実体はドメイン関数</li></ul><h3 id="この工程から学べる開発の定石-12" tabindex="-1">この工程から学べる開発の定石<a class="heading-anchor" href="#この工程から学べる開発の定石-12" aria-label="この見出しへのリンク">#</a></h3><p>並行処理の正しさは、Python側の<code>if</code>だけで守らず、最終的に状態を持つDBへ原子的な条件を置きます。また、タスク名と実装形態が完全に一致するとは限りません。教材やレビューでは、名前ではなく実際の呼び出し位置とコードを確認します。</p><hr class="section-rule">
+</section></div></details></section>
+
+      <section class="content-section" id="references"><p class="section-kicker">Primary references</p><h2>公式資料とリポジトリ内の根拠</h2><p>管理画面は更新されるため、操作名が変わった場合は公式資料の現在の画面に従います。設計値そのものはリポジトリの仕様とコードを優先します。</p><div class="reference-list"><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html" target="_blank" rel="noreferrer"><span><strong>DynamoDB core components</strong><span>https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html</span></span></a><a href="../../12_%E9%96%8B%E7%99%BA%E8%A8%88%E7%94%BB/backlog.md"><span><strong>Flourish Studio backlog</strong><span>工程の完了記録と既知課題</span></span></a><a href="../../11_%E6%8A%80%E8%A1%93%E6%A7%8B%E6%88%90/tech-architecture.md"><span><strong>Flourish Studio 技術構成</strong><span>AWS構成・セキュリティ・運用の根拠</span></span></a></div></section>
+
+      <nav class="page-nav" aria-label="前後の工程"><a href="p1-11-cookie-session.html"><small>← PREVIOUS P1-11</small><strong>Cookieとセッションの基盤を作る</strong></a><a href="p1-13-async-jobs.html"><small>NEXT P1-13 →</small><strong>非同期ジョブの状態管理とSQS連携を作る</strong></a></nav>
+    </main>
+    <aside class="rail"><section class="rail-card"><p class="rail-label">Current</p><h2>P1-12</h2><p>並行処理・DynamoDB</p><div class="rail-stat"><span>commit</span><strong>c8c3b8a</strong></div></section><section class="rail-card"><p class="rail-label">Manual checks</p><div class="rail-stat"><span>確認済み</span><strong id="check-progress">0 / 5</strong></div><progress id="check-progress-bar" max="5" value="0"></progress><button class="complete-button" type="button" aria-pressed="false">この深掘りを読了にする</button></section><section class="rail-card"><p class="rail-label">Shortcuts</p><p>検索：⌘ / Ctrl + F<br>閉じる：Esc<br>印刷：上部ボタン</p></section></aside>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="assets/mermaid-11.16.1.min.js"></script><script src="assets/deep-dive.js"></script>
+  </body></html>
