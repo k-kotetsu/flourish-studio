@@ -228,7 +228,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P2-5**~~ ✅ | CC | M | P-01 プロンプト実装 ＋ `POST /ai/assessment-questions` | `10_AIプロンプト設計` 4.1 | 8件の問いが生成され、検証を通る | P1-14、P2-4 |
 | ~~**P2-6**~~ ✅ | CC | S | S-13 生成中画面と失敗時の再試行 | `04_画面設計` S-13、`07_デザイン原則` 7.4 | 失敗時に同じ画面で中身が入れ替わる | P1-16、P2-5 |
 | ~~**P2-7**~~ ✅ | CC | M | S-14 自由記述8問。任意入力、1,000文字上限 | `04_画面設計` S-14、`05_質問・コンテンツ設計` 3章 | 全問空欄でも進める | P2-6 |
-| **P2-8** | CC | L | **P-02 プロンプト実装 ＋ `POST /assessments`。** あだ名・4領域の整理・言語化度 | `10_AIプロンプト設計` 4.2、スキル `flourish-ai` | 検証をすべて通る。**成功時のみ1アイテム保存** | P1-14、P2-4 |
+| ~~**P2-8**~~ ✅ | CC | L | **P-02 プロンプト実装 ＋ `POST /assessments`。** あだ名・4領域の整理・言語化度 | `10_AIプロンプト設計` 4.2、スキル `flourish-ai` | 検証をすべて通る。**成功時のみ1アイテム保存** | P1-14、P2-4 |
 | **P2-9** | CC | M | S-15 → S-16 結果画面。あだ名の演出、4領域の整理、締め | `04_画面設計` S-15/S-16、`05_質問・コンテンツ設計` 5章、`06_ワイヤーフレーム` | 上から下へ軽い→真面目の構成 | P2-8、P1-16 |
 | **P2-10** | **私** | M | **成長段階アイコン（種・芽・苗・木）の描き起こし** | `07_デザイン原則` 7.6 | 4つ並べて成長の連続が読み取れるSVG | − |
 | **P2-11** | CC | S | 成長段階の表示コンポーネント。4段階を並べ、該当のみ `--primary` | `07_デザイン原則` 7.7 | 数値を出さない。点灯アニメーション | P2-10、P1-16 |
@@ -311,6 +311,22 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/router/index.ts`に`/s-14`を追加
 - `web/src/stores/freeTextAnswers.spec.ts`／`web/src/views/S-14.spec.ts`：8問未満でのS-11差し戻し、領域ごとの問いの順序、`maxlength`が1000であること、全問空欄のまま「レポートを作る」で進めること（完了条件）、入力内容が`generated_question`と一緒にストアへ保存されること、「戻る」でS-12(Social)へ直接遷移することを確認
 - `make lint && make test`が通ることを確認済み。加えて`make dev`起動下でplaywrightを使い、`POST /ai/assessment-questions`と`GET /jobs/{id}`をモックしてS-13の生成成功を再現し、S-11→S-12×4→S-13→S-14の経路を実際にブラウザで通した。全問空欄のまま「レポートを作る」でS-15（未実装）への遷移が呼ばれること、ライト／ダーク両テーマの表示、`/s-14`への直接アクセスがS-11へ差し戻されることを目視確認した（コンソールエラーなし）。**Bedrockの実機呼び出し自体は本タスクの範囲外（P2-6で確認済み）のため、モックでの代替とした**
+
+**P2-8完了メモ（2026-08-15）：** P-02（`ASSESSMENT_REPORT`）プロンプトと`POST /assessments`を実装した。MVPで最も重い生成であり、成功した時点ではじめてASSESSMENTアイテムを保存する。
+
+- **仕様の食い違いを2件、着手前にユーザーへ確認した。**
+  1. `effort`/`max_tokens`が`10_AIプロンプト設計`4.2（`high`/16,000）とスキル`flourish-ai`の対応表（`medium`/12,000）とで食い違っていた。P2-5と同種の食い違いで、そのときと同じくドキュメント優先（`high`/16,000）を採用した
+  2. `articulation_reason`（言語化度の判定理由）は4.2脚注で「`ASSESSMENT_RESULT`に保存せず、`AI_GENERATION`側に記録する」とされるが、`08_データモデル`7.1のEMF出力項目一覧にこのフィールドが無く、P1-14実装済みの`app/ai/emf.py`もkind横断の固定引数しか持たなかった。ユーザー指示により、`emf.emit()`に汎用の`extra: dict[str, Any] | None`引数を追加し、`app/ai/runner.py`の`generate()`/`_log()`にも`extra_log_fields`（成功出力からkind固有フィールドを作るコールバック）を通す形で共通基盤を拡張した（既存呼び出し側は省略時に挙動不変）
+- **仕様に明記のない判断を1件、着手前にユーザーへ確認した。** `<context>`の「領域間のスコア差」（4領域の充足感合計、各0〜20点、の最大−最小）を「大きい」等の語にどう区分するかが未定義だった。3段階（大きい: 差8以上／普通: 3〜7／小さい: 差2以下）で閾値を設ける方針を採用した
+- `app/ai/prompts/assessment_report.py`：個別ブロック・出力スキーマ（4.2から一字一句書き写した）、`<answers>`（5項目の充足感＋自由記述2問を領域ごとに）・`<context>`（最高／最低領域、スコア差の語、自由記述の記入状況をコードが算出）の組み立て、`validate_output`（4領域の網羅・非空文字列・`articulation_stage`の妥当性）、`generate_assessment_report`を実装した。`<context>`の最高／最低領域が同点のときのタイブレークは、P2-4`pick_free_text_targets`と同じ「先頭（`AREAS`の並び順）優先」を踏襲した（Pythonの`max`/`min`が同点時に先勝ちする性質を利用）
+- `app/domain/assessment_precompute.py`：`FreeTextAnswer`と`validate_free_text_answers`を追加した。`09_API設計`5.3の「自由記述の件数」（ちょうど8件、`body`はnull許容）「問い文」（`generated_question`必須）を検証する。件数不足・組不整合の`code`は仕様に明記がなく、`validate_scale_answers`と同じ`ANSWERS_INCOMPLETE`を再利用する判断とした（P2-5の重複時の判断を踏襲）
+- `app/domain/assessment.py`：新規。ASSESSMENTアイテム（`08_データモデル`3.1）の組み立て（`build_assessment_item`）と、`started_at`/`completed_at`/`generated_at`用のISO8601（`...Z`）フォーマッタ（`now_iso`）。ゲスト所有時のみ`guest_session_id`と`expires_at`（このアイテム独自の30日TTL。ゲストセッション本体の残りTTLとは連動させない判断とした。JOB・IDEM・RATEなど他のTTL付きアイテムと同じく各アイテムが独立してTTLを持つ設計を踏襲）を設定する
+- `app/domain/job.py`：`mark_succeeded_with_item`を追加した。JOB更新（`SUCCEEDED`・`result`）とASSESSMENTアイテムのPutを1トランザクションにまとめ、片方だけが書かれる状態を作らない（`09_API設計`5.3「成功した時点ではじめて保存される」）
+- `app/api/v1/assessments.py`：`POST /assessments`。`validate_scale_answers`・`validate_free_text_answers`、冪等性（`idempotency.reserve_job_id`）、レート制限を実装した。**ゲストのレート制限（`check_and_increment_guest`、1セッション3回）をこのエンドポイントに掛けた。** P2-5（`POST /ai/assessment-questions`）は「レポート生成」という限定表現からゲスト制限の対象外としたが、本エンドポイントはその「レポート生成」本体であるため対象とした
+- `app/worker/handler.py`：`ASSESSMENT_REPORT`の実処理を追加した。生成成功時は`compute_commitment`（コードが算出、AIは扱わない）と`build_assessment_item`でアイテムを組み立て、`mark_succeeded_with_item`で保存する
+- 既存の`test_handler_processes_a_dummy_job_to_succeeded`・`test_handler_processes_multiple_records`は`ASSESSMENT_REPORT`をダミーkindとして使っていたため、P2-5がASSESSMENT_QUESTIONSに対して行ったのと同じ要領で、まだ未実装の`PURPOSE_PROPOSALS`に差し替えた
+- `api/tests/test_assessment_report_prompt.py`／`test_assessment_precompute.py`（追加分）／`test_assessments_endpoint.py`／`test_worker_handler.py`（追加分）／`test_ai_emf.py`・`test_ai_runner.py`（`extra`/`extra_log_fields`の追加分）／`test_job.py`（追加分）：**完了条件「検証をすべて通る。成功時のみ1アイテム保存」**は`test_worker_handler.py::test_handler_generates_assessment_report_to_succeeded`（生成成功→アイテム保存、`articulation_reason`はアイテムに残らないことを確認）と`test_handler_does_not_save_an_item_when_ai_output_is_invalid`（2回目のスキーマ違反でも直らない→アイテムは何も残らない）で確認した
+- `make lint && make test`が通ることを確認済み。実際のBedrock・AWS実機での疎通確認は行っていない（本タスクの範囲外）
 
 ---
 

@@ -26,6 +26,15 @@ AREA_LABELS: dict[str, str] = {
     SOCIAL: "Social（人との関係）",
 }
 
+# 英語表記のみ(10_AIプロンプト設計4.2「充足感が最も高い領域: Career」)。
+# web/src/domain/questions.ts の`AREA_META`の`en`と揃える。
+AREA_EN_LABELS: dict[str, str] = {
+    CAREER: "Career",
+    FINANCIAL: "Financial",
+    PHYSICAL: "Physical",
+    SOCIAL: "Social",
+}
+
 
 @dataclass(frozen=True)
 class Choice:

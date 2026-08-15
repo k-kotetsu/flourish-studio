@@ -38,6 +38,24 @@ def test_emit_writes_one_emf_json_line(capsys: pytest.CaptureFixture[str]) -> No
     assert record["_aws"]["CloudWatchMetrics"][0]["Namespace"] == "FlourishStudio/AIGeneration"
 
 
+def test_emit_includes_kind_specific_extra_fields(capsys: pytest.CaptureFixture[str]) -> None:
+    # ASSESSMENT_REPORTのarticulation_reasonのような、kind固有のフィールド
+    # (10_AIプロンプト設計4.2「ASSESSMENT_RESULTに保存せず、AI_GENERATION側に記録する」)。
+    emf.emit(
+        kind="ASSESSMENT_REPORT",
+        model="anthropic.claude-sonnet-5",
+        prompt_version="test-v1",
+        effort="high",
+        status="SUCCEEDED",
+        attempt=1,
+        extra={"articulation_reason": "具体的な場面が書かれているため。"},
+    )
+
+    line = capsys.readouterr().out.strip()
+    record = json.loads(line)
+    assert record["articulation_reason"] == "具体的な場面が書かれているため。"
+
+
 def test_emit_never_includes_prompt_or_output_body(capsys: pytest.CaptureFixture[str]) -> None:
     emf.emit(
         kind="TEST_DUMMY",

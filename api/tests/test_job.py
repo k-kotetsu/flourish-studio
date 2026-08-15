@@ -1,5 +1,6 @@
 import uuid
 
+from app.db import repository
 from app.domain import job as job_domain
 
 
@@ -49,6 +50,24 @@ def test_mark_succeeded_stores_the_result() -> None:
 
     assert updated["status"] == "SUCCEEDED"
     assert updated["result"] == {"assessment_id": "a1"}
+
+
+def test_mark_succeeded_with_item_saves_both_in_one_transaction() -> None:
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "ASSESSMENT_REPORT")
+    job_domain.mark_running(job_id)
+    item = {"PK": owner, "SK": "ASSESSMENT#a1", "entity": "ASSESSMENT", "assessment_id": "a1"}
+
+    job_domain.mark_succeeded_with_item(job_id, result={"assessment_id": "a1"}, item=item)
+
+    updated_job = job_domain.get_job(job_id)
+    assert updated_job is not None
+    assert updated_job["status"] == "SUCCEEDED"
+    assert updated_job["result"] == {"assessment_id": "a1"}
+
+    saved_item = repository.get_item(owner, "ASSESSMENT#a1")
+    assert saved_item is not None
+    assert saved_item["assessment_id"] == "a1"
 
 
 def test_mark_failed_stores_code_and_retryable() -> None:

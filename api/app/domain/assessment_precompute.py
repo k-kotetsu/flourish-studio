@@ -51,6 +51,15 @@ class CommitmentResult:
     stage: str  # GrowthStage
 
 
+@dataclass(frozen=True)
+class FreeTextAnswer:
+    area: str
+    slot: str  # SATISFIED/CONCERN
+    target_item_code: str
+    generated_question: str
+    body: str | None
+
+
 def validate_scale_answers(scale_answers: list[ScaleAnswer], question_set: QuestionSet) -> None:
     """`scale_answers`がちょうど24件で、(area, question_kind, item_code)の組が揃うことを確認する。
 
@@ -71,6 +80,36 @@ def validate_scale_answers(scale_answers: list[ScaleAnswer], question_set: Quest
             f"scale_answers must be exactly 24 unique (area, question_kind, item_code) "
             f"combinations (received {len(scale_answers)})",
         )
+
+
+def validate_free_text_answers(free_text_answers: list[FreeTextAnswer]) -> None:
+    """`free_text_answers`がちょうど8件で、(area, slot)の組が4領域×2スロット揃うことを確認する。
+
+    `09_API設計`5.3「自由記述の件数」「問い文」の検証。`body`はnull/空文字を許容する
+    (全問空欄でも成立する)一方、`generated_question`は必須(AIが毎回変わるため、
+    回答だけでは意味が復元できない)。件数不足・組の不整合は`validate_scale_answers`と
+    同じ`ANSWERS_INCOMPLETE`を再利用する判断とした(P2-5完了メモの重複時の判断を踏襲。
+    どちらも「揃っていない」という同じ事実であるため)。
+    """
+    expected = {(area, slot) for area in AREAS for slot in FREE_TEXT_SLOTS}
+    received = {(answer.area, answer.slot) for answer in free_text_answers}
+
+    if len(free_text_answers) != 8 or received != expected:
+        raise UnprocessableEntityError(
+            "ANSWERS_INCOMPLETE",
+            f"free_text_answers must be exactly 8 unique (area, slot) "
+            f"combinations (received {len(free_text_answers)})",
+        )
+
+    for answer in free_text_answers:
+        if not answer.target_item_code:
+            raise UnprocessableEntityError(
+                "ANSWERS_INCOMPLETE", "free_text_answers.target_item_code is required"
+            )
+        if not answer.generated_question:
+            raise UnprocessableEntityError(
+                "ANSWERS_INCOMPLETE", "free_text_answers.generated_question is required"
+            )
 
 
 def pick_free_text_targets(
