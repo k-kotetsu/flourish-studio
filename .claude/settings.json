@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(.venv/bin/mypy *)",
+      "Bash(.venv/bin/ruff check *)",
+      "Bash(make lint)",
+      "Bash(make test)",
+      "Bash(.venv/bin/pytest *)",
+      "Bash(npm test)",
+      "Bash(aws sts get-caller-identity *)",
+      "Bash(make test-api)",
+      "Bash(make lint-api)",
+      "Bash(aws cloudformation describe-stacks *)",
+      "Bash(npm run dev)",
+      "Bash(make test-web)",
+      "Bash(make lint-web)",
+      "Bash(npm ls *)"
+    ]
+  }
+}
