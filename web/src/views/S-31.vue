@@ -4,8 +4,7 @@
  * 06_ワイヤーフレーム(wireframe-spec.md 1.1/1.4、mockup.html s31())。
  *
  * 領域を選ばせる設問は置かない(6章「ありたい姿は領域横断の概念」)。
- * 保存はしない(クライアント保持。screen-list.md S-31「保存: しない」)。S-32は未実装(P3-6)のため、
- * router.pushは仕様どおり呼ぶが実際には遷移しない(S-11/S-12がP2-3/P2-6未実装時にとった手法を踏襲)。
+ * 保存はしない(クライアント保持。screen-list.md S-31「保存: しない」)。
  *
  * 【判断】全問回答必須にした。05_質問・コンテンツ設計6章・screen-list.mdのどちらにも
  * 「未回答でも進めるか」の明記がなく、S-12(全問必須)とS-14(空欄可)で前例が分かれている。
@@ -56,7 +55,6 @@ function goNext(): void {
     idealDailyLife: IDEAL_DAILY_LIFE_OPTIONS[selectedDailyLifeIndex.value].code,
   });
 
-  // S-32(AI対話)はP3-6が担当。ルートが無いためこの遷移は今は画面に反映されない
   router.push("/s-32");
 }
 </script>
