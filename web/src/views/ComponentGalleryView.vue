@@ -12,10 +12,15 @@ import AppHeaderSingle from "../components/AppHeaderSingle.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import GeneratingScreen from "../components/GeneratingScreen.vue";
 import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
+import ChipMultiSelect from "../components/ChipMultiSelect.vue";
+import CheckboxChoiceSelector from "../components/CheckboxChoiceSelector.vue";
 import { GROWTH_STAGES, GROWTH_STAGE_ICONS, GROWTH_STAGE_LABELS } from "../domain/growthStage";
+import { VALUES_OPTIONS, VALUES_MAX_SELECTION, FULFILLING_MOMENT_OPTIONS } from "../domain/purposeChoices";
 
 const dialogOpen = ref(false);
 const generatingFailed = ref(false);
+const gallerySelectedValues = ref<string[]>(["GROWTH", "FREEDOM"]);
+const gallerySelectedMoments = ref<string[]>(["HELPED_SOMEONE"]);
 </script>
 
 <template>
@@ -245,6 +250,45 @@ const generatingFailed = ref(false);
             :stage="stage"
           />
         </div>
+      </div>
+    </section>
+
+    <section class="gallery__group">
+      <h2>チップ選択（P3-5。上限つき複数選択）</h2>
+      <p class="gallery__lede">
+        上限(3つ)に達すると未選択のチップが選べなくなる。選択済みは色に加えて枠線も変える。
+      </p>
+      <div class="gallery__frame gallery__frame--narrow">
+        <p
+          id="gallery-chip-values"
+          class="gallery__label"
+        >
+          大切にしたいこと（{{ gallerySelectedValues.length }} / {{ VALUES_MAX_SELECTION }}）
+        </p>
+        <ChipMultiSelect
+          v-model="gallerySelectedValues"
+          :choices="VALUES_OPTIONS"
+          :max="VALUES_MAX_SELECTION"
+          labelled-by="gallery-chip-values"
+        />
+      </div>
+    </section>
+
+    <section class="gallery__group">
+      <h2>チェックボックス選択（P3-5。上限なし複数選択）</h2>
+      <div class="gallery__frame gallery__frame--narrow">
+        <p
+          id="gallery-checkbox-moments"
+          class="gallery__label"
+        >
+          満たされていると感じるとき
+        </p>
+        <CheckboxChoiceSelector
+          v-model="gallerySelectedMoments"
+          :choices="FULFILLING_MOMENT_OPTIONS"
+          labelled-by="gallery-checkbox-moments"
+          name="gallery-fulfilling-moments"
+        />
       </div>
     </section>
 
