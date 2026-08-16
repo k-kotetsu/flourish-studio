@@ -9,21 +9,19 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
 // Bedrockで呼ぶモデルだけを許可する(技術構成8.5)。Resource: "*" にしない。
-// クロスリージョン推論プロファイル経由の呼び出しには、プロファイル自体に加えて
-// 実行先となりうる各リージョンの基盤モデルARNへの許可も要る(P0-3で実機確認)。
-const BEDROCK_MODEL_IDS = ["anthropic.claude-sonnet-5", "anthropic.claude-haiku-4-5-20251001-v1:0"];
-const BEDROCK_INFERENCE_PROFILE_REGION = "us-east-1";
-const BEDROCK_MODEL_REGIONS = ["us-east-1", "us-east-2", "us-west-2"];
+// クロスリージョン推論プロファイルの実際のルーティング先リージョンは非公開かつ
+// 変わりうるため、リージョンを列挙せずワイルドカードにする(P0-2、技術構成8.4「案B」)。
+// モデルIDを絞ることで、意図しないモデルが呼ばれてコストが跳ねる事故は引き続き防げる。
+const BEDROCK_INFERENCE_PROFILE_IDS = ["jp.anthropic.claude-sonnet-4-6", "us.anthropic.claude-haiku-4-5"];
+const BEDROCK_FOUNDATION_MODEL_PREFIXES = ["anthropic.claude-sonnet-4-6", "anthropic.claude-haiku-4-5"];
 
 function bedrockModelResourceArns(account: string): string[] {
   const arns: string[] = [];
-  for (const modelId of BEDROCK_MODEL_IDS) {
-    arns.push(
-      `arn:aws:bedrock:${BEDROCK_INFERENCE_PROFILE_REGION}:${account}:inference-profile/us.${modelId}`,
-    );
-    for (const region of BEDROCK_MODEL_REGIONS) {
-      arns.push(`arn:aws:bedrock:${region}::foundation-model/${modelId}`);
-    }
+  for (const profileId of BEDROCK_INFERENCE_PROFILE_IDS) {
+    arns.push(`arn:aws:bedrock:*:${account}:inference-profile/${profileId}*`);
+  }
+  for (const modelPrefix of BEDROCK_FOUNDATION_MODEL_PREFIXES) {
+    arns.push(`arn:aws:bedrock:*::foundation-model/${modelPrefix}*`);
   }
   return arns;
 }

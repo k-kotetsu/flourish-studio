@@ -7,11 +7,12 @@
  * 未登録のまま全文を表示する(認証不要)。AI生成が成功した場合のみ到達する画面のため、
  * 状態バリエーションを持たない(失敗はS-15側で使い切る、06_ワイヤーフレーム3章)。
  *
- * `safety_flag`が立った場合は評価(あだ名・4領域の整理・言語化度)を表示しない
- * (10_AIプロンプト設計3.7「フラグが立った領域については、評価・課題の指摘・目標の
- * 提案を行わない」「相談窓口の案内は画面側が行う」、P2-12)。**表示する固定文面
- * そのものはP7-1(専門家レビューを要する)未完了のため、この画面ではまだ実装しない。**
- * 評価を隠すところまでが本タスクの範囲で、代わりに表示する内容はP7-1完了後に別途行う。
+ * `safety_flag`が立った場合は評価(あだ名・4領域の整理・言語化度)を表示せず、
+ * 代わりに相談窓口の固定文面を表示する(10_AIプロンプト設計3.7「フラグが立った
+ * 領域については、評価・課題の指摘・目標の提案を行わない」「相談窓口の案内は
+ * 画面側が行う」、P2-12、文面はP7-1 `docs/14_法務文書/safety-consultation.md`)。
+ * CTA・ナビゲーションは置かない。ホーム(S-41)がP4-8まで未実装で適切な戻り先を
+ * 示せないため。
  */
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -153,14 +154,60 @@ function goNext(): void {
 
     <!--
       safety_flagが立った場合の表示。10_AIプロンプト設計3.7「相談窓口の案内は画面側が行う」。
-      表示する固定文面はP7-1(専門家レビューを要する)の成果物待ちのため、ここでは
-      評価を隠すところまでを実装し、中身は空のまま残す(P2-12完了メモ参照)。
+      文面はP7-1の成果物(docs/14_法務文書/safety-consultation.md)をそのまま踏襲した。
     -->
     <div
       v-else
-      class="s16__body"
+      class="s16__body s16__safety"
       data-testid="safety-notice"
-    />
+    >
+      <p class="s16__safety-lead">
+        書いてくださった言葉の中に、<br>
+        ひとりで抱えるには重いことのように見えました。
+      </p>
+      <p class="s16__safety-text">
+        今回は現在地レポートの代わりに、<br>
+        話を聞いてくれる場所をお伝えします。
+      </p>
+
+      <div class="s16__safety-contact">
+        <p class="s16__safety-contact-name">
+          よりそいホットライン
+        </p>
+        <p class="s16__safety-contact-detail">
+          0120-279-338（通話無料・24時間）
+        </p>
+      </div>
+
+      <div class="s16__safety-contact">
+        <p class="s16__safety-contact-name">
+          いのちの電話
+        </p>
+        <p class="s16__safety-contact-detail">
+          0570-783-556（10時〜22時）<br>
+          0120-783-556（毎月10日 8時〜翌日8時・通話無料）
+        </p>
+      </div>
+
+      <div class="s16__safety-contact">
+        <p class="s16__safety-contact-name">
+          まもろうよ こころ（厚生労働省）
+        </p>
+        <p class="s16__safety-contact-detail">
+          電話が難しいときは、SNSでの相談窓口も探せます<br>
+          <a
+            href="https://www.mhlw.go.jp/mamorouyokokoro/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >https://www.mhlw.go.jp/mamorouyokokoro/</a>
+        </p>
+      </div>
+
+      <p class="s16__safety-note">
+        書いていただいた内容はそのまま残っています。<br>
+        落ち着いたときに、あらためて見ることもできます。
+      </p>
+    </div>
 
     <div
       v-if="!isSafetyFlagged"
@@ -303,6 +350,50 @@ function goNext(): void {
   padding: var(--space-3) var(--layout-gutter);
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+.s16__safety {
+  padding-top: var(--space-5);
+}
+
+.s16__safety-lead,
+.s16__safety-text {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.s16__safety-contact {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.s16__safety-contact-name {
+  margin: 0;
+  font-size: var(--font-size-section);
+  font-weight: 600;
+}
+
+.s16__safety-contact-detail {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.s16__safety-contact-detail a {
+  color: var(--primary);
+}
+
+.s16__safety-note {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--text-sub);
 }
 
 @media (prefers-reduced-motion: reduce) {
