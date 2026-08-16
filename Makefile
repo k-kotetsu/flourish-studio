@@ -2,7 +2,7 @@ PYTHON := python3.12
 
 .PHONY: setup setup-api setup-tools setup-web setup-infra \
 	dev test lint lint-api lint-tools lint-web lint-infra \
-	test-api test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down
+	test-api test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down eval
 
 # DynamoDB Localはリクエスト署名を検証しないが、boto3のクライアント生成には
 # 認証情報が要る。値そのものに意味はない。
@@ -62,3 +62,8 @@ dev: dynamodb-local-up
 
 deploy-dev:
 	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
+
+# 評価セット(10_AIプロンプト設計6.1)を実行し、api/eval_output/にJSONで書き出す。
+# 実際にBedrockを呼ぶため、事前に `aws sso login --profile flourish-dev` などで認証が要る。
+eval:
+	cd api && .venv/bin/python -m app.eval.run

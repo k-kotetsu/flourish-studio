@@ -21,6 +21,9 @@ cdk.out/
 # 静的サイト生成物（tools/generate_site.py の出力）
 site-build/
 
+# 評価セットの生成物（make eval の出力。レビューはローカルで行う）
+api/eval_output/
+
 # 環境変数
 .env
 .env.*
