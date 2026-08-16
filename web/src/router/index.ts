@@ -10,6 +10,8 @@ import S15View from "../views/S-15.vue";
 import S16View from "../views/S-16.vue";
 import S31View from "../views/S-31.vue";
 import S32View from "../views/S-32.vue";
+import S33View from "../views/S-33.vue";
+import S34View from "../views/S-34.vue";
 
 // SPAは "/app/*" 配下でCloudFrontから配信される(infra/lib/edge-stack.ts)。
 // ビルド成果物のアセットURLもこのbaseに合わせる必要がある(vite.config.tsのbaseと対で決める)。
@@ -70,6 +72,16 @@ export const router = createRouter({
       path: "/s-32",
       name: "s-32",
       component: S32View,
+    },
+    {
+      path: "/s-33",
+      name: "s-33",
+      component: S33View,
+    },
+    {
+      path: "/s-34",
+      name: "s-34",
+      component: S34View,
     },
     {
       // Storybook相当の内部確認用画面（P1-16の完了条件）。ユーザー導線には出さない

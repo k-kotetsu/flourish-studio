@@ -10,10 +10,12 @@ SQSはmaxReceiveCount=1で自動リトライしない(破ってはいけない�
 import json
 from typing import Any
 
-from app.ai.prompts import assessment_questions, assessment_report
+from app.ai.prompts import assessment_questions, assessment_report, purpose_proposals
+from app.ai.prompts.purpose_dialogue import DialogueMessage
 from app.domain import job as job_domain
 from app.domain.assessment import build_assessment_item, now_iso
 from app.domain.assessment_precompute import FreeTextAnswer, ScaleAnswer, compute_commitment
+from app.domain.purpose_choices import ChoiceAnswer
 from app.domain.questions import get_question_set
 
 
@@ -39,6 +41,9 @@ def _process_record(record: dict[str, Any]) -> None:
         return
     if kind == "ASSESSMENT_REPORT":
         _process_assessment_report(job_id, current["owner"], body.get("payload", {}))
+        return
+    if kind == "PURPOSE_PROPOSALS":
+        _process_purpose_proposals(job_id, body.get("payload", {}))
         return
 
     job_domain.mark_succeeded(job_id, result={"echo": current["kind"]})
@@ -92,3 +97,19 @@ def _process_assessment_report(job_id: str, owner: str, payload: dict[str, Any])
     job_domain.mark_succeeded_with_item(
         job_id, result={"assessment_id": assessment_id}, item=item
     )
+
+
+def _process_purpose_proposals(job_id: str, payload: dict[str, Any]) -> None:
+    choices = [ChoiceAnswer(**choice) for choice in payload["choices"]]
+    messages = [DialogueMessage(**message) for message in payload["messages"]]
+
+    # 09_API設計5.7「保存しない」。POST /purposes(P3-8)で確定時にはじめて保存する。
+    result = purpose_proposals.generate_purpose_proposals(
+        choices, messages, identifiers={"job_id": job_id}
+    )
+    if result.status == "SUCCEEDED":
+        assert result.output is not None
+        job_domain.mark_succeeded(job_id, result=result.output)
+    else:
+        assert result.error is not None
+        job_domain.mark_failed(job_id, code=result.error.code, retryable=result.error.retryable)

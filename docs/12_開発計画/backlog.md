@@ -437,7 +437,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P3-4**~~ ✅ | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
 | ~~**P3-5**~~ ✅ | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
 | ~~**P3-6**~~ ✅ | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
-| **P3-7** | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
+| ~~**P3-7**~~ ✅ | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
 | **P3-8** | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
 | **P3-9** | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
 
@@ -533,6 +533,27 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_purpose_choices.py`／`test_purpose_dialogue_prompt.py`／`test_ai_purpose_dialogue_endpoint.py`：`validate_choices`の全パターン、`compute_turn`の往復数計算と不正な並びの検出、`build_messages`の`<choices>`/`<turn>`/`<conversation>`組み立てと`<user_input>`エスケープ、`stream_reply`の成功・provider error・refusal・max_tokens・空出力・セーフティ判定の並行実行・EMF記録、エンドポイントの401/422/400/429とSSE応答本文を確認した（`app.ai.prompts.purpose_dialogue.get_client`をフェイクに差し替え、実際のBedrockへは接続しない）
 - `web/src/api/purposeDialogue.spec.ts`／`web/src/stores/purposeDialogue.spec.ts`／`web/src/views/S-32.spec.ts`：SSEパース（チャンク分割を跨ぐケース含む）、`error`イベント・ストリーム開始前の失敗・ネットワーク断・`AbortError`の扱い、ストアの`canCreateProposals`、画面の自動1往復目生成・送信・「候補を作る」出現と遷移・失敗時のエラー表示と再送・応答待ち中の入力無効化を確認した
 - `make lint && make test`が通ることを確認済み（api 214件・web 167件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、`POST /ai/purpose-dialogue`をネットワークレベルでフェイクに差し替え、S-31→S-32の実画面遷移、1往復目の自動生成→逐次表示→ユーザー送信→「候補を作る」出現→S-33への遷移、失敗時のエラー表示→再送→復帰の両経路を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
+
+**P3-7完了メモ（2026-08-16）：** P-04（`PURPOSE_PROPOSALS`）の3案生成と、S-33（3案生成中）→S-34（3案提示・選択）を実装した。
+
+- **`effort`/`max_tokens`の食い違いを1件確認した。** P2-5・P2-8・P3-6と同種で、`10_AIプロンプト設計`4.4（`high`/8,000）とスキル`flourish-ai`の対応表（`medium`/6,000）が食い違っていたため、確立済みの「ドキュメント優先」を踏襲し`high`/8,000を採用した（4件目の同種の食い違い。スキル側の表は未修正のまま残る）
+- `api/app/ai/prompts/purpose_dialogue.py`：`<choices>`・`<conversation>`ブロックの整形関数（`_build_choices_block`・`_build_conversation_block`）を`build_choices_block`・`build_conversation_block`として公開化した。4.4「選択式3問の回答と、対話の全文を渡す（P-03と同じ形式）」のとおり、P-04もこの2ブロックを使うため、書式のズレを防ぐ目的でP-03と共有する判断とした（`<turn>`はP-04には無い。往復目の概念自体が無いため）
+- `api/app/ai/prompts/purpose_proposals.py`：新規。個別ブロック・出力スキーマ（4.4から一字一句書き写した）、`build_messages`（`<choices>`・`<conversation>`の組み立て）、`validate_output`（3件ちょうど・`direction`3種の網羅と重複なし・`statement`60文字以内かつ空でない・`label`20文字以内・3案の`statement`が相互に一致しない、の5検証）、`generate_purpose_proposals`を実装した
+- `api/app/api/v1/ai_purpose_proposals.py`：`POST /ai/purpose-proposals`。S-33は「要ログイン」（`09_API設計`5.7の表）のため`require_session`を使う（`current_owner`ではない。ASSESSMENT_QUESTIONS/REPORTとの違い）。`Idempotency-Key`・登録済みユーザーのレート制限（`rate_limit.check_and_increment_user`）を実装し、ジョブ登録後は`choices`/`messages`をSQSペイロードに乗せてワーカーへ渡す（JOBアイテムは入力を保存しない。09_API設計5.2）
+- `api/app/worker/handler.py`：`PURPOSE_PROPOSALS`の分岐を追加した。生成結果はASSESSMENT_QUESTIONSと同じく`mark_succeeded`のみ（別アイテムに保存しない。「保存しない」`09_API設計`5.7）。確定時の保存は`POST /purposes`（P3-8、未実装）が担う
+- `api/tests/test_worker_handler.py`：既存の`test_handler_processes_a_dummy_job_to_succeeded`・`test_handler_processes_multiple_records`は`PURPOSE_PROPOSALS`をダミーkindとして使っていたため、P2-5・P2-8が踏襲してきたのと同じ要領で、まだ未実装の`AREA_PROPOSALS`／`GOAL_HINTS`に差し替えた
+- **完了条件「必ず3件、direction重複なし。3件未満はFAILED」**は`api/tests/test_worker_handler.py::test_handler_generates_purpose_proposals_to_succeeded`（3件・3方向の網羅）と`test_handler_fails_purpose_proposals_job_when_fewer_than_three_persist`（0件が再生成しても直らない→`FAILED`・`AI_OUTPUT_INVALID`）で確認した
+- `web/src/stores/purposeChoices.ts`：`asChoices`ゲッターを追加した。`POST /ai/purpose-dialogue`（S-32）と`POST /ai/purpose-proposals`（S-33）の両方が同じ`choices`形式を要求するため、S-32.vue内にあった`buildChoicesPayload`をストア側へ引き上げて共有した（S-32.vueもこのゲッターを使うよう置き換え済み）
+- `web/src/api/purposeProposals.ts`：`generatePurposeProposals`。`POST /ai/purpose-proposals`でジョブを作り、`waitForJob`（P1-17）で完了を待つ。ASSESSMENT_QUESTIONSと同型
+- `web/src/stores/purposeProposals.ts`：新規。生成された3案とS-34での選択（`selectedDirection`）をクライアント保持のみで持つ。S-35（P3-8、未実装）へはURLではなくこのストアで渡す設計を踏襲した
+- `web/src/views/S-33.vue`：生成中画面。S-13/S-15と同じ構成（`GeneratingScreen`、失敗時は同画面の中身が入れ替わる、自動リトライしない）。バーはS-32の位置（2/4・50%）で止める（`wireframe-spec.md`「生成中画面はステップ番号を出さない」）。`GeneratingScreen`の`message`／`errorTitle`／`errorMessage`／`backLabel`は、P2-6・P2-8が確立した「mockup.htmlの`waiting()`の`sub`/`errTitle`/`errSub`/`backをそのまま使い、`title`は使わない」という踏襲パターンに合わせた
+- `web/src/views/S-34.vue`：3案提示・選択画面。3案は常に`SELF→OTHERS→SOCIETY`の順で並べる（AI出力の順序に依存しない。S-16の4領域並べ替えと同じ考え方、`wireframe-spec.md`「回答による並べ替えはしない」）。1案を選ぶまで「この案で進む」を無効化し、直下に「1つ選ぶと、次に進めます」を表示（S-12/S-31と同型の無効化理由）
+- **仕様に明記のない判断を2件、既存の判断パターンを踏襲して記録した（着手前にユーザーへ確認するほどの分岐ではないと判断）。**
+  1. **S-34ヘッダーの「‹ 戻る」の遷移先。** `wireframe-spec.md`はS-34に`‹ 戻る`があることは定めるが、戻り先の画面は明記していない。生成中の一時画面であるS-33を経由させず、直前の実質的な入力画面であるS-32へ直接戻す設計とした（S-14の「戻る」がS-13を飛ばしてS-12へ戻る判断と同じ考え方）
+  2. **S-33失敗時の「対話に戻る」・S-34の「作り直す」の遷移先。** それぞれ`screen-list.md`が「S-32」「S-33」と明記しているためそのとおり実装した（判断ではなく確認のみ）
+- `api/tests/test_purpose_proposals_prompt.py`／`test_ai_purpose_proposals_endpoint.py`：`build_messages`（`<choices>`/`<conversation>`の組み立て、`<turn>`を含まないこと）、`validate_output`の5検証、エンドポイントの401/422/429/202/冪等性を確認した
+- `web/src/api/purposeProposals.spec.ts`／`web/src/stores/purposeProposals.spec.ts`／`web/src/stores/purposeChoices.spec.ts`（`asChoices`追加分）／`web/src/views/S-33.spec.ts`／`web/src/views/S-34.spec.ts`：ジョブ作成・ポーリング、ストアの選択・リセット、S-33の差し戻し・生成成功時の遷移・失敗表示・手動再試行・「対話に戻る」、S-34の差し戻し・並べ替え・無効化・選択・「この案で進む」・「作り直す」・「‹ 戻る」を確認した
+- `make lint && make test`が通ることを確認済み（api 228件・web 186件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、DynamoDB LocalへCognitoを介さず直接`SESSION`アイテムを作って認証済みセッションを用意し（このサンドボックス環境にはAWS認証情報が無くCognito呼び出しができないため）、`POST /ai/purpose-dialogue`・`POST /ai/purpose-proposals`・`GET /jobs/{id}`をネットワークレベルでフェイクに差し替えて、S-31→S-32→S-33→S-34の実画面遷移、S-34での未選択時の無効化と選択後の有効化、S-33の失敗表示と「対話に戻る」を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
 
 ---
 

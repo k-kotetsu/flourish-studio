@@ -19,7 +19,7 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { streamPurposeDialogue, type PurposeDialogueChoice } from "../api/purposeDialogue";
+import { streamPurposeDialogue } from "../api/purposeDialogue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
 import { usePurposeChoicesStore } from "../stores/purposeChoices";
 import { usePurposeDialogueStore } from "../stores/purposeDialogue";
@@ -42,17 +42,6 @@ const streamingText = ref("");
 const messagesEnd = ref<HTMLElement | null>(null);
 let controller: AbortController | null = null;
 
-function buildChoicesPayload(): PurposeDialogueChoice[] {
-  return [
-    { question_code: "Q1", option_codes: choicesStore.values },
-    { question_code: "Q2", option_codes: choicesStore.fulfillingMoments },
-    {
-      question_code: "Q3",
-      option_codes: choicesStore.idealDailyLife ? [choicesStore.idealDailyLife] : [],
-    },
-  ];
-}
-
 async function scrollToEnd(): Promise<void> {
   await nextTick();
   messagesEnd.value?.scrollIntoView({ block: "end" });
@@ -66,7 +55,7 @@ async function requestAiTurn(): Promise<void> {
 
   try {
     const result = await streamPurposeDialogue(
-      buildChoicesPayload(),
+      choicesStore.asChoices,
       dialogueStore.messages,
       {
         onDelta: (text) => {
@@ -102,8 +91,6 @@ function goBack(): void {
 }
 
 function goToProposals(): void {
-  // S-33(3案生成中)はP3-7が担当。ルートが無いためこの遷移は今は画面に反映されない
-  // (S-11/S-12がP2-3/P2-6未実装時にとった手法を踏襲)。
   router.push("/s-33");
 }
 
