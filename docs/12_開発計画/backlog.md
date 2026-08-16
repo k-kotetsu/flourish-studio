@@ -438,7 +438,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P3-5**~~ ✅ | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
 | ~~**P3-6**~~ ✅ | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
 | ~~**P3-7**~~ ✅ | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
-| **P3-8** | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
+| ~~**P3-8**~~ ✅ | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
 | **P3-9** | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
 
 **P3-1完了メモ（2026-08-16）：** `POST /auth/register`を実装した。Cognitoで仮登録（`SignUp`）→即時確認（`AdminConfirmSignUp`）を行い、`fs_guest`があればゲストの現在地レポートをアカウントへ紐付け直す。
@@ -554,6 +554,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_purpose_proposals_prompt.py`／`test_ai_purpose_proposals_endpoint.py`：`build_messages`（`<choices>`/`<conversation>`の組み立て、`<turn>`を含まないこと）、`validate_output`の5検証、エンドポイントの401/422/429/202/冪等性を確認した
 - `web/src/api/purposeProposals.spec.ts`／`web/src/stores/purposeProposals.spec.ts`／`web/src/stores/purposeChoices.spec.ts`（`asChoices`追加分）／`web/src/views/S-33.spec.ts`／`web/src/views/S-34.spec.ts`：ジョブ作成・ポーリング、ストアの選択・リセット、S-33の差し戻し・生成成功時の遷移・失敗表示・手動再試行・「対話に戻る」、S-34の差し戻し・並べ替え・無効化・選択・「この案で進む」・「作り直す」・「‹ 戻る」を確認した
 - `make lint && make test`が通ることを確認済み（api 228件・web 186件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、DynamoDB LocalへCognitoを介さず直接`SESSION`アイテムを作って認証済みセッションを用意し（このサンドボックス環境にはAWS認証情報が無くCognito呼び出しができないため）、`POST /ai/purpose-dialogue`・`POST /ai/purpose-proposals`・`GET /jobs/{id}`をネットワークレベルでフェイクに差し替えて、S-31→S-32→S-33→S-34の実画面遷移、S-34での未選択時の無効化と選択後の有効化、S-33の失敗表示と「対話に戻る」を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
+
+**P3-8完了メモ（2026-08-16）：** S-35（ありたい姿：編集・確定）と`POST /purposes`を実装した。ここではじめてPURPOSEアイテムを保存する（それまでの選択式回答・対話履歴はP3-5〜P3-7が実装したとおりクライアント保持のみ）。
+
+- `api/app/domain/purpose.py`：新規。`save_purpose`が`PURPOSE`アイテム（`08_データモデル`4.1）を組み立て、`repository.put_versioned`（P1-9）で`PURPOSE#CURRENT`へ保存する。リクエストの`messages`（`role`/`body`のみ）から、アイテムが持つ`conversation`（`seq`付き）を受信順に採番して組み立てる関数（`_build_conversation`）を持つ
+- `api/app/api/v1/purposes.py`：新規。`POST /purposes`（`09_API設計`5.8）。`choices`は`purpose_choices.validate_choices`（P3-7が実装済み）でそのまま検証する。`statement`の60文字上限・空文字不可は、検証表自体は5.8.1（`PUT /purposes/current`）の節にあるが、本タスクの完了条件が明記する「60文字上限」に合わせて確定時の`POST /purposes`にも適用した。**空文字の専用`code`は仕様に無いため、新しいcodeを増やさず`STATEMENT_TOO_LONG`に含めた**（1〜60文字という範囲チェックとして扱う判断。S-35側は空文字時に「確定する」を無効化するため、通常はこの経路に到達しない）
+- `main.py`：`purposes.router`を登録
+- `web/src/api/purposes.ts`：新規。`createPurpose`。他のAPIクライアント（`purposeDialogue.ts`など）と同じくリクエスト/レスポンスをsnake_caseのまま型付けした
+- `web/src/views/S-35.vue`：新規。S-34で選ばれた案（`purposeProposalsStore.selectedProposal`）の`statement`を編集可能な初期値にし、「これで確定する」で`POST /purposes`を呼ぶ。**`wireframe-spec.md`7.4「完了画面を挟まないため、この画面が成果物の提示を兼ねる。確定後に一文を大きく見せてからS-50へ」**に対応するため、確定成功後は同じ画面のまま状態を切り替え、ヘッダーの「‹ 戻る」を消し、確定した一文を大きく表示してから「進む」ボタンでS-50へ進める設計にした（画面遷移ではなく状態切り替えで表現）。**判断：**「一文を大きく見せる」の具体的なサイズはワイヤーフレームに指定が無いため、S-16（あだ名）専用の`--font-size-nickname`（28px/700/1.35）を、大きな一文を見せる役割が共通する箇所として流用した（新しいトークンは増やさない）。失敗時はS-02と同じパターン（`ApiError`→`messageForCode`）でエラーを表示し、入力内容は消さない
+- `web/src/router/index.ts`：`/s-35`を登録
+- `api/tests/test_purposes_endpoint.py`：401、`STATEMENT_TOO_LONG`（60文字超過・空文字）、`CHOICES_INVALID`、保存成功（`conversation`の`seq`付与を含む）、2回目の確定で`version`が2になり旧版が`HIST#PURPOSE#000001`へ退避することを確認した
+- `web/src/views/S-35.spec.ts`：選ばれた案が無いときのS-31差し戻し、編集欄の初期値、空文字での無効化、確定成功時の`createPurpose`呼び出し引数と状態切り替え・「進む」でのS-50遷移、失敗時のエラー表示と入力保持、「案を選び直す」「‹ 戻る」でのS-34遷移を確認した
+- `make lint && make test`が通ることを確認済み（api 234件・web 193件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、一時的なデバッグルート（確認後に削除）でストアへ選択済みの案をセットしてS-35へ遷移させ、編集画面と確定後の提示状態をライト／ダーク両テーマでスクリーンショット確認した。DynamoDB LocalへCognitoを介さず直接`SESSION`アイテムを作って認証済みセッションでの確定成功、未認証（Cookie無し）での401エラー表示（入力内容が消えないこと）も確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（本タスクはAI生成を伴わないため対象外）
 
 ---
 
