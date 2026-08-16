@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as cdk from "aws-cdk-lib/core";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -29,6 +30,9 @@ function bedrockModelResourceArns(account: string): string[] {
 export interface AppStackProps extends cdk.StackProps {
   /** `DataStack` の flourishテーブル。API・ワーカー両Lambdaの読み書き先(技術構成10.1)。 */
   readonly table: dynamodb.ITable;
+  /** `AuthStack` のCognitoユーザープール。バックエンドが`SignUp`/`AdminConfirmSignUp`を呼ぶ(技術構成7.2)。 */
+  readonly userPool: cognito.IUserPool;
+  readonly userPoolClient: cognito.IUserPoolClient;
 }
 
 export class AppStack extends cdk.Stack {
@@ -69,10 +73,21 @@ export class AppStack extends cdk.Stack {
       environment: {
         JOB_QUEUE_URL: this.queue.queueUrl,
         DYNAMODB_TABLE_NAME: props.table.tableName,
+        COGNITO_USER_POOL_ID: props.userPool.userPoolId,
+        COGNITO_USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
       },
     });
     // ジョブ登録時にAPI Lambdaがキューへ送信できるようにする(技術構成5.5)。
     this.queue.grantSendMessages(this.apiFunction);
+
+    // 登録(P3-1)がCognitoへユーザーを作成・確認するために必要な最小権限(技術構成7.2)。
+    // ログイン・Google連携等の権限は、それを実装するタスク(P3-2・P3-3)で追加する。
+    this.apiFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:SignUp", "cognito-idp:AdminConfirmSignUp"],
+        resources: [props.userPool.userPoolArn],
+      }),
+    );
 
     // ワーカーLambda: 1,769MB / 300秒 / 予約同時実行5(Bedrockのスロットリング対策。技術構成5.3)。
     this.workerFunction = new lambda.DockerImageFunction(this, "WorkerFunction", {

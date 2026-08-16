@@ -16,8 +16,12 @@ _TTL_SECONDS = 60 * 60 * 24 * 30
 _EXTEND_THRESHOLD_SECONDS = 60 * 60 * 24
 
 
-def create_session(user_id: str) -> tuple[str, Item]:
-    """ログイン・登録成功時に呼ぶ(09_API設計5.5)。トークンはハッシュ化してから保存する。"""
+def build_session_item(user_id: str) -> tuple[str, Item]:
+    """SESSIONアイテムを組み立てるだけで書き込みは行わない。
+
+    登録時(P3-1)は他のPut/UpdateとまとめてTransactWriteItemsで書くため、
+    アイテムの組み立てと永続化を分けている。
+    """
     token = generate_token()
     now = int(time.time())
     item: Item = {
@@ -29,6 +33,12 @@ def create_session(user_id: str) -> tuple[str, Item]:
         "last_seen_at": now,
         "expires_at": now + _TTL_SECONDS,
     }
+    return token, item
+
+
+def create_session(user_id: str) -> tuple[str, Item]:
+    """ログイン成功時に呼ぶ(09_API設計5.5)。トークンはハッシュ化してから保存する。"""
+    token, item = build_session_item(user_id)
     repository.put_item(item)
     return token, item
 

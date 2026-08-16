@@ -12,7 +12,7 @@ LOCAL_AWS_ENV := AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
 setup: setup-api setup-tools setup-web setup-infra
 
 setup-api:
-	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx "boto3-stubs[dynamodb,sqs]" types-jsonschema -r requirements.txt
+	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx "boto3-stubs[dynamodb,sqs,cognito-idp]" types-jsonschema -r requirements.txt
 
 setup-tools:
 	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy

@@ -48,6 +48,28 @@ def get_active_guest_session(token: str) -> Item | None:
     return item
 
 
+_CONVERSION_UPDATE_EXPRESSION = "SET converted_user_id = :uid, converted_at = :now"
+_CONVERSION_CONDITION_EXPRESSION = (
+    "attribute_not_exists(converted_user_id) OR converted_user_id = :null"
+)
+
+
+def build_conversion_transact_item(token: str, user_id: str, now: int) -> dict[str, Any]:
+    """登録時のTransactWriteItemsに含めるためのUpdate(08_データモデル3.4)。
+
+    `POST /auth/register`はPROFILE作成・ASSESSMENT引き継ぎ・SESSION発行と同一トランザクションで
+    このUpdateを行うため、`repository.update_item`は呼ばずTransactItemの形のまま返す。
+    """
+    return {
+        "Update": {
+            "Key": {"PK": guest_pk(token), "SK": GUEST_SK},
+            "UpdateExpression": _CONVERSION_UPDATE_EXPRESSION,
+            "ExpressionAttributeValues": {":uid": user_id, ":now": now, ":null": None},
+            "ConditionExpression": _CONVERSION_CONDITION_EXPRESSION,
+        },
+    }
+
+
 def mark_guest_converted(token: str, user_id: str) -> None:
     """登録時にゲストをアカウントへ紐付けたことを記録する(11_技術構成7.3)。
 
@@ -57,7 +79,7 @@ def mark_guest_converted(token: str, user_id: str) -> None:
     repository.update_item(
         guest_pk(token),
         GUEST_SK,
-        update_expression="SET converted_user_id = :uid, converted_at = :now",
+        update_expression=_CONVERSION_UPDATE_EXPRESSION,
         expression_attribute_values={":uid": user_id, ":now": now, ":null": None},
-        condition_expression="attribute_not_exists(converted_user_id) OR converted_user_id = :null",
+        condition_expression=_CONVERSION_CONDITION_EXPRESSION,
     )
