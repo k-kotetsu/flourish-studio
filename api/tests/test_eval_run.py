@@ -30,6 +30,7 @@ def _response(text: str) -> SimpleNamespace:
 
 
 def _questions_response_for(eval_set: EvalSet, question_set: QuestionSet) -> SimpleNamespace:
+    # AIの出力は`area`/`slot`/`text`のみ(`target_item_code`は含まない。P2-13参照)。
     scale_answers = eval_set.build_scale_answers(question_set)
     targets = build_targets(scale_answers, question_set)
     questions: list[dict[str, Any]] = []
@@ -38,7 +39,6 @@ def _questions_response_for(eval_set: EvalSet, question_set: QuestionSet) -> Sim
             {
                 "area": target.area,
                 "slot": "SATISFIED",
-                "target_item_code": target.satisfied_item_code,
                 "text": "テスト用の問いです。",
             }
         )
@@ -46,7 +46,6 @@ def _questions_response_for(eval_set: EvalSet, question_set: QuestionSet) -> Sim
             {
                 "area": target.area,
                 "slot": "CONCERN",
-                "target_item_code": target.concern_item_code,
                 "text": "テスト用の問いです。",
             }
         )

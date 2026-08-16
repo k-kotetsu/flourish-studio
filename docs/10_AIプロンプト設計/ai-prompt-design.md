@@ -394,12 +394,11 @@ PROMPTS["ASSESSMENT_REPORT"]["2026-08-v1"]
       "items": {
         "type": "object",
         "properties": {
-          "area":             { "type": "string", "enum": ["CAREER", "FINANCIAL", "PHYSICAL", "SOCIAL"] },
-          "slot":             { "type": "string", "enum": ["SATISFIED", "CONCERN"] },
-          "target_item_code": { "type": "string" },
-          "text":             { "type": "string" }
+          "area": { "type": "string", "enum": ["CAREER", "FINANCIAL", "PHYSICAL", "SOCIAL"] },
+          "slot": { "type": "string", "enum": ["SATISFIED", "CONCERN"] },
+          "text": { "type": "string" }
         },
-        "required": ["area", "slot", "target_item_code", "text"],
+        "required": ["area", "slot", "text"],
         "additionalProperties": false
       }
     }
@@ -409,13 +408,14 @@ PROMPTS["ASSESSMENT_REPORT"]["2026-08-v1"]
 }
 ```
 
+**`target_item_code`はAIの出力に含めない（P2-13で修正）。** 入力の`<targets>`ブロックはAIに項目名（人が読む表記）しか渡しておらず、項目コード（`CAREER_FULFILLMENT`等）自体を渡していない。`(area, slot)`の組は対象項目1件と1:1で対応するため、`target_item_code`はサーバがコード側の対応表から付与する。クライアントに返る最終的な`questions`の形（`area`/`slot`/`target_item_code`/`text`）は変わらない。
+
 #### サーバ側の検証
 
 | 検証 | 不合格時 |
 |---|---|
 | `questions` がちょうど8件 | 再生成（1回） |
 | `(area, slot)` の組が8通りすべて揃い、重複がない | 再生成（1回） |
-| `target_item_code` が入力で渡した値と一致 | 再生成（1回） |
 | `text` が空でない、200文字以内 | 再生成（1回） |
 
 この生成は `safety_flag` を持たない。問いを作る段階で、まだユーザーは何も書いていない。
