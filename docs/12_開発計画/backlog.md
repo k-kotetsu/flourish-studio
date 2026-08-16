@@ -436,7 +436,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P3-3**~~ ✅ | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
 | ~~**P3-4**~~ ✅ | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
 | ~~**P3-5**~~ ✅ | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
-| **P3-6** | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
+| ~~**P3-6**~~ ✅ | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
 | **P3-7** | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
 | **P3-8** | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
 | **P3-9** | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
@@ -516,6 +516,23 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_session.py`：`invalidate_session`の単体テストを追加
 - CDKの変更なし。Cognito呼び出しを伴わず（DynamoDBのみ）、IAM権限は`P1-18`で配線済みのテーブルアクセス権限で足りる
 - `make lint && make test`が通ることを確認済み（api 183件・web 147件・infra 30件、全てpass）。**実機での確認は本タスクの範囲外**（他のP3系タスクと同様、Cognito呼び出しを伴わないためこの制約の影響は小さい）
+
+**P3-6完了メモ（2026-08-16）：** P-03（`PURPOSE_DIALOGUE`）のSSE対話と、S-32（ありたい姿：AI対話）を実装した。CDKインフラ側の変更は不要だった（`AppStack`のLambdaプロキシは全メソッドに`ResponseTransferMode: STREAM`が既に付与済みで、`EdgeStack`の`/api/v1/*`ビヘイビアも圧縮無効が既にP0-3/P1-7で設定済みだったため）。
+
+- `api/app/domain/purpose_choices.py`：新規。S-31の選択肢マスタ（`web/src/domain/purposeChoices.ts`）のPython版対応表。`<choices>`ブロック用のコード→ラベル変換と、`validate_choices`（Q1〜Q3がちょうど1件ずつ・件数の上下限・未知の`option_codes`を検証、`422 CHOICES_INVALID`）を持つ。件数の上下限はP3-5がクライアント側で課した制約（Q1は1〜3、Q2は1以上、Q3はちょうど1）をサーバー側にもそのまま適用した判断
+- `api/app/ai/prompts/purpose_dialogue.py`：新規。個別ブロック（4.3から一字一句書き写した）、`compute_turn`（往復数はコードが数える。`messages`の並びが崩れていれば`400 MESSAGES_INVALID`）、`build_messages`（`<choices>`・`<turn>`・`<conversation>`の組み立て）、`stream_reply`（SSEイベント文字列を`delta`→`done`/`error`の順で生成するジェネレータ）を実装した。対話はプレーンテキストのストリーミングでJSON Schema検証を前提にした`app.ai.runner.generate`を使えないため、`safety_check.py`と同じく専用の呼び出し経路を持つ
+- **`effort`/`max_tokens`の食い違いを1件確認した。** P2-5・P2-8と同種で、`10_AIプロンプト設計`4.3（`medium`/4,000）とスキル`flourish-ai`の対応表（`low`/3,000）が食い違っていたため、確立済みの「ドキュメント優先」を踏襲し`medium`/4,000を採用した（3件目の同種の食い違い。スキル側の表は未修正のまま残る）
+- **`Idempotency-Key`は受け付けない判断とした。** `09_API設計`2.5の冪等性は「同じキーの再送に既存の`job_id`を返す」というジョブベースの仕組みで、ジョブを作らないSSEエンドポイントにはそのまま当てはまらない。対話履歴はサーバーに残さずクライアントが保持するため、通信断による二重生成も「新しいAI応答がもう1つ生成される」だけで整合性を壊さない
+- **セーフティ判定（案B）を実装した。** 直近のUSER発言があるときだけ`ThreadPoolExecutor`で`check_safety`（P2-12実装済み、Haiku 4.5）を並行実行し、本文のストリーミングをブロックしない。`done`イベントの`safety_flag`はこの判定結果を使う。**PURPOSE_DIALOGUE自身のEMFログの`safety_flag`は常に`None`とした。** この生成自体の出力（プレーンテキスト）に含まれる値ではなく、`check_safety`が自身のEMF行（`kind: SAFETY_CHECK`）に別途記録するため
+- **3往復を超えて対話が続いた場合の判断。** `wireframe-spec.md`「3往復完了後も入力欄は残す。ユーザーが続けたい場合を止めない」により、`remaining`が0になった後もクライアントは送信を許す。個別ブロックの「往復ごとの狙い」は3往復目までしか定義していないため、AIに渡す`<turn>`表示は3で頭打ちにし（3往復目の狙い「将来につなげる」を続けるのが自然な落とし所と判断）、`remaining`は0で下限を切る
+- `api/app/api/v1/ai_purpose_dialogue.py`：`POST /ai/purpose-dialogue`。`require_session`（要ログイン）、`validate_choices`、`compute_turn`、登録済みユーザーの生成系レート制限（`rate_limit.check_and_increment_user`）を経て`StreamingResponse`（`media_type="text/event-stream"`）を返す
+- `web/src/api/purposeDialogue.ts`：新規。`fetch`の`ReadableStream`を直接読み、SSEイベント（`event:`/`data:`行、チャンク境界をまたいでも解釈できるようバッファリング）を`delta`/`done`/`error`に分けて処理する。`client.ts`のJSON専用ラッパ（`api`）は使わず、`jobs.ts`が独自にポーリングを実装するのと同じ考え方で専用実装にした。`AbortError`はそのまま伝播させる
+- `web/src/stores/purposeDialogue.ts`：新規。対話履歴（`messages`）と`remaining`をクライアント保持のみで持つ。`canCreateProposals`ゲッターで「候補を作る」の出現条件を判定する。確定時（`POST /purposes`、P3-8）の対話全文送信はこのストアを消費する想定
+- `web/src/views/S-32.vue`：新規。画面到達時、対話履歴が空ならAI主導の1往復目を自動生成する（4.3「1往復目は空」）。AI発言は左寄せ・グレー地、ユーザー発言は右寄せ・白地に枠線（wireframe-spec.md 4章）。応答待ちは画面内のインライン表示（生成中画面を挟まない、screen-list.md S-32「応答待ち」）。失敗時は直近の発言位置にエラーと再送ボタンを出し、ユーザーの発言自体は消さない（破ってはいけない規則2）。「‹ 戻る」はダイアログを出さずS-31へ直接遷移する（S-14と同じ型）。「候補を作る」はS-33（P3-7、未実装）へ遷移するが、S-11/S-12が前例としたのと同じ手法でルートが無いため実際には画面が変わらない
+- **`done`イベントの`safety_flag`は現時点でUIに反映しない判断とした。** S-16（P2-12）は`safety_flag`が立ったときに相談窓口の固定文面（P7-1）へ切り替えるが、S-32についてはそのような固定文面・画面仕様がこのタスクの参照範囲（4.3・5.6・スキル`flourish-api`）に含まれておらず、対話中に何を表示するかは法務レビューを要する別判断だと考えた。値は受け取るが、UIでは未使用のまま残した
+- `api/tests/test_purpose_choices.py`／`test_purpose_dialogue_prompt.py`／`test_ai_purpose_dialogue_endpoint.py`：`validate_choices`の全パターン、`compute_turn`の往復数計算と不正な並びの検出、`build_messages`の`<choices>`/`<turn>`/`<conversation>`組み立てと`<user_input>`エスケープ、`stream_reply`の成功・provider error・refusal・max_tokens・空出力・セーフティ判定の並行実行・EMF記録、エンドポイントの401/422/400/429とSSE応答本文を確認した（`app.ai.prompts.purpose_dialogue.get_client`をフェイクに差し替え、実際のBedrockへは接続しない）
+- `web/src/api/purposeDialogue.spec.ts`／`web/src/stores/purposeDialogue.spec.ts`／`web/src/views/S-32.spec.ts`：SSEパース（チャンク分割を跨ぐケース含む）、`error`イベント・ストリーム開始前の失敗・ネットワーク断・`AbortError`の扱い、ストアの`canCreateProposals`、画面の自動1往復目生成・送信・「候補を作る」出現と遷移・失敗時のエラー表示と再送・応答待ち中の入力無効化を確認した
+- `make lint && make test`が通ることを確認済み（api 214件・web 167件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、`POST /ai/purpose-dialogue`をネットワークレベルでフェイクに差し替え、S-31→S-32の実画面遷移、1往復目の自動生成→逐次表示→ユーザー送信→「候補を作る」出現→S-33への遷移、失敗時のエラー表示→再送→復帰の両経路を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
 
 ---
 
