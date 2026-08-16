@@ -66,3 +66,11 @@ def test_touch_session_extends_when_last_seen_is_older_than_24_hours() -> None:
 
     assert updated["last_seen_at"] > stale_item["last_seen_at"]
     assert updated["expires_at"] == updated["last_seen_at"] + 60 * 60 * 24 * 30
+
+
+def test_invalidate_session_makes_the_session_immediately_inactive() -> None:
+    token, item = session.create_session(_uid())
+
+    session.invalidate_session(item)
+
+    assert session.get_active_session(token) is None

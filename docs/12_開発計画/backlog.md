@@ -434,7 +434,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P3-1**~~ ✅ | CC | M | `POST /auth/register` ＋ S-21。**ゲストデータの紐付け**、流出パスワード照合 | `09_API設計` 5.5、`11_技術構成` 7.2、7.4、`08_データモデル` 3.4 | 登録でレポートがアカウントへ移る。ゲスト側はTTLに委ねる | P1-11、P2-8 |
 | ~~**P3-2**~~ ✅ | CC | S | `POST /auth/login` ＋ S-02 | `04_画面設計` S-02 | ログインでホームへ | P3-1 |
 | ~~**P3-3**~~ ✅ | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
-| **P3-4** | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
+| ~~**P3-4**~~ ✅ | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
 | ~~**P3-5**~~ ✅ | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
 | **P3-6** | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
 | **P3-7** | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
@@ -503,6 +503,19 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/router/index.ts`：`/s-31`を追加。S-21（登録画面）はまだ実装されていないため、この画面への実際の遷移元はまだ無い（S-11/S-12が未実装の前段画面からの遷移を考慮しなかった前例と同じ）
 - `web/src/components/ChipMultiSelect.spec.ts`・`CheckboxChoiceSelector.spec.ts`・`web/src/stores/purposeChoices.spec.ts`・`web/src/views/S-31.spec.ts`：3問の表示、上限つき複数選択の追加/解除/上限到達時の無効化、上限なし複数選択、単一選択、全問回答必須による「次へ」の有効/無効切り替え、回答のstore保存とS-32への遷移、ヘッダーに戻る/中断が無いことを確認
 - `make lint && make test`が通ることを確認済み（web 147件・api 173件・infra 30件、全てpass）。**完了条件「3問が仕様どおり」の確認方法：** `05_質問・コンテンツ設計`6章の選択肢文言・数・選択方式（Q1チップ3つまで／Q2チェックボックス上限なし／Q3ラジオ単一）がテストと実装のいずれにも仕様どおり反映されていることを確認した。**このセッションにはブラウザ操作の手段がなく、`make dev`での実画面の目視確認（ライト/ダーク・タップ領域44px・コントラスト3:1）は実施できていない。** レイアウト・トークンの選定はP1-16/P2-3の既存パターン（`--control-border`、`--tap-target-min`、`--primary-soft`等）をそのまま踏襲したのみで、実画面での見た目確認は次のセッションでの確認事項として残る
+
+**P3-4完了メモ（2026-08-16）：** `POST /auth/logout`・`GET /me`・`PATCH /me`を実装した。`09_API設計`4章はエンドポイント一覧の行のみで、3本ともリクエスト/レスポンスの詳細セクションが存在しなかったため、既存のPROFILEアイテム（`08_データモデル`6.1）・エラーコード表・ステータスコード表（`09_API設計`2.2・2.3）から実装した。
+
+- **logout：** `app/domain/session.py`に`invalidate_session(item)`を追加した。DynamoDBのTTLによる物理削除を待たず、`expires_at`を現在時刻まで下げて`get_active_session`の既存の期限切れ判定にそのまま乗せる（新しい削除プリミティブを増やさない判断）。`app/api/v1/auth.py`の`POST /auth/logout`（`204`）は`fs_session`が指す**そのセッションだけ**を無効化する（同一ユーザーの他デバイスのセッションは残す）。**`fs_guest`は一切参照・発行しない**——完了条件「ログアウトで`fs_guest`を再発行しない」は、Cookie発行ロジック自体を書かないことで自明に満たした
+- **`GET /me`・`PATCH /me`：** 新規`app/api/v1/me.py`。返す/受け取るフィールドは`theme_preference`（`AUTO`/`LIGHT`/`DARK`）のみとした。**仕様に明記のない判断：** PROFILEアイテムのうち、メールアドレス・パスワード・Google連携はCognitoに一本化されアプリ側に複製が無く（`08_データモデル`6.1「Version 0.2にあった`email`等を廃止」）、`theme_preference`以外に公開すべき属性が無かったため。`PATCH`のリクエストボディはPydanticの`Literal["AUTO", "LIGHT", "DARK"]`で検証し、範囲外の値はP1-10実装済みの`RequestValidationError`ハンドラ経由で自動的に`400`になる（新しいバリデーションコードを書いていない）
+- `app/domain/user.py`：`get_profile`・`update_theme_preference`を追加。どちらも`require_session`（P1-11）が返す`user_id`からPROFILEを直接読み書きするだけの薄い関数
+- `main.py`：`me`ルーターを`/api/v1`にマウント
+- **テストでのCookie操作の判断：** logoutは「Cookieを消す」動作そのものが完了条件に関わるため、`client.cookies`（永続ジャー）を直接アサートすると、P3-1/P3-3完了メモが指摘した「手動投入したCookieの削除が別エントリとして扱われる」落とし穴を再び踏む。**レスポンスの`Set-Cookie`ヘッダを直接検証する**方式に変更し、この問題を回避した（`api/tests/test_auth_logout_endpoint.py`）
+- `api/tests/test_auth_logout_endpoint.py`：**完了条件「ログアウトで`fs_guest`を再発行しない」**を含め、204・Cookie削除・セッション即時無効化・`fs_guest`未発行・Cookie無し/無効トークンでの401を確認
+- `api/tests/test_me_endpoint.py`：既定値`AUTO`の取得、更新の反映と永続化、未知の値での`400`、未認証での`401`を確認
+- `api/tests/test_session.py`：`invalidate_session`の単体テストを追加
+- CDKの変更なし。Cognito呼び出しを伴わず（DynamoDBのみ）、IAM権限は`P1-18`で配線済みのテーブルアクセス権限で足りる
+- `make lint && make test`が通ることを確認済み（api 183件・web 147件・infra 30件、全てpass）。**実機での確認は本タスクの範囲外**（他のP3系タスクと同様、Cognito呼び出しを伴わないためこの制約の影響は小さい）
 
 ---
 

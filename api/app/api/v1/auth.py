@@ -15,6 +15,9 @@ Google連携(`GET /auth/google` → `GET /auth/google/callback`)：ゲストの�
 (`_build_new_account_transact_items`)。Googleは初回サインインでCognito側にsubが新規発行される
 ため、そのsubに対応するPROFILEが無ければ新規アカウント、あれば既存アカウントへのログインとして
 扱う。
+
+logout：`fs_session`が指すSESSIONだけを無効化する(ユーザーの他デバイスのセッションは残す)。
+`fs_guest`は一切触らない・再発行しない(完了条件)。
 """
 
 import time
@@ -39,7 +42,12 @@ from app.db import repository
 from app.db.keys import PROFILE_SK, guest_pk, user_pk
 from app.domain import cognito, weak_password
 from app.domain.guest_session import build_conversion_transact_item
-from app.domain.session import build_session_item, create_session
+from app.domain.session import (
+    build_session_item,
+    create_session,
+    get_active_session,
+    invalidate_session,
+)
 from app.domain.user import build_profile_item
 
 router = APIRouter()
@@ -123,6 +131,19 @@ def login(body: LoginRequest, response: Response) -> dict[str, Any]:
     token, _ = create_session(user_id)
     set_auth_cookie(response, SESSION_COOKIE_NAME, token)
     return {}
+
+
+@router.post("/auth/logout", status_code=204)
+def logout(response: Response, fs_session: str | None = Cookie(default=None)) -> None:
+    if fs_session is None:
+        raise UnauthorizedError("UNAUTHENTICATED", "fs_session cookie is missing")
+
+    session_item = get_active_session(fs_session)
+    if session_item is None:
+        raise UnauthorizedError("UNAUTHENTICATED", "session is invalid or expired")
+
+    invalidate_session(session_item)
+    clear_auth_cookie(response, SESSION_COOKIE_NAME)
 
 
 def _google_redirect_uri() -> str:

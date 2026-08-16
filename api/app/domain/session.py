@@ -64,3 +64,17 @@ def touch_session(item: Item) -> Item:
         update_expression="SET last_seen_at = :now, expires_at = :exp",
         expression_attribute_values={":now": now, ":exp": now + _TTL_SECONDS},
     )
+
+
+def invalidate_session(item: Item) -> None:
+    """ログアウト時に呼ぶ。`expires_at`を現在時刻まで下げ、即座に無効化する。
+
+    DynamoDBのTTLによる物理削除を待たない(`get_active_session`と同じアプリ側判定に乗る)。
+    """
+    now = int(time.time())
+    repository.update_item(
+        item["PK"],
+        SESSION_SK,
+        update_expression="SET expires_at = :now",
+        expression_attribute_values={":now": now},
+    )
