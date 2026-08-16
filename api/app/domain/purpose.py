@@ -4,8 +4,8 @@
 「ここではじめて保存される」)。それまでの選択式回答・対話履歴は
 `purposeChoices`/`purposeDialogue`ストアがクライアント保持のみで持つ。
 
-`PUT /purposes/current`(S-37、P3-9)も同じ`save_purpose`を使い、新しいバージョンを作る
-(08_データモデル4.3「編集は上書きではなく、新しいアイテムの追加とする」)。
+`GET`/`PUT /purposes/current`(S-36/S-37、P3-9)も同じ`repository.put_versioned`を使い、
+新しいバージョンを作る(08_データモデル4.3「編集は上書きではなく、新しいアイテムの追加とする」)。
 """
 
 from __future__ import annotations
@@ -63,6 +63,34 @@ def save_purpose(
         "selected_label": selected_label,
         "choices": [dataclasses.asdict(choice) for choice in choices],
         "conversation": _build_conversation(conversation),
+        "created_at": now_iso(),
+    }
+    return repository.put_versioned(
+        user_pk(user_id), purpose_current_sk(), "PURPOSE", new_attributes
+    )
+
+
+def get_current_purpose(user_id: str) -> Item | None:
+    """`GET /purposes/current`(S-36)。09_API設計5.8.1。"""
+    return repository.get_item(user_pk(user_id), purpose_current_sk())
+
+
+def update_purpose_statement(*, user_id: str, statement: str, current: Item) -> Item:
+    """`PUT /purposes/current`(S-37)。一文だけを書き換えた新しいバージョンを作る。
+
+    `selected_direction`/`selected_label`/`choices`/`conversation`は現行版から引き継ぐ
+    (このAPIは一文の書き換えのみが対象。08_データモデル4.3「目標は独自のバージョンを持たない」と
+    同じ考え方で、対話をやり直したわけではないため対話全文もそのまま引き継ぐ)。
+    `original_statement`には前の版の文言を入れる(AI原文ではない。09_API設計5.8.1)。
+    """
+    new_attributes: Item = {
+        "entity": "PURPOSE",
+        "statement": statement,
+        "original_statement": current["statement"],
+        "selected_direction": current["selected_direction"],
+        "selected_label": current["selected_label"],
+        "choices": current["choices"],
+        "conversation": current["conversation"],
         "created_at": now_iso(),
     }
     return repository.put_versioned(

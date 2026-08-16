@@ -439,7 +439,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P3-6**~~ ✅ | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
 | ~~**P3-7**~~ ✅ | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
 | ~~**P3-8**~~ ✅ | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
-| **P3-9** | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
+| ~~**P3-9**~~ ✅ | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
 
 **P3-1完了メモ（2026-08-16）：** `POST /auth/register`を実装した。Cognitoで仮登録（`SignUp`）→即時確認（`AdminConfirmSignUp`）を行い、`fs_guest`があればゲストの現在地レポートをアカウントへ紐付け直す。
 
@@ -566,6 +566,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_purposes_endpoint.py`：401、`STATEMENT_TOO_LONG`（60文字超過・空文字）、`CHOICES_INVALID`、保存成功（`conversation`の`seq`付与を含む）、2回目の確定で`version`が2になり旧版が`HIST#PURPOSE#000001`へ退避することを確認した
 - `web/src/views/S-35.spec.ts`：選ばれた案が無いときのS-31差し戻し、編集欄の初期値、空文字での無効化、確定成功時の`createPurpose`呼び出し引数と状態切り替え・「進む」でのS-50遷移、失敗時のエラー表示と入力保持、「案を選び直す」「‹ 戻る」でのS-34遷移を確認した
 - `make lint && make test`が通ることを確認済み（api 234件・web 193件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、一時的なデバッグルート（確認後に削除）でストアへ選択済みの案をセットしてS-35へ遷移させ、編集画面と確定後の提示状態をライト／ダーク両テーマでスクリーンショット確認した。DynamoDB LocalへCognitoを介さず直接`SESSION`アイテムを作って認証済みセッションでの確定成功、未認証（Cookie無し）での401エラー表示（入力内容が消えないこと）も確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（本タスクはAI生成を伴わないため対象外）
+
+**P3-9完了メモ（2026-08-16）：** S-36（ありたい姿：閲覧）・S-37（ありたい姿：編集）と`GET`/`PUT /purposes/current`を実装した。
+
+- `api/app/domain/purpose.py`：`get_current_purpose`（`GET`用）・`update_purpose_statement`（`PUT`用）を追加した。`update_purpose_statement`は現行の`PURPOSE`アイテムから`selected_direction`/`selected_label`/`choices`/`conversation`をそのまま引き継ぎ、`statement`だけを書き換えた新しいバージョンを`repository.put_versioned`（P1-9・P3-8で確立済み）で保存する。`original_statement`には前の版の文言を入れる（`09_API設計`5.8.1「AI原文ではない」）
+- `api/app/api/v1/purposes.py`：`GET`/`PUT /purposes/current`を追加。レスポンス形式は`POST /purposes`と揃え、共通の`_serialize`ヘルパーに切り出した。**`version`をDynamoDBから読み込むとDecimal型になり、そのままJSON化すると文字列化される不具合に気づき、`_serialize`内で`int()`にキャストして修正した**（`POST`のレスポンスは`put_versioned`が返すPython nativeのdictのため気づきにくかった）。存在しない場合（未作成のまま直接アクセスされた場合の防御）は両エンドポインとも新規コード`PURPOSE_NOT_FOUND`で404とした。仕様（`09_API設計`5.8.1）はこの場合の応答を明記していないため、既存の`GET /assessments/{id}`などの404の使い方に合わせた判断
+- `web/src/api/purposes.ts`：`getCurrentPurpose`・`updateCurrentPurpose`を追加。`CreatePurposeResponse`型は`PurposeResponse`に改名し、3エンドポイントで共有した
+- `web/src/views/S-36.vue`：新規。`GET /purposes/current`で取得した一文と作成日付を表示し、「編集する」→S-37、「AIと話して作り直す」→S-31。**判断：** `screen-list.md`のS-36主要素は「確定済みのありたい姿／作成した日付／4領域とのつながりの要約」だが、本タスクの参照範囲（`09_API設計`5.8.1のみ）・依存（P3-8のみ）は4領域（`AREA_PLAN`）を含まず、`AREA_PLAN`のAPI自体がP4系未着手でまだ存在しない。そのため「4領域とのつながりの要約」は本タスクでは実装せず、P4系のタスクで追加する前提とした。「戻る」の遷移先S-41（`screen-list.md`）はP4-8が未実装のため、S-02が確立した「ルートが無いままpushする」手法を踏襲した
+- `web/src/views/S-37.vue`：新規。マウント時に`GET /purposes/current`で現在の一文を取得して編集欄の初期値にし（S-36から遷移せず直接開かれても動くようにするため、S-35のようなPiniaストア経由ではなく毎回取得する設計）、「保存する」で`PUT /purposes/current`を呼ぶ。60文字上限・文字数カウンタ・空文字時のボタン無効化（理由文言つき）はS-35と同じ型。「書き換えても、4つの領域で作った理想の状態と目標はそのまま残ります」の説明カード（`mockup.html`s37()）をそのまま文言化した
+- `web/src/router/index.ts`：`/s-36`・`/s-37`を登録
+- `api/tests/test_purposes_endpoint.py`：`GET`/`PUT`それぞれの401・404（`PURPOSE_NOT_FOUND`）、`PUT`の422（`STATEMENT_TOO_LONG`）、`GET`が保存済みの内容を返すこと、`PUT`が新バージョンを作り旧版を`HIST#PURPOSE#000001`へ退避しつつ`selected_direction`等を引き継ぐことを確認した
+- `web/src/views/S-36.spec.ts`／`S-37.spec.ts`：取得成功時の表示、取得失敗時のエラー表示、各ボタンの遷移先、S-37の初期値・空文字無効化・保存成功時の遷移・保存失敗時のエラー表示と入力保持を確認した
+- `make lint && make test`が通ることを確認済み（api 240件・web 204件・infra 30件、全てpass）。加えて`make dev`起動下でDynamoDB LocalへCognitoを介さず直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、Playwrightで実際にS-36→S-37→保存→S-36の遷移、保存内容の反映をライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**完了条件「PUTは新バージョンを作る。既存のAREA_PLANを再作成しない」のうちAREA_PLAN側は、P4系未着手で`AREA_PLAN`自体が存在しないため実地確認はできない。** `PUT /purposes/current`が`AREA_PLAN`関連のアイテムに一切触れない実装であること（`update_purpose_statement`のトランザクションは`PURPOSE`系のキーのみを対象とする）で条件を満たしたと判断した
 
 ---
 

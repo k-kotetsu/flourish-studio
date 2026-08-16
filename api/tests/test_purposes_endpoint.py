@@ -1,4 +1,6 @@
-"""`POST /purposes`。09_API設計5.8、08_データモデル4.1・4.4の保存・バージョン管理を確認する。"""
+"""`POST /purposes` ／ `GET`/`PUT /purposes/current`。09_API設計5.8・5.8.1、
+08_データモデル4.1・4.4の保存・バージョン管理を確認する。
+"""
 
 import uuid
 from typing import Any
@@ -124,3 +126,79 @@ def test_second_create_makes_a_new_version_and_moves_old_to_history() -> None:
     history = repository.get_item(user_pk(user_id), history_sk("PURPOSE", 1))
     assert history is not None
     assert history["statement"] == "最初の一文"
+
+
+def test_get_current_returns_401_without_session_cookie() -> None:
+    client = TestClient(app, base_url="https://testserver")
+
+    response = client.get("/api/v1/purposes/current")
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_get_current_returns_404_when_not_created_yet() -> None:
+    client, _ = _client_with_logged_in_user()
+
+    response = client.get("/api/v1/purposes/current")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "PURPOSE_NOT_FOUND"
+
+
+def test_get_current_returns_the_saved_purpose() -> None:
+    client, _ = _client_with_logged_in_user()
+    client.post("/api/v1/purposes", json=_request_body())
+
+    response = client.get("/api/v1/purposes/current")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["version"] == 1
+    assert body["statement"] == "自分で選んだと言える選択を積み重ねていきたい。"
+    assert body["selected_direction"] == "SELF"
+
+
+def test_put_current_returns_404_when_not_created_yet() -> None:
+    client, _ = _client_with_logged_in_user()
+
+    response = client.put("/api/v1/purposes/current", json={"statement": "新しい一文"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "PURPOSE_NOT_FOUND"
+
+
+def test_put_current_returns_422_when_statement_exceeds_60_chars() -> None:
+    client, _ = _client_with_logged_in_user()
+    client.post("/api/v1/purposes", json=_request_body())
+
+    response = client.put("/api/v1/purposes/current", json={"statement": "あ" * 61})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "STATEMENT_TOO_LONG"
+
+
+def test_put_current_makes_a_new_version_and_keeps_other_fields() -> None:
+    client, user_id = _client_with_logged_in_user()
+    client.post("/api/v1/purposes", json=_request_body())
+
+    response = client.put("/api/v1/purposes/current", json={"statement": "書き換えた一文"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["version"] == 2
+    assert body["statement"] == "書き換えた一文"
+
+    current = repository.get_item(user_pk(user_id), purpose_current_sk())
+    assert current is not None
+    assert current["statement"] == "書き換えた一文"
+    # PUTで作られた版のoriginal_statementは「前の版の文言」(AI原文ではない、09_API設計5.8.1)
+    assert current["original_statement"] == "自分で選んだと言える選択を積み重ねていきたい。"
+    assert current["selected_direction"] == "SELF"
+    assert current["selected_label"] == "自分の納得を軸に"
+    assert len(current["choices"]) == 3
+    assert len(current["conversation"]) == 2
+
+    history = repository.get_item(user_pk(user_id), history_sk("PURPOSE", 1))
+    assert history is not None
+    assert history["statement"] == "自分で選んだと言える選択を積み重ねていきたい。"
