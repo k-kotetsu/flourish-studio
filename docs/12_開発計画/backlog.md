@@ -378,6 +378,19 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `make lint && make test`が通ることを確認済み。**ブラウザでの目視確認はしていない。** 変更が既存の条件分岐（v-if）の追加に留まり新規CSSを伴わないため、コンポーネントテストで代替した
 - **残っている作業：** P7-1完了後、(1) 固定文面そのものの実装、(2) その際のレイアウト・CTAの扱い（今回CTAごと非表示にしたが、これで良いかは要検討）を別タスクとして行う
 
+**P2-13は未完了。実装済み2種のみを対象に、拡張可能な実行環境を先行実装した（2026-08-15、ユーザー確認済み）：** 完了条件「コマンド1つで10セットの出力が揃う」のうち、以下の理由で対象を絞った。
+
+- **10種のうち、対話専用のセット9・10は対象外。** 6.1のセット9・10は`PURPOSE_DIALOGUE`/`AREA_DIALOGUE`（対話）向けで、これらのプロンプト自体がP3/P5で未実装のため通しようがない
+- **`SAFETY_CHECK`（P-09）も対象外。** P2-12の作業中に、判定ロジック（`SAFETY_CHECK`）自体を今回のセッションでは利用しない方針をユーザーに確認した。これを受けて評価セット実行環境からも対象外とした
+- **残る8種のうち、`api/app/ai/prompts/`に実装済みなのは`ASSESSMENT_QUESTIONS`（P-01）と`ASSESSMENT_REPORT`（P-02）の2種のみ。** `PURPOSE_DIALOGUE`/`PURPOSE_PROPOSALS`/`AREA_DIALOGUE`/`AREA_PROPOSALS`/`GOAL_HINTS`/`REFLECTION_SUMMARY`はそれぞれP3・P4・P5の未着手タスクの担当範囲でコードが存在しない。バックログの依存列は`P2-8`のみだが、完了条件「8種すべて」は依存に含まれないこれらのタスク完了が前提になっており、現状は満たせない。**この読み替えをユーザーに確認した上で、実装済み2種のみを対象に進めた。** そのためチェックは入れていない
+
+- `api/app/eval/fixtures.py`：6.1の8セット（対話専用2種・`SAFETY_CHECK`を除く）を`EvalSet`として定義。各セットは選択式24問（`ScaleAnswer`）と自由記述8問の回答本文（`(area, slot)`ごと）からなる。セット1・2・4は`_uniform_scale_answers`（全項目同一スコア）、セット3は`_contrast_scale_answers`（Career高・Financial低、Physical/Socialは仕様が明記しないため中間値とした判断）、セット5〜8は`_varied_scale_answers`（自由記述側の違いだけを見るための、極端でない標準パターン）を使う。自由記述本文は標準文言・全問空欄・500文字（標準文言を繰り返して生成）・危機的表現1件混入・プロンプト注入1件混入の4パターン
+- `api/app/eval/run.py`：`run_all()`が各セットについて`ASSESSMENT_QUESTIONS`（P-01）→`ASSESSMENT_REPORT`（P-02）の順で実運用と同じ関数（`generate_assessment_questions`/`generate_assessment_report`）を呼ぶ。**P-01の出力（`generated_question`）と評価セットの固定回答本文を組み合わせて`FreeTextAnswer`を作る**——実際のS-13（AIが問いを生成）→S-14（ユーザーが回答）の順序をそのまま再現した。P-01が失敗した場合はそのセットのP-02をスキップする（実運用でも自由記述の問いが無ければ回答画面に進めないため）。結果は`api/eval_output/set_NN.json`にJSONで書き出す（`.gitignore`に追加、生成物のためコミット対象外）。**現時点では2種のみを呼ぶが、P3以降で他のプロンプトが実装され次第、`_run_one`に追加していく拡張前提の構成にした**
+- `Makefile`：`make eval`を追加（`cd api && .venv/bin/python -m app.eval.run`）。完了条件の「コマンド1つ」に対応
+- **このサンドボックス環境にはAWS認証情報が無く（`aws sts get-caller-identity`が`NoCredentials`）、実機でのBedrock呼び出しはできない。** そのため実際に8セット×2種の出力を得るところまでは確認できていない（P1-14と同じ制約）。`api/tests/test_eval_run.py`で`app.ai.runner.get_client`をフェイクに差し替え、全セット成功時に8ファイルが書き出されること、P-01失敗時にそのセットのP-02がスキップされファイルに反映されることを確認した
+- `make lint && make test`が通ることを確認済み。**実機での`make eval`実行（実際にBedrockを呼んで8セットの出力を得て、6.2の観点でレビューする）は次回AWS認証が可能な環境で行う必要がある**
+- **残っている作業：** (1) P3〜P5で`PURPOSE_DIALOGUE`等が実装され次第、`_run_one`に追加する、(2) `SAFETY_CHECK`を評価対象に含めるかどうかは、この判定ロジックを利用する方針に戻ったタイミングで改めて判断する、(3) 実機での`make eval`実行と6.2観点でのレビュー自体（P2-14相当）
+
 ---
 
 ## 6. P3 登録とありたい姿（約2週間）
