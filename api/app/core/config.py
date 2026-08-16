@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # クロスリージョン推論プロファイル(jp./global.など)はアプリ本体と同じ
     # ap-northeast-1から呼ぶ(11_技術構成8.4「案B」。P0-2で決定)。
     bedrock_region: str = "ap-northeast-1"
+    # ユーザーディレクトリとしてのCognito(11_技術構成7.2)。AppStackがAuthStackの
+    # UserPoolから配線する。ローカル開発では未設定のままテストのモックで代替する。
+    cognito_user_pool_id: str | None = None
+    cognito_user_pool_client_id: str | None = None
 
 
 @lru_cache

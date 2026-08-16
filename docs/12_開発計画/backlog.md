@@ -431,7 +431,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
-| **P3-1** | CC | M | `POST /auth/register` ＋ S-21。**ゲストデータの紐付け**、流出パスワード照合 | `09_API設計` 5.5、`11_技術構成` 7.2、7.4、`08_データモデル` 3.4 | 登録でレポートがアカウントへ移る。ゲスト側はTTLに委ねる | P1-11、P2-8 |
+| ~~**P3-1**~~ ✅ | CC | M | `POST /auth/register` ＋ S-21。**ゲストデータの紐付け**、流出パスワード照合 | `09_API設計` 5.5、`11_技術構成` 7.2、7.4、`08_データモデル` 3.4 | 登録でレポートがアカウントへ移る。ゲスト側はTTLに委ねる | P1-11、P2-8 |
 | **P3-2** | CC | S | `POST /auth/login` ＋ S-02 | `04_画面設計` S-02 | ログインでホームへ | P3-1 |
 | **P3-3** | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
 | **P3-4** | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
@@ -440,6 +440,19 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | **P3-7** | CC | M | P-04 3案生成 ＋ S-33 → S-34 | `10_AIプロンプト設計` 4.4、`05_質問・コンテンツ設計` 8章 | **必ず3件、direction 重複なし。3件未満は FAILED** | P3-6 |
 | **P3-8** | CC | M | S-35 編集・確定 ＋ `POST /purposes`。60文字上限 | `09_API設計` 5.8、`08_データモデル` 4.1、4.4 | 確定時にはじめて保存。対話全文も一緒に | P3-7、P1-9 |
 | **P3-9** | CC | M | S-36 閲覧 / S-37 編集 ＋ `GET`/`PUT /purposes/current` | `09_API設計` 5.8.1 | **PUTは新バージョンを作る。既存の AREA_PLAN を再作成しない** | P3-8 |
+
+**P3-1完了メモ（2026-08-16）：** `POST /auth/register`を実装した。Cognitoで仮登録（`SignUp`）→即時確認（`AdminConfirmSignUp`）を行い、`fs_guest`があればゲストの現在地レポートをアカウントへ紐付け直す。
+
+- **未決#5（パスワードリセットをMVPに含めるか）をタスク開始前にユーザーに確認し、「含めない」で解消した。** `01_全体コンセプト`19章・`09_API設計`9章・`04_画面設計`6章・`12_開発計画`backlog.md 14章を更新済み
+- `api/app/domain/cognito.py`：Cognitoクライアントのラッパー。`sign_up_and_confirm`が`SignUp`→`AdminConfirmSignUp`を行い`sub`を返す。`UsernameExistsException`→`EmailTakenError`、`InvalidPasswordException`→`InvalidPasswordError`に変換
+- `api/app/domain/weak_password.py`：流出パスワード照合。`api/app/data/common_passwords.txt`（SecLists由来、上位1万件）をLambdaに同梱し、Cognito呼び出しの前に照合する（11_技術構成7.4）
+- `api/app/domain/user.py`：USER/PROFILEアイテムの組み立て（08_データモデル6.1）
+- `api/app/domain/session.py`・`guest_session.py`：`build_session_item`・`build_conversion_transact_item`を追加し、アイテムの組み立てとDB書き込みを分離した。登録処理はPROFILE作成・ASSESSMENT引き継ぎ・SESSION発行・GUESTの変換記録を**1つの`TransactWriteItems`**で行う（08_データモデル3.4）
+- `api/app/api/v1/auth.py`：エンドポイント本体。`fs_guest`があれば`Query(GUEST#<id>, begins_with ASSESSMENT#)`で対象を探す。**クライアントはゲストIDもassessment_idも送らない**（09_API設計2.1）ため、データモデル3.4の疑似コードにある`GetItem`をQueryに置き換える判断をした（1ゲストが複数レポートを持つ可能性も含めすべて移す）
+- **CDKの配線漏れを見つけ、本タスクの範囲として対応した。** `AuthStack`のCognito UserPool/UserPoolClientが`AppStack`のLambdaに一切渡っておらず（環境変数もIAM権限も無し）、このままでは`POST /auth/register`が実機で動かない状態だった。`infra/bin/infra.ts`で`AuthStack`を変数に受け、`infra/lib/app-stack.ts`に`COGNITO_USER_POOL_ID`・`COGNITO_USER_POOL_CLIENT_ID`環境変数と`cognito-idp:SignUp`・`cognito-idp:AdminConfirmSignUp`のIAM権限を追加した（ログイン等P3-2以降に要る権限はそれぞれのタスクで追加する）
+- `Makefile`の`setup-api`に`boto3-stubs`の`cognito-idp`extraを追加。`api/requirements.txt`に`email-validator`を追加（`pydantic.EmailStr`用）
+- テスト：`api/tests/test_auth_register_endpoint.py`（正常系のCookie発行とPROFILE保存、`EMAIL_TAKEN`、流出パスワードでの`WEAK_PASSWORD`とCognito起因の`WEAK_PASSWORD`の両方、ゲストレポートの引き継ぎと`fs_guest`→`fs_session`の切り替え）。実際のCognito呼び出しは`sign_up_and_confirm`をフェイクに差し替えて避けた。`infra/test/app-stack.test.ts`にCognito環境変数・IAM権限の配線テストを追加
+- `make lint && make test`が通ることを確認済み。**実際のCognito呼び出し（`cdk deploy`後の実機確認）は本タスクの範囲外**（1タスク＝1セッションの方針、他タスクの完了メモと同様）
 
 ---
 
@@ -570,6 +583,4 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | #2 あだ名の許容ライン | **P2-14** |
 | #3 AIプロンプト設計 | 済（`10_AIプロンプト設計`） |
 | #4 ロゴとロックアップ | **P7-3** |
-| #5 パスワードリセットをMVPに含めるか | **未着手。P3着手前に判断が要る** |
-
-**#5 が未決のまま残っている。** P3-1 の設計前に決める。含める場合、画面が1〜2枚とタスクが2つ増える。
+| #5 パスワードリセットをMVPに含めるか | 済（**P3-1**、2026-08-16。MVPに含めない） |

@@ -16,7 +16,7 @@ const env = {
 
 const dataStack = new DataStack(app, "DataStack", { env });
 
-new AuthStack(app, "AuthStack", {
+const authStack = new AuthStack(app, "AuthStack", {
   env,
   domainName,
   cognitoDomainPrefix: "flourish-st-dev",
@@ -29,6 +29,8 @@ const appStack = new AppStack(app, "AppStack", {
   env,
   crossRegionReferences: true,
   table: dataStack.table,
+  userPool: authStack.userPool,
+  userPoolClient: authStack.userPoolClient,
 });
 
 // WAF(CLOUDFRONTスコープ)とACM証明書はus-east-1に置く(技術構成10.4)。

@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib/core";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { AppStack } from "../lib/app-stack";
 
@@ -13,9 +14,16 @@ function synth(): Template {
     partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
     sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
   });
+  const authStack = new cdk.Stack(app, "AuthStack", {
+    env: { account: "123456789012", region: "ap-northeast-1" },
+  });
+  const userPool = new cognito.UserPool(authStack, "UserPool");
+  const userPoolClient = userPool.addClient("UserPoolClient");
   const stack = new AppStack(app, "AppStack", {
     env: { account: "123456789012", region: "ap-northeast-1" },
     table,
+    userPool,
+    userPoolClient,
   });
   return Template.fromStack(stack);
 }
@@ -120,6 +128,36 @@ describe("AppStack", () => {
     );
     // apiFunction用・workerFunction用の各ロールに1つずつ付与される想定。
     expect(tableStatements.length).toBe(2);
+  });
+
+  it("APIのLambdaはCOGNITO_USER_POOL_ID/CLIENT_IDを環境変数で受け取る(技術構成7.2)", () => {
+    const template = synth();
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({
+          COGNITO_USER_POOL_ID: Match.anyValue(),
+          COGNITO_USER_POOL_CLIENT_ID: Match.anyValue(),
+        }),
+      },
+    });
+  });
+
+  it("APIのLambdaはSignUp/AdminConfirmSignUpの権限を持つ(技術構成7.2、P3-1)", () => {
+    const template = synth();
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const signUpStatements = policies.flatMap((policy) =>
+      policy.Properties.PolicyDocument.Statement.filter((statement: { Action?: unknown }) => {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        return actions.some(
+          (a: string) => typeof a === "string" && a === "cognito-idp:SignUp",
+        );
+      }),
+    );
+    expect(signUpStatements.length).toBeGreaterThan(0);
+    for (const statement of signUpStatements) {
+      const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+      expect(actions).toContain("cognito-idp:AdminConfirmSignUp");
+    }
   });
 
   it("BedrockのIAM権限はResource: \"*\" にしない(技術構成8.5)", () => {
