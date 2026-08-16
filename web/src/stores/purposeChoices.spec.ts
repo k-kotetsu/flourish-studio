@@ -43,4 +43,25 @@ describe("usePurposeChoicesStore", () => {
     expect(store.fulfillingMoments).toEqual([]);
     expect(store.idealDailyLife).toBeNull();
   });
+
+  it("asChoicesがPOST /ai/purpose-dialogue・purpose-proposals共通のchoices形式を返す", () => {
+    const store = usePurposeChoicesStore();
+    store.setAnswers({
+      values: ["GROWTH", "FREEDOM"],
+      fulfillingMoments: ["HELPED_SOMEONE"],
+      idealDailyLife: "HAVING_OPTIONS",
+    });
+
+    expect(store.asChoices).toEqual([
+      { question_code: "Q1", option_codes: ["GROWTH", "FREEDOM"] },
+      { question_code: "Q2", option_codes: ["HELPED_SOMEONE"] },
+      { question_code: "Q3", option_codes: ["HAVING_OPTIONS"] },
+    ]);
+  });
+
+  it("asChoicesはidealDailyLife未選択のときQ3を空配列にする", () => {
+    const store = usePurposeChoicesStore();
+
+    expect(store.asChoices[2]).toEqual({ question_code: "Q3", option_codes: [] });
+  });
 });

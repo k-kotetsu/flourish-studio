@@ -115,7 +115,10 @@ def _escape_user_input(text: str) -> str:
     return text.replace("<", "&lt;")
 
 
-def _build_choices_block(choices: list[ChoiceAnswer]) -> str:
+def build_choices_block(choices: list[ChoiceAnswer]) -> str:
+    """`<choices>`の中身の組み立て。P-04(`purpose_proposals.py`)も同じ入力形式
+    (「P-03と同じ形式」10_AIプロンプト設計4.4)のため、モジュール間で共有する。
+    """
     by_code = {choice.question_code: choice for choice in choices}
     lines = []
     for code in QUESTION_CODES:
@@ -125,7 +128,8 @@ def _build_choices_block(choices: list[ChoiceAnswer]) -> str:
     return "\n".join(lines)
 
 
-def _build_conversation_block(messages: list[DialogueMessage]) -> str:
+def build_conversation_block(messages: list[DialogueMessage]) -> str:
+    """`<conversation>`の中身の組み立て。`build_choices_block`と同じ理由でP-04と共有する。"""
     lines = []
     for message in messages:
         if message.role == AI_ROLE:
@@ -147,9 +151,9 @@ def build_messages(
     """
     prompt_turn = min(turn, TOTAL_TURNS)
     content = (
-        f"<choices>\n{_build_choices_block(choices)}\n</choices>\n\n"
+        f"<choices>\n{build_choices_block(choices)}\n</choices>\n\n"
         f"<turn>\n現在: {prompt_turn}往復目 / 全{TOTAL_TURNS}往復\n</turn>\n\n"
-        f"<conversation>\n{_build_conversation_block(messages)}\n</conversation>"
+        f"<conversation>\n{build_conversation_block(messages)}\n</conversation>"
     )
     return [{"role": "user", "content": content}]
 

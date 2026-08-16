@@ -12,6 +12,7 @@ from app.db.keys import assessment_sk
 from app.domain import job as job_domain
 from app.domain import questions
 from app.domain.assessment_precompute import FreeTextAnswer, ScaleAnswer, pick_free_text_targets
+from app.domain.purpose_choices import ChoiceAnswer
 from app.worker.handler import handler
 
 _QUESTION_SET = questions.get_question_set(questions.CURRENT_QUESTION_SET_VERSION)
@@ -26,32 +27,32 @@ def test_handler_returns_ok_for_empty_event() -> None:
 
 
 def test_handler_processes_a_dummy_job_to_succeeded() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORTはP2-5/P2-8で実処理に分岐したため、
-    # ここでは未実装のままダミー処理(雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALSはP2-5/P2-8/P3-7で実処理に
+    # 分岐したため、ここでは未実装のままダミー処理(雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
-    job_id, item = job_domain.create_job(owner, "PURPOSE_PROPOSALS")
+    job_id, item = job_domain.create_job(owner, "AREA_PROPOSALS")
     assert item["status"] == "QUEUED"
 
-    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "PURPOSE_PROPOSALS"})}]}
+    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "AREA_PROPOSALS"})}]}
     result = handler(event, object())
 
     assert result == {"status": "ok"}
     updated = job_domain.get_job(job_id)
     assert updated is not None
     assert updated["status"] == "SUCCEEDED"
-    assert updated["result"] == {"echo": "PURPOSE_PROPOSALS"}
+    assert updated["result"] == {"echo": "AREA_PROPOSALS"}
 
 
 def test_handler_processes_multiple_records() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORTはP2-5/P2-8で実処理に分岐したため、ここでは
-    # 未実装のままダミー処理(雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALSはP2-5/P2-8/P3-7で実処理に
+    # 分岐したため、ここでは未実装のままダミー処理(雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
-    job_id_a, _ = job_domain.create_job(owner, "PURPOSE_PROPOSALS")
-    job_id_b, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+    job_id_a, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+    job_id_b, _ = job_domain.create_job(owner, "GOAL_HINTS")
     event = {
         "Records": [
-            {"body": json.dumps({"job_id": job_id_a, "kind": "PURPOSE_PROPOSALS"})},
-            {"body": json.dumps({"job_id": job_id_b, "kind": "AREA_PROPOSALS"})},
+            {"body": json.dumps({"job_id": job_id_a, "kind": "AREA_PROPOSALS"})},
+            {"body": json.dumps({"job_id": job_id_b, "kind": "GOAL_HINTS"})},
         ],
     }
 
@@ -299,3 +300,95 @@ def test_handler_does_not_save_an_item_when_ai_output_is_invalid(
 
     item = repository.get_item(owner, assessment_sk(payload["assessment_id"]))
     assert item is None  # 失敗時は何も残らない(09_API設計5.3)
+
+
+def _purpose_proposals_payload() -> dict[str, Any]:
+    choices = [
+        ChoiceAnswer(question_code="Q1", option_codes=["GROWTH", "FREEDOM"]),
+        ChoiceAnswer(question_code="Q2", option_codes=["SELF_DETERMINED"]),
+        ChoiceAnswer(question_code="Q3", option_codes=["HAVING_OPTIONS"]),
+    ]
+    messages = [
+        {"role": "AI", "body": "「成長」を選ばれていました。何か思い当たることがありましたか。"},
+        {"role": "USER", "body": "前の職場で任される範囲が広がったときに実感しました。"},
+        {"role": "AI", "body": "それはどんな場面でしたか。"},
+        {"role": "USER", "body": "新しいプロジェクトを任されたときです。"},
+        {"role": "AI", "body": "その感覚が3〜5年後にどうなっていてほしいですか。"},
+        {"role": "USER", "body": "自分で選んだ仕事だと言える状態でいたいです。"},
+    ]
+    return {
+        "choices": [dataclasses.asdict(choice) for choice in choices],
+        "messages": messages,
+    }
+
+
+def _valid_proposals_json() -> str:
+    return json.dumps(
+        {
+            "proposals": [
+                {
+                    "direction": "SELF",
+                    "label": "自分の納得を軸に",
+                    "statement": "自分で選んだと言えることを積み重ねて生きていきたい。",
+                },
+                {
+                    "direction": "OTHERS",
+                    "label": "まわりの人とともに",
+                    "statement": "まわりの人が安心して力を出せる存在でありたい。",
+                },
+                {
+                    "direction": "SOCIETY",
+                    "label": "もっと広く",
+                    "statement": "人の可能性が広がる場をつくっていきたい。",
+                },
+            ],
+            "safety_flag": False,
+        }
+    )
+
+
+def _purpose_proposals_event(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    body = {"job_id": job_id, "kind": "PURPOSE_PROPOSALS", "payload": payload}
+    return {"Records": [{"body": json.dumps(body)}]}
+
+
+def test_handler_generates_purpose_proposals_to_succeeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """完了条件「必ず3件、direction重複なし」(P3-7)。"""
+    payload = _purpose_proposals_payload()
+    fake_client = _FakeClient([_fake_response(_valid_proposals_json())])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "PURPOSE_PROPOSALS")
+
+    handler(_purpose_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "SUCCEEDED"
+    proposals = updated["result"]["proposals"]
+    assert len(proposals) == 3
+    assert {proposal["direction"] for proposal in proposals} == {"SELF", "OTHERS", "SOCIETY"}
+
+
+def test_handler_fails_purpose_proposals_job_when_fewer_than_three_persist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """完了条件「3件未満はFAILED」(P3-7)。2案だけ見せない(09_API設計5.7)。"""
+    payload = _purpose_proposals_payload()
+    invalid_text = json.dumps({"proposals": [], "safety_flag": False})  # 再生成しても直らない
+    fake_client = _FakeClient([_fake_response(invalid_text), _fake_response(invalid_text)])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "PURPOSE_PROPOSALS")
+
+    handler(_purpose_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "FAILED"
+    assert updated["error"]["code"] == "AI_OUTPUT_INVALID"
+    assert updated["error"]["retryable"] is True

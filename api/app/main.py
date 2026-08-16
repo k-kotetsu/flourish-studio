@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.v1 import (
     ai_assessment_questions,
     ai_purpose_dialogue,
+    ai_purpose_proposals,
     assessments,
     auth,
     guest_sessions,
@@ -23,6 +24,7 @@ app.include_router(assessments.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(me.router, prefix="/api/v1")
 app.include_router(ai_purpose_dialogue.router, prefix="/api/v1")
+app.include_router(ai_purpose_proposals.router, prefix="/api/v1")
 
 
 @app.get("/health")
