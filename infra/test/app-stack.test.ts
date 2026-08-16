@@ -24,6 +24,8 @@ function synth(): Template {
     table,
     userPool,
     userPoolClient,
+    domainName: "dev.flourish-st.com",
+    cognitoDomainPrefix: "flourish-st-dev",
   });
   return Template.fromStack(stack);
 }
@@ -175,6 +177,36 @@ describe("AppStack", () => {
     for (const statement of authStatements) {
       const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
       expect(actions).toContain("cognito-idp:AdminGetUser");
+    }
+  });
+
+  it("APIのLambdaはCOGNITO_DOMAIN_PREFIX/PUBLIC_DOMAIN_NAMEを環境変数で受け取る(技術構成7.5、P3-3)", () => {
+    const template = synth();
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({
+          COGNITO_DOMAIN_PREFIX: "flourish-st-dev",
+          PUBLIC_DOMAIN_NAME: "dev.flourish-st.com",
+        }),
+      },
+    });
+  });
+
+  it("APIのLambdaはGetUser/DescribeUserPoolClientの権限を持つ(技術構成7.5、P3-3)", () => {
+    const template = synth();
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const getUserStatements = policies.flatMap((policy) =>
+      policy.Properties.PolicyDocument.Statement.filter((statement: { Action?: unknown }) => {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        return actions.some(
+          (a: string) => typeof a === "string" && a === "cognito-idp:GetUser",
+        );
+      }),
+    );
+    expect(getUserStatements.length).toBeGreaterThan(0);
+    for (const statement of getUserStatements) {
+      const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+      expect(actions).toContain("cognito-idp:DescribeUserPoolClient");
     }
   });
 

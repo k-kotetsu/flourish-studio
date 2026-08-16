@@ -433,7 +433,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 |---|---|---|---|---|---|---|
 | ~~**P3-1**~~ ✅ | CC | M | `POST /auth/register` ＋ S-21。**ゲストデータの紐付け**、流出パスワード照合 | `09_API設計` 5.5、`11_技術構成` 7.2、7.4、`08_データモデル` 3.4 | 登録でレポートがアカウントへ移る。ゲスト側はTTLに委ねる | P1-11、P2-8 |
 | ~~**P3-2**~~ ✅ | CC | S | `POST /auth/login` ＋ S-02 | `04_画面設計` S-02 | ログインでホームへ | P3-1 |
-| **P3-3** | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
+| ~~**P3-3**~~ ✅ | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
 | **P3-4** | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
 | **P3-5** | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
 | **P3-6** | CC | L | **P-03 対話（SSE）＋ S-32。** 3往復、往復数はコードが数える | `10_AIプロンプト設計` 4.3、`09_API設計` 5.6、スキル `flourish-api` | 逐次表示される。`remaining` が0で「候補を作る」が出る | P1-14、P0-3 |
@@ -471,6 +471,25 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `infra/test/auth-stack.test.ts`・`infra/test/app-stack.test.ts`：`ADMIN_USER_PASSWORD_AUTH`フローの有効化、API Lambdaの`AdminInitiateAuth`/`AdminGetUser`権限を確認
 - `web/src/api/auth.spec.ts`・`web/src/api/client.spec.ts`（`onUnauthorized`の限定）・`web/src/api/errorMessages.spec.ts`・`web/src/views/S-02.spec.ts`：成功時のS-41遷移、失敗時のエラー表示と入力保持、戻る導線を確認
 - `make lint && make test`が通ることを確認済み。**完了条件「ログインでホームへ」の確認方法：** `make dev`起動下でPlaywrightを使い、S-02の実画面をライト/ダーク両テーマで確認した。このサンドボックス環境にはAWS認証情報がなくCognito呼び出しは失敗するため、実際の認証成功経路（S-41への遷移）はユニットテスト（`S-02.spec.ts`の`login()`をモックした経路）でのみ確認し、失敗経路（入力保持・エラー表示・「トップに戻る」）はブラウザで目視確認した。実際のCognito呼び出し・`cdk deploy`後の実機確認は本タスクの範囲外
+
+**P3-3完了メモ（2026-08-16）：** Google連携（`GET /auth/google` → `GET /auth/google/callback`）を実装した。画面（S-02/S-21）側のボタン追加はバックログの参照列（`11_技術構成`7.5のみ）に含まれないため、本タスクの範囲外とした（09_API設計のエンドポイント一覧に画面との対応は記載があるが、ボタンの設置自体は別タスクの積み残しとして残る）。
+
+- **CDKの配線バグを1件発見・修正した。** `AuthStack`（P1-5）の`UserPoolClient.callbackUrls`が`https://{domain}/auth/google/callback`のままだったが、CloudFrontは`/api/v1/*`ビヘイビアだけをAPI Lambdaへ振り分ける構成（P1-7）のため、このパスでは実際のAPIに届かない。`/api/v1/auth/google/callback`に修正した。これに気づかないまま実装を進めていたら、実機で「Cognitoの認可コードは発行されるがコールバックが常に別ハンドラ（公開サイト）に着地する」という壊れ方をしていたはずで、本タスクの完了条件（トークンをブラウザに渡さないことの確認）以前に機能自体が成立しなかった
+- **仕様に明記のない判断を3件、実装しながら記録した（着手前にユーザーへ確認するほどの分岐ではないと判断し、既存の判断パターンを踏襲した）。**
+  1. **CSRF対策の`state`パラメータ。** `11_技術構成`7.5はOAuthの`state`検証に触れていないが、RFC 6749 10.12が定める標準的な対策であり省略する理由がないため実装した。`GET /auth/google`で発行しHttpOnly Cookie（`fs_oauth_state`、10分TTL）に一時保存、コールバックでクエリの`state`と照合し、不一致・欠落は`GoogleAuthFailedError`と同じ扱い（S-02へ差し戻す）にした
+  2. **新規アカウントか既存アカウントかの判定。** Cognitoは初回のGoogleサインインで新しい`sub`を発行する（メール一致による自動アカウント統合は設定していない）。この`sub`に対応する`PROFILE`アイテムがDynamoDBに無ければ新規（PROFILE作成・ゲスト紐付けをregisterと共有する`_build_new_account_transact_items`を実行）、あれば既存（SESSION発行のみ）として扱った。同一メールでのメール認証アカウントとの統合は行わない（仕様に記載がなく、統合には追加のCognito設定・移行判断が要るため対象外とした）
+  3. **App ClientのシークレットをCDK側で複製せず、実行時に`DescribeUserPoolClient`で都度取得する設計にした。** Google自身のOAuthクライアントシークレット（P1-5）がSecrets Manager経由である一方、Cognito App Client自身のシークレットはCDKの`SecretValue`を`unsafeUnwrap()`しない限りLambda環境変数に渡せない。IAM権限だけで完結し、シークレットをCloudFormationテンプレートや環境変数に平文で持たせない方を選んだ
+- `api/app/domain/cognito.py`：`google_authorize_url`（Hosted UIの認可URL組み立て）、`exchange_google_code`（認可コードのトークン交換。標準ライブラリ`urllib`でOAuth2のトークンエンドポイントを直接叩く。P3-2の`authenticate`と同じく「デコード用の依存を増やさない」判断を踏襲し、アクセストークンで`GetUser`を呼んで`sub`を取り直す）、`GoogleAuthFailedError`を追加
+- `api/app/api/v1/auth.py`：`GET /auth/google`・`GET /auth/google/callback`を追加。`register`にあったPROFILE作成・ゲスト紐付けの組み立てを`_build_new_account_transact_items`に切り出し、両エンドポイントで共有した
+- `api/app/core/security.py`：`OAUTH_STATE_COOKIE_NAME`・`set_oauth_state_cookie`・`clear_oauth_state_cookie`を追加
+- `api/app/core/config.py`：`cognito_domain_prefix`・`public_domain_name`を追加
+- `infra/lib/auth-stack.ts`：`callbackUrls`のパス修正（上記）
+- `infra/lib/app-stack.ts`：`AppStackProps`に`domainName`・`cognitoDomainPrefix`を追加し、APIのLambdaに`COGNITO_DOMAIN_PREFIX`・`PUBLIC_DOMAIN_NAME`環境変数と`cognito-idp:GetUser`・`cognito-idp:DescribeUserPoolClient`のIAM権限を追加した
+- `infra/bin/infra.ts`：`domainName`・`cognitoDomainPrefix`を`AppStack`にも渡すよう配線
+- `api/tests/test_cognito_google.py`：認可URLの組み立て、トークン交換の成功・失敗（HTTPエラー・`access_token`欠落）
+- `api/tests/test_auth_google_endpoint.py`：**完了条件「トークンをブラウザに渡していないことを確認」**は、コールバック成功時のレスポンスに含まれるCookieが不透明なセッショントークン（ピリオド区切りのJWT形式でない）のみであることを直接アサートして確認した。あわせて、新規アカウント作成、既存Googleアカウントでの再サインイン時にPROFILEを作り直さないこと、ゲストの現在地レポート引き継ぎ、`state`不一致・`code`欠落・トークン交換失敗でS-02へ差し戻すことを確認。Cookieは`client.cookies.set(...)`で手動投入せず実エンドポイント経由で発行させた（P3-1完了メモが指摘したhttpx CookieJarのドメイン属性の落とし穴を踏襲して回避）
+- `infra/test/auth-stack.test.ts`・`infra/test/app-stack.test.ts`：修正後の`callbackUrls`、新規環境変数・IAM権限を確認
+- `make lint && make test`が通ることを確認済み。実際のGoogle・Cognito呼び出し（`cdk deploy`後の実機確認）は本タスクの範囲外
 
 ---
 

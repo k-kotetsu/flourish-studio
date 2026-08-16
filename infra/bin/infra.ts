@@ -8,6 +8,7 @@ import { EdgeStack } from "../lib/edge-stack";
 const app = new cdk.App();
 
 const domainName = "dev.flourish-st.com";
+const cognitoDomainPrefix = "flourish-st-dev";
 
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -19,7 +20,7 @@ const dataStack = new DataStack(app, "DataStack", { env });
 const authStack = new AuthStack(app, "AuthStack", {
   env,
   domainName,
-  cognitoDomainPrefix: "flourish-st-dev",
+  cognitoDomainPrefix,
   // クライアントIDは機密情報ではない。シークレットはSecrets Managerから参照する。
   googleClientId:
     "834684313682-8ilfh4c2oar51mken8963etv7a731l14.apps.googleusercontent.com",
@@ -31,6 +32,8 @@ const appStack = new AppStack(app, "AppStack", {
   table: dataStack.table,
   userPool: authStack.userPool,
   userPoolClient: authStack.userPoolClient,
+  domainName,
+  cognitoDomainPrefix,
 });
 
 // WAF(CLOUDFRONTスコープ)とACM証明書はus-east-1に置く(技術構成10.4)。

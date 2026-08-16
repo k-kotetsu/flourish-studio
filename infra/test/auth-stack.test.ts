@@ -51,7 +51,7 @@ describe("AuthStack", () => {
     template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
       GenerateSecret: true,
       AllowedOAuthFlows: ["code"],
-      CallbackURLs: ["https://dev.flourish-st.com/auth/google/callback"],
+      CallbackURLs: ["https://dev.flourish-st.com/api/v1/auth/google/callback"],
     });
   });
 
