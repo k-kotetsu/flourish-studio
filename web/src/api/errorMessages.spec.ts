@@ -26,6 +26,7 @@ describe("messageForCode", () => {
   it("どの文言も謝罪語・感嘆符・禁止語を含まない(flourish-tone)", () => {
     const codes = [
       "UNAUTHENTICATED",
+      "INVALID_CREDENTIALS",
       "JOB_NOT_FOUND",
       "JOB_FORBIDDEN",
       "RATE_LIMITED",

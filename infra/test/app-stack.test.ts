@@ -160,6 +160,24 @@ describe("AppStack", () => {
     }
   });
 
+  it("APIのLambdaはAdminInitiateAuth/AdminGetUserの権限を持つ(技術構成7.2、P3-2)", () => {
+    const template = synth();
+    const policies = Object.values(template.findResources("AWS::IAM::Policy"));
+    const authStatements = policies.flatMap((policy) =>
+      policy.Properties.PolicyDocument.Statement.filter((statement: { Action?: unknown }) => {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        return actions.some(
+          (a: string) => typeof a === "string" && a === "cognito-idp:AdminInitiateAuth",
+        );
+      }),
+    );
+    expect(authStatements.length).toBeGreaterThan(0);
+    for (const statement of authStatements) {
+      const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+      expect(actions).toContain("cognito-idp:AdminGetUser");
+    }
+  });
+
   it("BedrockのIAM権限はResource: \"*\" にしない(技術構成8.5)", () => {
     const template = synth();
     const policies = Object.values(template.findResources("AWS::IAM::Policy"));

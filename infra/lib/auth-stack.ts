@@ -78,6 +78,10 @@ export class AuthStack extends cdk.Stack {
 
     this.userPoolClient = this.userPool.addClient("UserPoolClient", {
       generateSecret: true,
+      // ログイン(P3-2)は`AdminInitiateAuth`の`ADMIN_USER_PASSWORD_AUTH`フローを使う
+      // (サーバーサイド実行と親和性が高いAdmin*系APIに揃える判断。cognito.ts参照)。
+      // CDKの既定値には含まれないため明示的に有効化する。
+      authFlows: { adminUserPassword: true },
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [

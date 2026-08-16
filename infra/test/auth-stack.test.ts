@@ -55,7 +55,14 @@ describe("AuthStack", () => {
     });
   });
 
-  it("Google連携用のシークレットを用意する（値は空でコードに含めない）", () => {
+  it("App ClientはログインのADMIN_USER_PASSWORD_AUTHフローを許可する(P3-2)", () => {
+    const template = synth();
+    template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
+      ExplicitAuthFlows: ["ALLOW_ADMIN_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+    });
+  });
+
+  it("Google連携用のシークレットを用意する(値は空でコードに含めない)", () => {
     const template = synth();
     template.hasResourceProperties("AWS::SecretsManager::Secret", {
       Name: "flourish/google-oauth-client-secret",

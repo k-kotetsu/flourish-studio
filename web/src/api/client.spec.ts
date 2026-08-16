@@ -103,6 +103,17 @@ describe("api client", () => {
     expect(handler).toHaveBeenCalledOnce();
   });
 
+  it("401でもINVALID_CREDENTIALS（ログイン失敗）はonUnauthorizedハンドラを呼ばない", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(401, { error: { code: "INVALID_CREDENTIALS", message: "wrong password" } }),
+    );
+    const handler = vi.fn();
+    onUnauthorized(handler);
+
+    await expect(api.post("/auth/login")).rejects.toBeInstanceOf(ApiError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("fetch自体が失敗したらNETWORK_ERRORとして投げる", async () => {
     vi.mocked(fetch).mockRejectedValue(new TypeError("network down"));
 

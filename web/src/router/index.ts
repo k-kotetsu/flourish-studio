@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import PlaceholderView from "../views/PlaceholderView.vue";
 import ComponentGalleryView from "../views/ComponentGalleryView.vue";
+import S02View from "../views/S-02.vue";
 import S11View from "../views/S-11.vue";
 import S12View from "../views/S-12.vue";
 import S13View from "../views/S-13.vue";
@@ -19,6 +20,11 @@ export const router = createRouter({
       path: "/",
       name: "home",
       component: PlaceholderView,
+    },
+    {
+      path: "/s-02",
+      name: "s-02",
+      component: S02View,
     },
     {
       // ファイル名は画面IDに合わせる(dev-environment.md 8章「web/src/views/のファイル名を画面IDにする」)
