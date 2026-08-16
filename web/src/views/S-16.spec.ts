@@ -124,5 +124,9 @@ describe("S-16", () => {
     expect(wrapper.find(".growth-stage-display__stages").exists()).toBe(false);
     expect(wrapper.text()).not.toContain("全速前進、燃料計は未確認");
     expect(wrapper.find('[data-testid="safety-notice"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("よりそいホットライン");
+    expect(wrapper.text()).toContain("いのちの電話");
+    expect(wrapper.text()).toContain("書いていただいた内容はそのまま残っています");
+    expect(wrapper.find("button").exists()).toBe(false);
   });
 });
