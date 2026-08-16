@@ -89,7 +89,9 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: [`https://${props.domainName}/auth/google/callback`],
+        // API GatewayへはCloudFrontの`/api/v1/*`ビヘイビアが振り分ける(P1-7)ため、
+        // コールバックパスにも`/api/v1`が要る(P3-3で発見・修正)。
+        callbackUrls: [`https://${props.domainName}/api/v1/auth/google/callback`],
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,

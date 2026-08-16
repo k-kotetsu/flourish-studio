@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # UserPoolから配線する。ローカル開発では未設定のままテストのモックで代替する。
     cognito_user_pool_id: str | None = None
     cognito_user_pool_client_id: str | None = None
+    # Google連携(P3-3、11_技術構成7.5)。Cognito Hosted DomainのURL組み立てと、
+    # コールバックURI・遷移先の組み立てに使う。AppStackが環境変数で渡す。
+    cognito_domain_prefix: str | None = None
+    public_domain_name: str | None = None
 
 
 @lru_cache

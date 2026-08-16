@@ -33,6 +33,10 @@ export interface AppStackProps extends cdk.StackProps {
   /** `AuthStack` のCognitoユーザープール。バックエンドが`SignUp`/`AdminConfirmSignUp`を呼ぶ(技術構成7.2)。 */
   readonly userPool: cognito.IUserPool;
   readonly userPoolClient: cognito.IUserPoolClient;
+  /** 公開ドメイン。Google連携のコールバックURI・遷移先の組み立てに使う(技術構成7.5)。 */
+  readonly domainName: string;
+  /** Cognito Hosted Domainのプレフィックス。`AuthStack`に渡したものと同じ値(技術構成7.5)。 */
+  readonly cognitoDomainPrefix: string;
 }
 
 export class AppStack extends cdk.Stack {
@@ -75,14 +79,18 @@ export class AppStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: props.table.tableName,
         COGNITO_USER_POOL_ID: props.userPool.userPoolId,
         COGNITO_USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
+        COGNITO_DOMAIN_PREFIX: props.cognitoDomainPrefix,
+        PUBLIC_DOMAIN_NAME: props.domainName,
       },
     });
     // ジョブ登録時にAPI Lambdaがキューへ送信できるようにする(技術構成5.5)。
     this.queue.grantSendMessages(this.apiFunction);
 
-    // 登録(P3-1)がCognitoへユーザーを作成・確認するために必要な最小権限(技術構成7.2)。
-    // ログイン(P3-2)は`AdminInitiateAuth`で認証し、`AdminGetUser`で`sub`を取り直す
-    // (cognito.ts参照)。Google連携等の権限は、それを実装するタスク(P3-3)で追加する。
+    // 登録(P3-1)・ログイン(P3-2)・Google連携(P3-3)がCognitoへ行う操作に必要な最小権限
+    // (技術構成7.2、7.5)。`GetUser`はGoogle連携のトークン交換後に`sub`を取り直すため、
+    // `DescribeUserPoolClient`はトークン交換のクライアント認証用シークレットを実行時に
+    // 取り直すため(cognito.ts参照。シークレットをCFnテンプレートや環境変数に平文で
+    // 持たせない判断)。
     this.apiFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -90,6 +98,8 @@ export class AppStack extends cdk.Stack {
           "cognito-idp:AdminConfirmSignUp",
           "cognito-idp:AdminInitiateAuth",
           "cognito-idp:AdminGetUser",
+          "cognito-idp:GetUser",
+          "cognito-idp:DescribeUserPoolClient",
         ],
         resources: [props.userPool.userPoolArn],
       }),
