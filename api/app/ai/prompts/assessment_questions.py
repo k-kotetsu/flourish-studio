@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
@@ -71,10 +72,9 @@ OUTPUT_SCHEMA: dict[str, Any] = {
                         "enum": ["CAREER", "FINANCIAL", "PHYSICAL", "SOCIAL"],
                     },
                     "slot": {"type": "string", "enum": ["SATISFIED", "CONCERN"]},
-                    "target_item_code": {"type": "string"},
                     "text": {"type": "string"},
                 },
-                "required": ["area", "slot", "target_item_code", "text"],
+                "required": ["area", "slot", "text"],
                 "additionalProperties": False,
             },
         }
@@ -157,16 +157,32 @@ def build_messages(
     return [{"role": "user", "content": "\n".join(lines)}]
 
 
+def _expected_item_codes(targets: list[QuestionTarget]) -> dict[tuple[str, str], str]:
+    """`(area, slot)`は8通りが対象項目1件ずつと1:1に対応する。AIに項目コードを
+    渡さず(下記`build_messages`参照)、`text`だけを書かせるための、コード側の対応表。
+    """
+    expected: dict[tuple[str, str], str] = {}
+    for target in targets:
+        expected[(target.area, SATISFIED)] = target.satisfied_item_code
+        expected[(target.area, CONCERN)] = target.concern_item_code
+    return expected
+
+
 def validate_output(output: dict[str, Any], targets: list[QuestionTarget]) -> None:
-    """4.1「サーバ側の検証」。件数・組の網羅と重複・対象項目の一致・文字数を確認する。"""
+    """4.1「サーバ側の検証」。件数・組の網羅と重複・文字数を確認する。
+
+    **`target_item_code`はAIの出力に含めず、検証もしない。** `<targets>`ブロック
+    (`build_messages`)はAIに項目名(人が読む表記)しか渡しておらず、項目コード
+    (`CAREER_FULFILLMENT`等)自体を渡していないため、AIがそれを正しく書き戻す
+    ことはそもそもできない。`(area, slot)`の組がすでに対象項目1件と1:1対応する
+    (`_expected_item_codes`)ため、`target_item_code`はコード側が付与する
+    (`generate_assessment_questions`)。
+    """
     questions = output.get("questions")
     if not isinstance(questions, list) or len(questions) != 8:
         raise OutputValidationError("questions must have exactly 8 items")
 
-    expected_item_code: dict[tuple[str, str], str] = {}
-    for target in targets:
-        expected_item_code[(target.area, SATISFIED)] = target.satisfied_item_code
-        expected_item_code[(target.area, CONCERN)] = target.concern_item_code
+    expected_item_code = _expected_item_codes(targets)
 
     seen_keys: set[tuple[str, str]] = set()
     for question in questions:
@@ -176,11 +192,6 @@ def validate_output(output: dict[str, Any], targets: list[QuestionTarget]) -> No
         if key in seen_keys:
             raise OutputValidationError(f"duplicate (area, slot) pair: {key}")
         seen_keys.add(key)
-
-        if question.get("target_item_code") != expected_item_code[key]:
-            raise OutputValidationError(
-                f"target_item_code mismatch for {key}: {question.get('target_item_code')}"
-            )
 
         text = question.get("text")
         if not isinstance(text, str) or not text or len(text) > _MAX_TEXT_LENGTH:
@@ -206,9 +217,21 @@ def generate_assessment_questions(
         schema=OUTPUT_SCHEMA,
     )
     messages = build_messages(targets, question_set)
-    return generate(
+    result = generate(
         spec,
         messages,
         validate_output=lambda output: validate_output(output, targets),
         identifiers=identifiers,
     )
+    if result.status != "SUCCEEDED" or result.output is None:
+        return result
+
+    # `target_item_code`はAIの出力に含まれない(validate_output参照)。ここでコード側が
+    # (area, slot)から一意に定まる値を付与する。呼び出し側(S-14、eval)はこれまでどおり
+    # `question["target_item_code"]`を読めばよく、ワイヤーフォーマットは変わらない。
+    expected_item_code = _expected_item_codes(targets)
+    enriched_questions = [
+        {**question, "target_item_code": expected_item_code[(question["area"], question["slot"])]}
+        for question in result.output["questions"]
+    ]
+    return dataclasses.replace(result, output={"questions": enriched_questions})

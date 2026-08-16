@@ -34,13 +34,13 @@ def _targets() -> list[QuestionTarget]:
 
 
 def _valid_output(targets: list[QuestionTarget]) -> dict[str, Any]:
+    # AIの出力は`area`/`slot`/`text`のみ(`target_item_code`は含まない。P2-13参照)。
     questions_out = []
     for target in targets:
         questions_out.append(
             {
                 "area": target.area,
                 "slot": "SATISFIED",
-                "target_item_code": target.satisfied_item_code,
                 "text": "いまどんな状況ですか。",
             }
         )
@@ -48,7 +48,6 @@ def _valid_output(targets: list[QuestionTarget]) -> dict[str, Any]:
             {
                 "area": target.area,
                 "slot": "CONCERN",
-                "target_item_code": target.concern_item_code,
                 "text": "これからどうしていきたいですか。",
             }
         )
@@ -127,10 +126,10 @@ def test_validate_output_rejects_wrong_item_count() -> None:
         raise AssertionError("OutputValidationError が送出されるはず")
 
 
-def test_validate_output_rejects_target_item_code_mismatch() -> None:
+def test_validate_output_rejects_duplicate_area_slot_pair() -> None:
     targets = _targets()
     output = _valid_output(targets)
-    output["questions"][0]["target_item_code"] = "WRONG_CODE"
+    output["questions"][1] = dict(output["questions"][0])
 
     try:
         validate_output(output, targets)

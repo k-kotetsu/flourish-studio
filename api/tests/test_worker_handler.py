@@ -96,13 +96,13 @@ def _fake_response(text: str) -> SimpleNamespace:
 
 
 def _valid_questions_json(targets: list[assessment_questions.QuestionTarget]) -> str:
+    # AIの出力は`area`/`slot`/`text`のみ(`target_item_code`は含まない。P2-13参照)。
     questions_out = []
     for target in targets:
         questions_out.append(
             {
                 "area": target.area,
                 "slot": "SATISFIED",
-                "target_item_code": target.satisfied_item_code,
                 "text": "いまどんな状況ですか。",
             }
         )
@@ -110,7 +110,6 @@ def _valid_questions_json(targets: list[assessment_questions.QuestionTarget]) ->
             {
                 "area": target.area,
                 "slot": "CONCERN",
-                "target_item_code": target.concern_item_code,
                 "text": "これからどうしていきたいですか。",
             }
         )
@@ -152,6 +151,13 @@ def test_handler_generates_assessment_questions_to_succeeded(
     assert updated is not None
     assert updated["status"] == "SUCCEEDED"
     assert len(updated["result"]["questions"]) == 8
+    # target_item_codeはAIの出力に含まれず、コード側が(area, slot)から付与する(P2-13)。
+    expected_codes = {(t.area, "SATISFIED"): t.satisfied_item_code for t in targets} | {
+        (t.area, "CONCERN"): t.concern_item_code for t in targets
+    }
+    for question in updated["result"]["questions"]:
+        key = (question["area"], question["slot"])
+        assert question["target_item_code"] == expected_codes[key]
 
 
 def test_handler_fails_assessment_questions_job_after_schema_violation_persists(

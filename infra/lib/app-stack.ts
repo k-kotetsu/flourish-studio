@@ -12,7 +12,7 @@ import { Construct } from "constructs";
 // クロスリージョン推論プロファイルの実際のルーティング先リージョンは非公開かつ
 // 変わりうるため、リージョンを列挙せずワイルドカードにする(P0-2、技術構成8.4「案B」)。
 // モデルIDを絞ることで、意図しないモデルが呼ばれてコストが跳ねる事故は引き続き防げる。
-const BEDROCK_INFERENCE_PROFILE_IDS = ["jp.anthropic.claude-sonnet-4-6", "us.anthropic.claude-haiku-4-5"];
+const BEDROCK_INFERENCE_PROFILE_IDS = ["jp.anthropic.claude-sonnet-4-6", "jp.anthropic.claude-haiku-4-5"];
 const BEDROCK_FOUNDATION_MODEL_PREFIXES = ["anthropic.claude-sonnet-4-6", "anthropic.claude-haiku-4-5"];
 
 function bedrockModelResourceArns(account: string): string[] {
