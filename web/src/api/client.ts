@@ -90,7 +90,9 @@ async function request<T>(
     };
     const retryAfterHeader = response.headers.get("Retry-After");
 
-    if (response.status === 401) {
+    // 401でも `INVALID_CREDENTIALS`（ログイン失敗、09_API設計5.5.1）はセッション切れではない。
+    // S-02はこの画面のまま失敗を表示する必要があるため、UNAUTHENTICATEDだけを対象にする。
+    if (response.status === 401 && errorBody.code === "UNAUTHENTICATED") {
       unauthorizedHandler?.();
     }
 

@@ -23,6 +23,15 @@ class InvalidPasswordError(Exception):
     """Cognitoのパスワードポリシーを満たさない(`InvalidPasswordException`)。"""
 
 
+class InvalidCredentialsError(Exception):
+    """メールアドレスまたはパスワードが正しくない。
+
+    未登録のメールアドレス(`UserNotFoundException`)とパスワード不一致
+    (`NotAuthorizedException`)を区別せず、この1種類にまとめる
+    (09_API設計5.5.1「総当たりでの登録有無の特定を防ぐ」)。
+    """
+
+
 @lru_cache
 def get_client() -> CognitoIdentityProviderClient:
     settings = get_settings()
@@ -54,3 +63,36 @@ def sign_up_and_confirm(email: str, password: str) -> str:
         Username=email,
     )
     return str(response["UserSub"])
+
+
+def authenticate(email: str, password: str) -> str:
+    """メールアドレス・パスワードで認証し、成功すれば`sub`を返す。
+
+    `AdminInitiateAuth`(`ADMIN_USER_PASSWORD_AUTH`フロー)を使う。`sign_up_and_confirm`が
+    `AdminConfirmSignUp`という管理者権限のAPIを既に使っている流儀に揃えた。認証結果の
+    `AuthenticationResult`にはIDトークンが含まれるが、デコード用の依存を増やさないため
+    `AdminGetUser`で`sub`属性を取り直す。
+    """
+    settings = get_settings()
+    if settings.cognito_user_pool_id is None or settings.cognito_user_pool_client_id is None:
+        raise RuntimeError("COGNITO_USER_POOL_ID / COGNITO_USER_POOL_CLIENT_ID is not configured")
+
+    client = get_client()
+    try:
+        client.admin_initiate_auth(
+            UserPoolId=settings.cognito_user_pool_id,
+            ClientId=settings.cognito_user_pool_client_id,
+            AuthFlow="ADMIN_USER_PASSWORD_AUTH",
+            AuthParameters={"USERNAME": email, "PASSWORD": password},
+        )
+    except (
+        client.exceptions.NotAuthorizedException,
+        client.exceptions.UserNotFoundException,
+    ) as exc:
+        raise InvalidCredentialsError from exc
+
+    user = client.admin_get_user(UserPoolId=settings.cognito_user_pool_id, Username=email)
+    for attribute in user["UserAttributes"]:
+        if attribute["Name"] == "sub":
+            return str(attribute["Value"])
+    raise RuntimeError("Cognito user has no sub attribute")

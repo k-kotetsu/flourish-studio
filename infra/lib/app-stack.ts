@@ -81,10 +81,16 @@ export class AppStack extends cdk.Stack {
     this.queue.grantSendMessages(this.apiFunction);
 
     // 登録(P3-1)がCognitoへユーザーを作成・確認するために必要な最小権限(技術構成7.2)。
-    // ログイン・Google連携等の権限は、それを実装するタスク(P3-2・P3-3)で追加する。
+    // ログイン(P3-2)は`AdminInitiateAuth`で認証し、`AdminGetUser`で`sub`を取り直す
+    // (cognito.ts参照)。Google連携等の権限は、それを実装するタスク(P3-3)で追加する。
     this.apiFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["cognito-idp:SignUp", "cognito-idp:AdminConfirmSignUp"],
+        actions: [
+          "cognito-idp:SignUp",
+          "cognito-idp:AdminConfirmSignUp",
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminGetUser",
+        ],
         resources: [props.userPool.userPoolArn],
       }),
     );

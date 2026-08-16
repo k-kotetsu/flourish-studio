@@ -1,10 +1,14 @@
-"""`POST /auth/register`。09_API設計5.5、11_技術構成7.2・7.4、08_データモデル3.4、
-スキルflourish-api。
+"""`POST /auth/register`・`POST /auth/login`。09_API設計5.5・5.5.1、11_技術構成7.2・7.4、
+08_データモデル3.4、スキルflourish-api。
 
-S-21。`fs_guest`があれば、そのゲストセッションと現在地レポートを新しいアカウントへ紐付ける。
-PROFILE作成・ASSESSMENT引き継ぎ・SESSION発行・GUESTの変換記録を1つのTransactWriteItemsで行う
-(08_データモデル3.4)。クライアントからゲストIDやassessment_idを送る必要はない
-(09_API設計2.1)ため、`fs_guest`配下のASSESSMENT#を`Query`して引き継ぎ対象を見つける。
+register(S-21)：`fs_guest`があれば、そのゲストセッションと現在地レポートを新しいアカウントへ
+紐付ける。PROFILE作成・ASSESSMENT引き継ぎ・SESSION発行・GUESTの変換記録を1つの
+TransactWriteItemsで行う(08_データモデル3.4)。クライアントからゲストIDやassessment_idを
+送る必要はない(09_API設計2.1)ため、`fs_guest`配下のASSESSMENT#を`Query`して引き継ぎ対象を
+見つける。
+
+login(S-02)：メールアドレス未登録かパスワード不一致かを区別せず、同じ`401 INVALID_CREDENTIALS`
+にまとめる(09_API設計5.5.1)。
 """
 
 import time
@@ -13,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel, EmailStr
 
-from app.core.errors import ConflictError, UnprocessableEntityError
+from app.core.errors import ConflictError, UnauthorizedError, UnprocessableEntityError
 from app.core.security import (
     GUEST_COOKIE_NAME,
     SESSION_COOKIE_NAME,
@@ -24,7 +28,7 @@ from app.db import repository
 from app.db.keys import guest_pk, user_pk
 from app.domain import cognito, weak_password
 from app.domain.guest_session import build_conversion_transact_item
-from app.domain.session import build_session_item
+from app.domain.session import build_session_item, create_session
 from app.domain.user import build_profile_item
 
 router = APIRouter()
@@ -80,4 +84,23 @@ def register(
     if fs_guest is not None:
         clear_auth_cookie(response, GUEST_COOKIE_NAME)
 
+    return {}
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/auth/login", status_code=200)
+def login(body: LoginRequest, response: Response) -> dict[str, Any]:
+    try:
+        user_id = cognito.authenticate(email=body.email, password=body.password)
+    except cognito.InvalidCredentialsError as exc:
+        raise UnauthorizedError(
+            "INVALID_CREDENTIALS", "email or password is incorrect",
+        ) from exc
+
+    token, _ = create_session(user_id)
+    set_auth_cookie(response, SESSION_COOKIE_NAME, token)
     return {}

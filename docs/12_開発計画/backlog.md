@@ -432,7 +432,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
 | ~~**P3-1**~~ ✅ | CC | M | `POST /auth/register` ＋ S-21。**ゲストデータの紐付け**、流出パスワード照合 | `09_API設計` 5.5、`11_技術構成` 7.2、7.4、`08_データモデル` 3.4 | 登録でレポートがアカウントへ移る。ゲスト側はTTLに委ねる | P1-11、P2-8 |
-| **P3-2** | CC | S | `POST /auth/login` ＋ S-02 | `04_画面設計` S-02 | ログインでホームへ | P3-1 |
+| ~~**P3-2**~~ ✅ | CC | S | `POST /auth/login` ＋ S-02 | `04_画面設計` S-02 | ログインでホームへ | P3-1 |
 | **P3-3** | CC | M | Google 連携（`/auth/google` → callback → セッション発行） | `11_技術構成` 7.5 | **トークンをブラウザに渡していないこと**を確認 | P3-1、P1-5 |
 | **P3-4** | CC | S | `POST /auth/logout`、`GET /me`、`PATCH /me` | `09_API設計` 4章 | ログアウトで `fs_guest` を再発行しない | P3-1 |
 | **P3-5** | CC | M | S-31 選択式3問（価値観・充足の瞬間・理想の毎日） | `05_質問・コンテンツ設計` 6章 | 3問が仕様どおり | P1-16 |
@@ -453,6 +453,24 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `Makefile`の`setup-api`に`boto3-stubs`の`cognito-idp`extraを追加。`api/requirements.txt`に`email-validator`を追加（`pydantic.EmailStr`用）
 - テスト：`api/tests/test_auth_register_endpoint.py`（正常系のCookie発行とPROFILE保存、`EMAIL_TAKEN`、流出パスワードでの`WEAK_PASSWORD`とCognito起因の`WEAK_PASSWORD`の両方、ゲストレポートの引き継ぎと`fs_guest`→`fs_session`の切り替え）。実際のCognito呼び出しは`sign_up_and_confirm`をフェイクに差し替えて避けた。`infra/test/app-stack.test.ts`にCognito環境変数・IAM権限の配線テストを追加
 - `make lint && make test`が通ることを確認済み。**実際のCognito呼び出し（`cdk deploy`後の実機確認）は本タスクの範囲外**（1タスク＝1セッションの方針、他タスクの完了メモと同様）
+
+**P3-2完了メモ（2026-08-16）：** `POST /auth/login`とS-02を実装した。
+
+- **着手前にユーザーへ3件確認し、判断を得た。**
+  1. `09_API設計`に`POST /auth/login`の詳細仕様（リクエスト/レスポンス形式・エラーコード）を定めるセクションが存在しなかった（5.1〜5.15のうちloginだけ欠落）。**CCが仕様を起草する**方針の了承を得て、`09_API設計`5.5.1として新規に追記した（`200`成功／`401 INVALID_CREDENTIALS`。メール未登録とパスワード不一致は区別しない）
+  2. Cognitoの呼び出し方式（`InitiateAuth`系のフロー）も仕様書に明記がなかった。**`AdminInitiateAuth`（`ADMIN_USER_PASSWORD_AUTH`フロー）を採用**（P3-1の`AdminConfirmSignUp`と同じAdmin*系APIに揃える判断）
+  3. 遷移先S-41（ホーム）はP4-8まで未実装。**`/s-41`へ`router.push`しておく**（ルート自体は後続タスクが実装するまで何も表示しないが、遷移ロジック自体は仕様どおり実装してテストする）
+- `api/app/domain/cognito.py`：`authenticate(email, password)`を追加。`AdminInitiateAuth`で認証し、成功後に`AdminGetUser`で`sub`属性を取り直す（IDトークンのデコード用ライブラリを新規に増やさない判断）。`NotAuthorizedException`・`UserNotFoundException`のどちらも`InvalidCredentialsError`にまとめる
+- `api/app/api/v1/auth.py`：`POST /auth/login`を追加。P1-11で用意済みだった`session.create_session`（未使用のまま残っていたヘルパー）をそのまま使用した
+- `infra/lib/auth-stack.ts`：UserPoolClientに`authFlows: { adminUserPassword: true }`を追加。CDKの既定値には`ADMIN_USER_PASSWORD_AUTH`が含まれず、追加しないと実機で`AdminInitiateAuth`が失敗するため必須の変更
+- `infra/lib/app-stack.ts`：APIのLambdaに`cognito-idp:AdminInitiateAuth`・`cognito-idp:AdminGetUser`のIAM権限を追加（P3-1完了メモの「ログイン等の権限はP3-2で追加する」を回収）
+- **副次的な修正：** `web/src/api/client.ts`の`onUnauthorized`ハンドラが、ステータス`401`であれば`code`を問わず発火する実装だった。ログイン失敗（`401 INVALID_CREDENTIALS`）も同じ401であるため、将来`onUnauthorized`が実際に配線された時点で「ログイン失敗のはずがセッション切れ扱いでどこかへ強制遷移する」不具合になり得ると判断し、`code === "UNAUTHENTICATED"`のときだけ発火するよう限定した。現時点では`onUnauthorized`はまだどこからも呼ばれていない（P1-17完了メモのとおり未配線）ため既存動作への影響はない
+- `web/src/views/S-02.vue`：ヘッダーは`AppHeaderSingle`（初めて使用。プログレスバーなしの単独画面型、P1-16実装済み）。メールアドレス・パスワードの入力欄、送信中は「ログイン」を無効化、失敗時は入力内容を消さず同画面にエラー表示（破ってはいけない規則2）。「トップに戻る」・ヘッダー「‹ 戻る」はいずれも`/`（現状はプレースホルダー、S-01はP6-4で実装予定）へ遷移する
+- `web/src/router/index.ts`：`/s-02`を追加
+- `api/tests/test_auth_login_endpoint.py`：成功時の`200`・Cookie発行、パスワード不一致・メール未登録どちらも`401 INVALID_CREDENTIALS`になることを確認
+- `infra/test/auth-stack.test.ts`・`infra/test/app-stack.test.ts`：`ADMIN_USER_PASSWORD_AUTH`フローの有効化、API Lambdaの`AdminInitiateAuth`/`AdminGetUser`権限を確認
+- `web/src/api/auth.spec.ts`・`web/src/api/client.spec.ts`（`onUnauthorized`の限定）・`web/src/api/errorMessages.spec.ts`・`web/src/views/S-02.spec.ts`：成功時のS-41遷移、失敗時のエラー表示と入力保持、戻る導線を確認
+- `make lint && make test`が通ることを確認済み。**完了条件「ログインでホームへ」の確認方法：** `make dev`起動下でPlaywrightを使い、S-02の実画面をライト/ダーク両テーマで確認した。このサンドボックス環境にはAWS認証情報がなくCognito呼び出しは失敗するため、実際の認証成功経路（S-41への遷移）はユニットテスト（`S-02.spec.ts`の`login()`をモックした経路）でのみ確認し、失敗経路（入力保持・エラー表示・「トップに戻る」）はブラウザで目視確認した。実際のCognito呼び出し・`cdk deploy`後の実機確認は本タスクの範囲外
 
 ---
 
