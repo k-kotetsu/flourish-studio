@@ -20,6 +20,7 @@ import S51View from "../views/S-51.vue";
 import S52View from "../views/S-52.vue";
 import S53View from "../views/S-53.vue";
 import S54View from "../views/S-54.vue";
+import S55View from "../views/S-55.vue";
 
 // SPAは "/app/*" 配下でCloudFrontから配信される(infra/lib/edge-stack.ts)。
 // ビルド成果物のアセットURLもこのbaseに合わせる必要がある(vite.config.tsのbaseと対で決める)。
@@ -130,10 +131,15 @@ export const router = createRouter({
       component: S53View,
     },
     {
-      // S-55(P4-5)はまだ実装されていないため、「この案で進む」の遷移先ルートはまだ無い
       path: "/s-54/:area",
       name: "s-54",
       component: S54View,
+    },
+    {
+      // S-56(P4-6)はまだ実装されていないため、「次へ」の遷移先ルートはまだ無い
+      path: "/s-55/:area",
+      name: "s-55",
+      component: S55View,
     },
     {
       // Storybook相当の内部確認用画面（P1-16の完了条件）。ユーザー導線には出さない

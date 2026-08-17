@@ -61,8 +61,6 @@ function regenerate(): void {
 
 function goNext(): void {
   if (!area) return;
-  // S-55(編集・確定)はP4-5が担当。ルートが無いためこの遷移は今は画面に反映されない
-  // (S-34がP3-8未実装時にとった手法を踏襲)。
   router.push(`/s-55/${AREA_META[area].slug}`);
 }
 </script>

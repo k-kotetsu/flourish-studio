@@ -20,16 +20,19 @@ describe("useAreaProposalsStore", () => {
     expect(store.proposals).toEqual([]);
     expect(store.selectedDirection).toBeNull();
     expect(store.selectedProposal).toBeNull();
+    expect(store.editedIdealState).toBeNull();
   });
 
-  it("setProposalsで3案が記録され、選択はリセットされる", () => {
+  it("setProposalsで3案が記録され、選択と編集内容はリセットされる", () => {
     const store = useAreaProposalsStore();
     store.select("DEEPEN");
+    store.setEditedIdealState("編集中の文");
 
     store.setProposals(PROPOSALS);
 
     expect(store.proposals).toEqual(PROPOSALS);
     expect(store.selectedDirection).toBeNull();
+    expect(store.editedIdealState).toBeNull();
   });
 
   it("selectで選択した方向が記録され、selectedProposalがその案を返す", () => {
@@ -42,14 +45,37 @@ describe("useAreaProposalsStore", () => {
     expect(store.selectedProposal).toEqual(PROPOSALS[1]);
   });
 
+  it("selectし直すと、それまでの編集内容はリセットされる", () => {
+    const store = useAreaProposalsStore();
+    store.setProposals(PROPOSALS);
+    store.select("DEEPEN");
+    store.setEditedIdealState("編集中の文");
+
+    store.select("CHANGE");
+
+    expect(store.editedIdealState).toBeNull();
+  });
+
+  it("setEditedIdealStateで編集後の文を記録する", () => {
+    const store = useAreaProposalsStore();
+    store.setProposals(PROPOSALS);
+    store.select("DEEPEN");
+
+    store.setEditedIdealState("書き換えた理想の状態。");
+
+    expect(store.editedIdealState).toBe("書き換えた理想の状態。");
+  });
+
   it("resetで空に戻る", () => {
     const store = useAreaProposalsStore();
     store.setProposals(PROPOSALS);
     store.select("DEEPEN");
+    store.setEditedIdealState("編集中の文");
 
     store.reset();
 
     expect(store.proposals).toEqual([]);
     expect(store.selectedDirection).toBeNull();
+    expect(store.editedIdealState).toBeNull();
   });
 });
