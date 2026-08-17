@@ -588,7 +588,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P4-1**~~ ✅ | CC | S | S-50 最初の領域を選ぶ。「あとで」でスキップ | `05_質問・コンテンツ設計` 9.1 | 推奨や優先度を出さない | P3-8 |
 | ~~**P4-2**~~ ✅ | CC | L | **S-51 領域の選択式3問 × 4領域分。** Q2・Q3 は領域ごとに10選択肢 | `05_質問・コンテンツ設計` 9.2（全文） | 4領域すべての選択肢が仕様どおり | P2-1 |
 | ~~**P4-3**~~ ✅ | CC | M | P-05 対話（SSE）＋ S-52。2往復。**ありたい姿を常時表示** | `10_AIプロンプト設計` 4.5 | 2往復目で必ずありたい姿に触れる | P3-6、P4-2 |
-| **P4-4** | CC | M | P-06 3案生成 ＋ S-53 → S-54。深める／変える／広げる | `10_AIプロンプト設計` 4.6、`05_質問・コンテンツ設計` 9.4 | **順序固定。回答で並べ替えない** | P4-3 |
+| ~~**P4-4**~~ ✅ | CC | M | P-06 3案生成 ＋ S-53 → S-54。深める／変える／広げる | `10_AIプロンプト設計` 4.6、`05_質問・コンテンツ設計` 9.4 | **順序固定。回答で並べ替えない** | P4-3 |
 | **P4-5** | CC | S | S-55 理想状態の編集 | `05_質問・コンテンツ設計` 9.5 | 上部にありたい姿を表示し続ける | P4-4 |
 | **P4-6** | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
 | **P4-7** | CC | M | S-57 閲覧 / S-58 編集 ＋ `GET`/`PUT /area-plans/{area}` | `09_API設計` 5.12、`08_データモデル` 4.5 | **`goal_key` の引き継ぎ**をテストで確認 | P4-6 |
@@ -633,6 +633,23 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_area_choices.py`／`test_area_dialogue_prompt.py`／`test_ai_area_dialogue_endpoint.py`：選択肢マスタの検証（領域をまたぐcode混在の拒否を含む）、`build_messages`の`<purpose>`/`<area>`/`<choices>`/`<turn>`組み立てとエスケープ、`stream_reply`の成功・エラー各経路・EMF記録、エンドポイントの401/422/400/409(`PURPOSE_REQUIRED`)/429とSSE応答本文を確認した（`app.ai.prompts.area_dialogue.get_client`をフェイクに差し替え、実際のBedrockへは接続しない）
 - `web/src/api/areaDialogue.spec.ts`／`web/src/stores/areaDialogue.spec.ts`／`web/src/stores/areaChoices.spec.ts`（新規）／`web/src/views/S-52.spec.ts`：SSEパース、ストアの`canCreateIdealState`・`asChoices`、画面の未知領域/未回答時の差し戻し、ありたい姿の常時表示、自動1往復目生成、CTA出現と遷移、失敗時のエラー表示、「‹ 戻る」でのS-51直接遷移、ありたい姿取得失敗時のエラー表示を確認した
 - `make lint && make test`が通ることを確認済み（api 273件・web 244件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`をネットワークレベルでフェイクに差し替えて、S-51→S-52の実画面遷移、ありたい姿の表示、2往復のチャット、「理想の状態を作る」の出現、「‹ 戻る」でのS-51復帰を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
+
+**P4-4完了メモ（2026-08-17）：** P-06（`AREA_PROPOSALS`）の理想状態3案生成と、S-53（3案生成中）→S-54（3案提示・選択）を実装した。P3-7（`PURPOSE_PROPOSALS`）と同じ非同期ジョブの型に、完了条件が要求する「順序固定」の検証を上乗せした。
+
+- **`effort`/`max_tokens`の食い違いを1件確認した。** P2-5・P2-8・P3-6・P3-7・P4-3と同種で、`10_AIプロンプト設計`4.6（`high`/8,000）とスキル`flourish-ai`の対応表（`PURPOSE_PROPOSALS`/`AREA_PROPOSALS`まとめて`medium`/6,000）が食い違っていたため、確立済みの「ドキュメント優先」を踏襲し4.6の値を採用した（6件目の同種の食い違い。スキル側の表は未修正のまま残る）
+- **サーバ側の検証がP-04と異なる点を1つ実装した。** 4.6「サーバ側の検証」は「P-04と同じ（3件、direction重複なし、順序固定、相互不一致）」と、P-04には無い「順序固定」を明示的に加えている。`api/app/ai/prompts/area_proposals.py`の`validate_output`は`zip(DIRECTIONS, proposals, strict=True)`で位置ごとに期待する`direction`と比較し、AIが並べ替えて出力した場合は`OutputValidationError`（再生成→それでも直らなければ`FAILED`）にする。3件ちょうど・重複なし・全方向網羅は、この位置検証だけで自動的に満たされるため、P-04のような集合ベースの検証は行っていない
+- `api/app/ai/prompts/area_proposals.py`：新規。個別ブロック・出力スキーマ（4.6から一字一句書き写した。ただし例の1行がruffの行幅制限〔全角文字を幅2で数える〕を超えたため、文意を変えずに改行位置だけ調整した）、`<purpose>`・`<area>`・`<choices>`・`<conversation>`の組み立て（`<turn>`は含めない。往復目の概念が無い、`PURPOSE_PROPOSALS`と同じ判断）、`validate_output`、`generate_area_proposals`を実装した。`<choices>`の組み立ては`area_dialogue.build_choices_block`（P4-3）を、`<conversation>`・`DialogueMessage`は`purpose_dialogue`（P3-6）を再利用した（`PURPOSE_PROPOSALS`が確立した「ビルダー関数の共有」パターンをそのまま踏襲）
+- **確定済みの「ありたい姿」はクライアントから送らせず、サーバーが`PURPOSE#CURRENT`から読む。** `ai_area_dialogue.py`（P4-3）と同じ判断（4.6「確定済みの『ありたい姿』につながっている必要がある」を、クライアント入力に委ねず改変・混入を防ぐため）。現行の`PURPOSE`が無ければ同じく`409 PURPOSE_REQUIRED`を流用する
+- `api/app/api/v1/ai_area_proposals.py`：`POST /ai/area-proposals`。`require_session`・`validate_area_choices`・`PURPOSE_REQUIRED`チェック・登録済みユーザーのレート制限を経て、サーバーが読んだ`purpose_statement`を含めてSQSペイロードに乗せワーカーへ渡す（JOBアイテムは入力を保存しない。09_API設計5.2）。`Idempotency-Key`は`ai_purpose_proposals.py`と同じ扱いで受け付ける
+- `api/app/worker/handler.py`：`AREA_PROPOSALS`の分岐を追加した。保存しない（S-55経由の`POST /area-plans`、P4-6で確定時にはじめて保存する）
+- `api/tests/test_area_proposals_prompt.py`／`test_ai_area_proposals_endpoint.py`／`test_worker_handler.py`（追加分）：**完了条件「順序固定。回答で並べ替えない」**は、AIが逆順で出力したケースを`validate_output`・ワーカー統合テストの両方で`AI_OUTPUT_INVALID`になることを確認して満たした。既存の`test_handler_processes_a_dummy_job_to_succeeded`等はダミーkindを`AREA_PROPOSALS`から未実装の`REFLECTION_SUMMARY`に差し替えた（P2-8・P3-7が同種の差し替えを行った前例を踏襲）
+- `web/src/api/areaProposals.ts`：`generateAreaProposals`。`purposeProposals.ts`と同型で、リクエストに`purpose_statement`は含めない（サーバーが読むため。`areaDialogue.ts`と同じ設計）
+- `web/src/stores/areaProposals.ts`：`purposeProposals`ストアと同型。S-55（P4-5、未実装）へURLではなくクライアント状態で渡す想定
+- `web/src/views/S-53.vue`：新規。S-33と同じ構成（`GeneratingScreen`、失敗時は同画面の中身が入れ替わる、自動リトライしない）に、4領域共通の1画面としてルートパラメータ(`:area`)で切り替える構成（S-51・S-52が確立した設計）を組み合わせた。**ヘッダーの表示に、ワイヤーフレーム文書内の矛盾を1件見つけて判断した。** `wireframe-spec.md`1.1の表はS-53のstepを「なし」（太字で強調）、48行目の一般則は「生成中画面（…S-53…）はステップ番号を出さない。バーは直前のステップの位置で止める」と明記し、`mockup.html`の`s53()`も`pct:40`（S-52と同じ値）で実装されている。一方、同文書6章の本文見出しには「ヘッダー：戻るなし＋プログレス（3 / 5）」という記述があり、これらと食い違う。**表・一般則・mockmpの3点が一致し、かつS-33（P3-7）が同種の食い違いを「直前のステップの位置で止める」で解決した前例がある**ため、6章本文の記述を単純な記載漏れ（他の生成中画面の書式を書き写す際の消し忘れ）と判断し、質問せずpercent=40・stepなしを採用した
+- `web/src/views/S-54.vue`：新規。S-34と同じ構成（3案を固定順で並べ、1案選ぶまで「この案で進む」を無効化）。表示順は`DIRECTION_ORDER = ["DEEPEN", "CHANGE", "EXPAND"]`で固定し、サーバー側で順序を検証済みではあるが、S-34がAI出力の順序に依存しない表示にした前例をそのまま踏襲した。ガード失敗時の差し戻し先は、S-53（生成中の一時画面）を飛ばしてS-52（実質的な入力画面）へ、3案が揃っていない場合はS-51（その領域の入口）へ（S-34の「S-33を飛ばしてS-32へ」「揃っていなければS-31へ」という2段階の判断をそのまま踏襲）
+- `web/src/router/index.ts`：`/s-53/:area`・`/s-54/:area`を追加。S-52ルートの「S-53未実装」コメントを削除した
+- `web/src/api/areaProposals.spec.ts`／`web/src/stores/areaProposals.spec.ts`／`web/src/views/S-53.spec.ts`／`web/src/views/S-54.spec.ts`：ジョブ完了待ち・ストアの選択/リセット、画面の未知領域/対話未完了時の差し戻し、生成成功時の同一領域S-54への遷移、失敗時のインラインエラー、「もう一度やってみる」の手動再試行、「対話に戻る」でのS-52復帰、3案の固定順表示（AI出力の順序に依存しないこと）、未選択時の無効化、選択後のS-55遷移、「3つとも作り直す」でのS-53再遷移を確認した
+- `make lint && make test`が通ることを確認済み（api 291件・web 263件・infra 30件、全てpass）。加えて`make dev`起動下でPlaywrightを使い、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`・`POST /ai/area-proposals`・`GET /jobs/{id}`をネットワークレベルでフェイクに差し替えて、S-51→S-52（2往復）→S-53→S-54の実画面遷移を通した。3案がDEEPEN→CHANGE→EXPANDの固定順で表示されること、選択で「この案で進む」が有効になることを、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。S-53の失敗表示（「対話に戻る」ボタン含む）も別シナリオで確認した。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
 
 ---
 

@@ -11,6 +11,7 @@ from app.db import repository
 from app.db.keys import assessment_sk
 from app.domain import job as job_domain
 from app.domain import questions
+from app.domain.area_choices import ChoiceAnswer as AreaChoiceAnswer
 from app.domain.assessment_precompute import FreeTextAnswer, ScaleAnswer, pick_free_text_targets
 from app.domain.purpose_choices import ChoiceAnswer
 from app.worker.handler import handler
@@ -27,31 +28,33 @@ def test_handler_returns_ok_for_empty_event() -> None:
 
 
 def test_handler_processes_a_dummy_job_to_succeeded() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALSはP2-5/P2-8/P3-7で実処理に
-    # 分岐したため、ここでは未実装のままダミー処理(雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALSは
+    # P2-5/P2-8/P3-7/P4-4で実処理に分岐したため、ここでは未実装のままダミー処理
+    # (雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
-    job_id, item = job_domain.create_job(owner, "AREA_PROPOSALS")
+    job_id, item = job_domain.create_job(owner, "REFLECTION_SUMMARY")
     assert item["status"] == "QUEUED"
 
-    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "AREA_PROPOSALS"})}]}
+    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "REFLECTION_SUMMARY"})}]}
     result = handler(event, object())
 
     assert result == {"status": "ok"}
     updated = job_domain.get_job(job_id)
     assert updated is not None
     assert updated["status"] == "SUCCEEDED"
-    assert updated["result"] == {"echo": "AREA_PROPOSALS"}
+    assert updated["result"] == {"echo": "REFLECTION_SUMMARY"}
 
 
 def test_handler_processes_multiple_records() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALSはP2-5/P2-8/P3-7で実処理に
-    # 分岐したため、ここでは未実装のままダミー処理(雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALSは
+    # P2-5/P2-8/P3-7/P4-4で実処理に分岐したため、ここでは未実装のままダミー処理
+    # (雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
-    job_id_a, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+    job_id_a, _ = job_domain.create_job(owner, "REFLECTION_SUMMARY")
     job_id_b, _ = job_domain.create_job(owner, "GOAL_HINTS")
     event = {
         "Records": [
-            {"body": json.dumps({"job_id": job_id_a, "kind": "AREA_PROPOSALS"})},
+            {"body": json.dumps({"job_id": job_id_a, "kind": "REFLECTION_SUMMARY"})},
             {"body": json.dumps({"job_id": job_id_b, "kind": "GOAL_HINTS"})},
         ],
     }
@@ -386,6 +389,118 @@ def test_handler_fails_purpose_proposals_job_when_fewer_than_three_persist(
     job_id, _ = job_domain.create_job(owner, "PURPOSE_PROPOSALS")
 
     handler(_purpose_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "FAILED"
+    assert updated["error"]["code"] == "AI_OUTPUT_INVALID"
+    assert updated["error"]["retryable"] is True
+
+
+def _area_proposals_payload() -> dict[str, Any]:
+    choices = [
+        AreaChoiceAnswer(question_code="Q1", option_codes=["CAREER_FULFILLMENT"]),
+        AreaChoiceAnswer(question_code="Q2", option_codes=["CAREER_VALUE_GROWTH"]),
+        AreaChoiceAnswer(question_code="Q3", option_codes=["CAREER_POSITION_GROWTH"]),
+    ]
+    messages = [
+        {"role": "AI", "body": "「成長」を選ばれていました。何か思い当たることがありましたか。"},
+        {"role": "USER", "body": "前の職場で任される範囲が広がったときに実感しました。"},
+        {"role": "AI", "body": "それが実現したとき、ありたい姿にどう近づきますか。"},
+        {"role": "USER", "body": "自分から言葉にできる状態に近づきます。"},
+    ]
+    return {
+        "purpose_statement": "まわりの人が安心して力を出せる存在でありたい。",
+        "area": "CAREER",
+        "choices": [dataclasses.asdict(choice) for choice in choices],
+        "messages": messages,
+    }
+
+
+def _valid_area_proposals_json() -> str:
+    return json.dumps(
+        {
+            "proposals": [
+                {
+                    "direction": "DEEPEN",
+                    "label": "今の場所で深める",
+                    "ideal_state": "今の仕事の中で自分の強みが言葉になっている。",
+                },
+                {
+                    "direction": "CHANGE",
+                    "label": "やり方を変える",
+                    "ideal_state": "働き方や役割を組み替えて、自分に合う進め方が見つかっている。",
+                },
+                {
+                    "direction": "EXPAND",
+                    "label": "外に出る",
+                    "ideal_state": "社外の人と接点があり、会社の外でも通用する選択肢を持てている。",
+                },
+            ],
+            "safety_flag": False,
+        }
+    )
+
+
+def _area_proposals_event(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    body = {"job_id": job_id, "kind": "AREA_PROPOSALS", "payload": payload}
+    return {"Records": [{"body": json.dumps(body)}]}
+
+
+def test_handler_generates_area_proposals_to_succeeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """完了条件「順序固定。回答で並べ替えない」(P4-4)。"""
+    payload = _area_proposals_payload()
+    fake_client = _FakeClient([_fake_response(_valid_area_proposals_json())])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+
+    handler(_area_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "SUCCEEDED"
+    proposals = updated["result"]["proposals"]
+    assert len(proposals) == 3
+    assert [proposal["direction"] for proposal in proposals] == ["DEEPEN", "CHANGE", "EXPAND"]
+
+
+def test_handler_fails_area_proposals_job_when_order_is_wrong(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AIが並べ替えて出力しても、サーバー側の検証がFAILEDにする(再生成しても直らない)。"""
+    payload = _area_proposals_payload()
+    wrong_order = json.loads(_valid_area_proposals_json())
+    wrong_order["proposals"] = list(reversed(wrong_order["proposals"]))
+    invalid_text = json.dumps(wrong_order)
+    fake_client = _FakeClient([_fake_response(invalid_text), _fake_response(invalid_text)])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+
+    handler(_area_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "FAILED"
+    assert updated["error"]["code"] == "AI_OUTPUT_INVALID"
+
+
+def test_handler_fails_area_proposals_job_when_fewer_than_three_persist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """完了条件「3件未満はFAILED」(P-04と同じ検証をP4-4にも適用)。"""
+    payload = _area_proposals_payload()
+    invalid_text = json.dumps({"proposals": [], "safety_flag": False})  # 再生成しても直らない
+    fake_client = _FakeClient([_fake_response(invalid_text), _fake_response(invalid_text)])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    owner = f"USER#{_uid()}"
+    job_id, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
+
+    handler(_area_proposals_event(job_id, payload), object())
 
     updated = job_domain.get_job(job_id)
     assert updated is not None

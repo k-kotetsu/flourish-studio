@@ -10,9 +10,15 @@ SQSはmaxReceiveCount=1で自動リトライしない(破ってはいけない�
 import json
 from typing import Any
 
-from app.ai.prompts import assessment_questions, assessment_report, purpose_proposals
+from app.ai.prompts import (
+    area_proposals,
+    assessment_questions,
+    assessment_report,
+    purpose_proposals,
+)
 from app.ai.prompts.purpose_dialogue import DialogueMessage
 from app.domain import job as job_domain
+from app.domain.area_choices import ChoiceAnswer as AreaChoiceAnswer
 from app.domain.assessment import build_assessment_item, now_iso
 from app.domain.assessment_precompute import FreeTextAnswer, ScaleAnswer, compute_commitment
 from app.domain.purpose_choices import ChoiceAnswer
@@ -44,6 +50,9 @@ def _process_record(record: dict[str, Any]) -> None:
         return
     if kind == "PURPOSE_PROPOSALS":
         _process_purpose_proposals(job_id, body.get("payload", {}))
+        return
+    if kind == "AREA_PROPOSALS":
+        _process_area_proposals(job_id, body.get("payload", {}))
         return
 
     job_domain.mark_succeeded(job_id, result={"echo": current["kind"]})
@@ -106,6 +115,27 @@ def _process_purpose_proposals(job_id: str, payload: dict[str, Any]) -> None:
     # 09_API設計5.7「保存しない」。POST /purposes(P3-8)で確定時にはじめて保存する。
     result = purpose_proposals.generate_purpose_proposals(
         choices, messages, identifiers={"job_id": job_id}
+    )
+    if result.status == "SUCCEEDED":
+        assert result.output is not None
+        job_domain.mark_succeeded(job_id, result=result.output)
+    else:
+        assert result.error is not None
+        job_domain.mark_failed(job_id, code=result.error.code, retryable=result.error.retryable)
+
+
+def _process_area_proposals(job_id: str, payload: dict[str, Any]) -> None:
+    choices = [AreaChoiceAnswer(**choice) for choice in payload["choices"]]
+    messages = [DialogueMessage(**message) for message in payload["messages"]]
+
+    # 09_API設計6章「S-53生成中」相当。保存しない。
+    # POST /area-plans(P4-6)で確定時にはじめて保存する。
+    result = area_proposals.generate_area_proposals(
+        payload["purpose_statement"],
+        payload["area"],
+        choices,
+        messages,
+        identifiers={"job_id": job_id},
     )
     if result.status == "SUCCEEDED":
         assert result.output is not None
