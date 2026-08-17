@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { AreaDialogueChoice } from "../api/areaDialogue";
 import type { Area } from "../domain/questions";
 
 /**
@@ -14,6 +15,15 @@ export const useAreaChoicesStore = defineStore("areaChoices", {
     values: [] as string[],
     positions: [] as string[],
   }),
+  getters: {
+    // S-52(P4-3)・S-53(P4-4)の両方がこの形を要求する(`POST /ai/area-dialogue`のchoices)。
+    // purposeChoicesストアのasChoicesと同じ考え方でストア側に置き、呼び出し側で組み立てない。
+    asChoices: (state): AreaDialogueChoice[] => [
+      { question_code: "Q1", option_codes: state.changeItemCode ? [state.changeItemCode] : [] },
+      { question_code: "Q2", option_codes: state.values },
+      { question_code: "Q3", option_codes: state.positions },
+    ],
+  },
   actions: {
     setAnswers(answers: { area: Area; changeItemCode: string; values: string[]; positions: string[] }): void {
       this.area = answers.area;

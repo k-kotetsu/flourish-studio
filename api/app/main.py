@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.v1 import (
+    ai_area_dialogue,
     ai_assessment_questions,
     ai_purpose_dialogue,
     ai_purpose_proposals,
@@ -27,6 +28,7 @@ app.include_router(me.router, prefix="/api/v1")
 app.include_router(ai_purpose_dialogue.router, prefix="/api/v1")
 app.include_router(ai_purpose_proposals.router, prefix="/api/v1")
 app.include_router(purposes.router, prefix="/api/v1")
+app.include_router(ai_area_dialogue.router, prefix="/api/v1")
 
 
 @app.get("/health")

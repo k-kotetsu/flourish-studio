@@ -587,7 +587,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 |---|---|---|---|---|---|---|
 | ~~**P4-1**~~ ✅ | CC | S | S-50 最初の領域を選ぶ。「あとで」でスキップ | `05_質問・コンテンツ設計` 9.1 | 推奨や優先度を出さない | P3-8 |
 | ~~**P4-2**~~ ✅ | CC | L | **S-51 領域の選択式3問 × 4領域分。** Q2・Q3 は領域ごとに10選択肢 | `05_質問・コンテンツ設計` 9.2（全文） | 4領域すべての選択肢が仕様どおり | P2-1 |
-| **P4-3** | CC | M | P-05 対話（SSE）＋ S-52。2往復。**ありたい姿を常時表示** | `10_AIプロンプト設計` 4.5 | 2往復目で必ずありたい姿に触れる | P3-6、P4-2 |
+| ~~**P4-3**~~ ✅ | CC | M | P-05 対話（SSE）＋ S-52。2往復。**ありたい姿を常時表示** | `10_AIプロンプト設計` 4.5 | 2往復目で必ずありたい姿に触れる | P3-6、P4-2 |
 | **P4-4** | CC | M | P-06 3案生成 ＋ S-53 → S-54。深める／変える／広げる | `10_AIプロンプト設計` 4.6、`05_質問・コンテンツ設計` 9.4 | **順序固定。回答で並べ替えない** | P4-3 |
 | **P4-5** | CC | S | S-55 理想状態の編集 | `05_質問・コンテンツ設計` 9.5 | 上部にありたい姿を表示し続ける | P4-4 |
 | **P4-6** | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
@@ -616,6 +616,23 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/router/index.ts`：`/s-51/:area`を追加
 - `web/src/views/S-51.spec.ts`：領域名・ありたい姿の表示、3問（Q1が5択・Q2/Q3が各10択）の表示、領域ごとにQ2/Q3の文言と選択肢が変わること（Financialで確認）、ありたい姿取得失敗時のエラー表示（設問を出さない）、未回答時の「次へ」無効化、全問回答での有効化、回答のstore記録と`/s-52/career`への遷移、未知の領域パラメータでの`/s-50`差し戻し、中断ダイアログの「やめる」（storeリセット＋`/s-41`遷移）・「つづける」を確認した
 - `make lint && make test`が通ることを確認済み（api 240件・web 219件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB LocalへCognitoを介さず直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し（P3-7以降が確立したパターン）、Playwrightで`/s-51/career`の実画面をライト／ダーク両テーマでスクリーンショット確認（コンソールエラーなし）。未認証での`GET /purposes/current`失敗時のエラー文言表示、未知の領域パラメータでの`/s-50`差し戻し、全問回答→「次へ」での`/s-52/career`へのURL遷移も確認した
+
+**P4-3完了メモ（2026-08-17）：** P-05（`AREA_DIALOGUE`）のSSE対話と、S-52（領域：AI対話）を実装した。S-32（P3-6）と同じ型のチャットUIを踏襲し、対象領域とありたい姿の扱いだけが加わる。
+
+- **`effort`/`max_tokens`の食い違いを1件確認した。** P2-5・P2-8・P3-6・P3-7と同種で、`10_AIプロンプト設計`4.5（`medium`/4,000）とスキル`flourish-ai`の対応表（`PURPOSE_DIALOGUE`/`AREA_DIALOGUE`まとめて`low`/3,000）が食い違っていたため、確立済みの「ドキュメント優先」を踏襲し`medium`/4,000を採用した（5件目の同種の食い違い。スキル側の表は未修正のまま残る）
+- **判断：確定済みの「ありたい姿」はクライアントから送らせず、サーバーが`PURPOSE#CURRENT`から読む。** 4.5の個別ブロックは「一字一句そのまま使う」ことを前提にしており、クライアント入力に委ねると改変・別ユーザーの文言の混入を防げない。P-02（`ASSESSMENT_REPORT`）の`<context>`をサーバー側で計算する判断と同じ考え方を踏襲した。現行の`PURPOSE`が無ければ、`09_API設計`5.11が`POST /area-plans`向けに定義済みの`409 PURPOSE_REQUIRED`をそのまま流用した（ルートレベルの認証・前提画面ガードがまだ無く、S-51を経ずに直接この画面に到達した場合の防御にもなる）
+- `api/app/domain/area_choices.py`：新規。S-51（P4-2）の選択肢マスタのサーバー側対応表。Q1（いちばん変えたい項目）は`app.domain.questions`の5項目を領域で絞り込んで再利用し、Q2・Q3（各10項目×4領域）は`web/src/domain/areaChoices.ts`と1:1で書き写した。`validate_area_choices`は`purpose_choices.validate_choices`と同じ考え方（全問必須、Q1のみ単一選択）
+- `api/app/ai/prompts/area_dialogue.py`：新規。個別ブロック（4.5から一字一句書き写した）、`build_messages`（`<purpose>`・`<area>`・`<choices>`・`<turn>`・`<conversation>`の組み立て）、`stream_reply`を実装した。`DialogueMessage`・`compute_turn`・`build_conversation_block`は`purpose_dialogue.py`から再利用した（`PURPOSE_PROPOSALS`が`purpose_dialogue`のビルダー関数を共有する既存パターンと同じ）。セーフティ判定は案Bのまま（P-03と同一）。往復数の頭打ちは2(`TOTAL_TURNS`)に変わる
+- **判断：Q2・Q3のプロンプト用ラベル（`QUESTION_LABELS`）は4.5の入力例がCareerのみ明記していたため、他3領域は同じパターン（領域名の名詞を差し替え）で作成した。** UIの設問文（`AREA_VALUES_PROMPT`等）とは別の、プロンプト専用の短い表記という位置づけは`purpose_choices.py`のQUESTION_LABELSと同じ
+- `api/app/api/v1/ai_area_dialogue.py`：`POST /ai/area-dialogue`。`require_session`、`validate_area_choices`、`compute_turn`、`PURPOSE_REQUIRED`チェック、登録済みユーザーのレート制限を経て`StreamingResponse`を返す。`Idempotency-Key`は`ai_purpose_dialogue.py`と同じ理由で受け付けない
+- `web/src/api/areaDialogue.ts`：`purposeDialogue.ts`と同型。`streamAreaDialogue(area, choices, messages, callbacks, signal)`。リクエストに`purpose_statement`は含めない（サーバーが読むため）
+- `web/src/stores/areaDialogue.ts`：新規。`remaining`初期値2、`canCreateIdealState`ゲッター（`purposeDialogue`ストアの`canCreateProposals`と同型）
+- `web/src/stores/areaChoices.ts`：`asChoices`ゲッターを追加した。S-52・S-53（P4-4）の両方が同じ`choices`形式を要求するため、`purposeChoices`ストアの`asChoices`と同じ考え方でストア側に持たせた
+- `web/src/views/S-52.vue`：新規。S-32と同じ構成（自動1往復目、インラインの応答待ち、失敗時のインラインエラー＋再送、2往復完了後も入力欄を残す）に、上部の「ありたい姿」常時表示カード（`GET /purposes/current`をS-51と同様に独自取得。表示専用で、AI対話自体に渡す文言はサーバー側が読む）を加えた。ヘッダーは`AppHeaderFlow`（`left-action="back"`→S-51〔同じ領域〕、`step="2 / 5"`、`percent=40`、`wireframe-spec.md`1.1の値どおり）。CTA文言「理想の状態を作る」はscreen-list.md S-52の「遷移先」表記をそのまま使った。遷移先S-53（P4-4、未実装）は、S-11がP2-3未実装時にとった手法と同じく遷移ロジックのみ実装した
+- `web/src/router/index.ts`：`/s-52/:area`を追加
+- `api/tests/test_area_choices.py`／`test_area_dialogue_prompt.py`／`test_ai_area_dialogue_endpoint.py`：選択肢マスタの検証（領域をまたぐcode混在の拒否を含む）、`build_messages`の`<purpose>`/`<area>`/`<choices>`/`<turn>`組み立てとエスケープ、`stream_reply`の成功・エラー各経路・EMF記録、エンドポイントの401/422/400/409(`PURPOSE_REQUIRED`)/429とSSE応答本文を確認した（`app.ai.prompts.area_dialogue.get_client`をフェイクに差し替え、実際のBedrockへは接続しない）
+- `web/src/api/areaDialogue.spec.ts`／`web/src/stores/areaDialogue.spec.ts`／`web/src/stores/areaChoices.spec.ts`（新規）／`web/src/views/S-52.spec.ts`：SSEパース、ストアの`canCreateIdealState`・`asChoices`、画面の未知領域/未回答時の差し戻し、ありたい姿の常時表示、自動1往復目生成、CTA出現と遷移、失敗時のエラー表示、「‹ 戻る」でのS-51直接遷移、ありたい姿取得失敗時のエラー表示を確認した
+- `make lint && make test`が通ることを確認済み（api 273件・web 244件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`をネットワークレベルでフェイクに差し替えて、S-51→S-52の実画面遷移、ありたい姿の表示、2往復のチャット、「理想の状態を作る」の出現、「‹ 戻る」でのS-51復帰を、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
 
 ---
 
