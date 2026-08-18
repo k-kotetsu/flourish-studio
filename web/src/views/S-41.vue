@@ -7,8 +7,9 @@
  * 「未完成」「空欄」という語は使わず、未作成の領域は破線カード＋「これから育てる」表現で示す
  * (原則2、wireframe-spec.md「未完成・空欄という語は使わない」)。
  *
- * 【判断】テーマ切替トグル自体はP4-9の担当。`AppHeaderHub`の`right`スロットは
- * P4-9が差し込むまで空のままにする(AppHeaderHubのコメントに合わせた判断)。
+ * 【判断】テーマ切替トグル（P4-9）は`AppHeaderHub`の`right`スロットに差し込む。
+ * `GET /home`が返す`theme_preference`をマウント時に`themeStore.syncFromServer`へ渡し、
+ * アカウントに保存された選択を端末をまたいで一致させる(07_デザイン原則3.1)。
  * 【判断】記事・ツールカードの遷移先画面はscreen-list.mdが「作らない」と明記しているため、
  * クリックハンドラを持たせず`<div>`のまま「準備中」ラベルのみを表示する。
  * 【判断】`ideal_state_summary`はサーバー側で切り詰めていない(`app/domain/home.py`の判断)。
@@ -24,15 +25,19 @@ import { messageForCode } from "../api/errorMessages";
 import { getHome, type HomeResponse } from "../api/home";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderHub from "../components/AppHeaderHub.vue";
+import ThemeToggle from "../components/ThemeToggle.vue";
 import { AREA_META, type Area } from "../domain/questions";
+import { useThemeStore } from "../stores/theme";
 
 const router = useRouter();
+const themeStore = useThemeStore();
 const home = ref<HomeResponse | null>(null);
 const errorMessage = ref("");
 
 onMounted(async () => {
   try {
     home.value = await getHome();
+    themeStore.syncFromServer(home.value.theme_preference);
   } catch (error) {
     errorMessage.value =
       error instanceof ApiError ? messageForCode(error.code) : messageForCode("NETWORK_ERROR");
@@ -57,7 +62,11 @@ function goToReflection(): void {
 
 <template>
   <div class="s41">
-    <AppHeaderHub title="Flourish Studio" />
+    <AppHeaderHub title="Flourish Studio">
+      <template #right>
+        <ThemeToggle />
+      </template>
+    </AppHeaderHub>
 
     <div
       v-if="home"
