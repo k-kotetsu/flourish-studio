@@ -591,7 +591,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P4-4**~~ ✅ | CC | M | P-06 3案生成 ＋ S-53 → S-54。深める／変える／広げる | `10_AIプロンプト設計` 4.6、`05_質問・コンテンツ設計` 9.4 | **順序固定。回答で並べ替えない** | P4-3 |
 | ~~**P4-5**~~ ✅ | CC | S | S-55 理想状態の編集 | `05_質問・コンテンツ設計` 9.5 | 上部にありたい姿を表示し続ける | P4-4 |
 | ~~**P4-6**~~ ✅ | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
-| **P4-7** | CC | M | S-57 閲覧 / S-58 編集 ＋ `GET`/`PUT /area-plans/{area}` | `09_API設計` 5.12、`08_データモデル` 4.5 | **`goal_key` の引き継ぎ**をテストで確認 | P4-6 |
+| ~~**P4-7**~~ ✅ | CC | M | S-57 閲覧 / S-58 編集 ＋ `GET`/`PUT /area-plans/{area}` | `09_API設計` 5.12、`08_データモデル` 4.5 | **`goal_key` の引き継ぎ**をテストで確認 | P4-6 |
 | **P4-8** | CC | M | **S-41 ホーム ＋ `GET /home`。** BatchGet 1回、未作成は破線 | `09_API設計` 5.9、`04_画面設計` S-41、`07_デザイン原則` 原則2 | 「未完成」「空欄」と表示しない。立ち上がりの演出 | P4-7 |
 | **P4-9** | CC | S | テーマ切替トグル（自動→ライト→ダーク→自動） | `07_デザイン原則` 3.2 | ホーム以外に置かない。アカウントに保存 | P4-8、P3-4 |
 
@@ -675,6 +675,20 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_goal_hints_prompt.py`／`test_ai_goal_hints_endpoint.py`／`test_area_plans_endpoint.py`：401・409（PURPOSE_REQUIRED）・429・422（GOALS_REQUIRED、0件と4件以上の両方）・タイムアウト時の503・スキーマ違反時に再生成せず503になること・GOAL_HINTSの`timeout`が実際にBedrock呼び出しへ渡ること・バージョン管理（2回目の確定でversion 2＆HIST退避）・`goal_key`/`sort_order`の採番（クライアントの`sort_order`を無視して配列順で振り直すこと）を確認した。`test_ai_runner.py`にも`spec.timeout`の伝播・非設定時に`timeout`引数自体を渡さないことのテストを追加した
 - `web/src/views/S-56.spec.ts`：画面ガード（未知の領域→S-50、案未選択→S-54、理想状態未編集→S-55）、目標欄の既定2つ・追加ボタン、確定ボタンの有効化条件、AIヒントの取得・反映・失敗時のエラー表示、確定時の`createAreaPlan`呼び出し引数とストアリセット・S-41遷移、確定失敗時のエラー表示と入力保持、‹戻るでのS-55遷移を確認した
 - `make lint && make test`が通ることを確認済み（api 315件・web 285件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`・`POST /ai/area-proposals`・`GET /jobs/{id}`・`POST /ai/goal-hints`・`POST /area-plans`をネットワークレベルでフェイクに差し替えて、S-51→S-52（1往復）→S-54→S-55→S-56の実画面遷移をPlaywrightで通した。理想の状態の表示、AIヒントの取得・候補タップでの反映、確定時に送られるリクエストボディの内容（`choices`/`messages`/`selected_direction`/`original_ideal_state`/`ideal_state`/`goals`のsort_order）を実際に確認し、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
+
+**P4-7完了メモ（2026-08-18）：** S-57（領域：閲覧）・S-58（領域：編集）と、`GET`/`PUT /area-plans/{area}`を実装した。S-57はS-36と同じ型、S-58は`PUT /purposes/current`（S-37）と同じ「新しいバージョンを作る」型に、`goal_key`の引き継ぎ・新規採番・削除を上乗せした。
+
+- `api/app/domain/area_plan.py`：`get_area_plan`（`GET`用、単純な`get_item`）、`GoalUpdateInput`（`goal_key: str | None`）、`_build_goals_for_update`、`update_area_plan`（`PUT`用）を追加した。`update_area_plan`は`purpose.py`の`update_purpose_statement`と同じく`repository.put_versioned`をそのまま使う。**AREA_PLANは作成時点(`POST /area-plans`)で既に`PURPOSE_REQUIRED`のConditionCheckを通過済みのため、更新時に重ねて検証しない**判断とした（`purpose.py`が更新時にConditionCheckを持たないのと同じ考え方）
+- **`goal_key`の引き継ぎ・新規採番・削除の実装：** `_build_goals_for_update`は、`goal_key`を送る目標はそのキーを保ったまま`body`だけ差し替え、送らない目標は`uuid.uuid4().hex`で新規採番する（`_build_goals`と同じ採番方式）。「送られなかった既存の`goal_key`は削除」（08_データモデル4.5）は専用の削除ロジックを持たず、**PUTのたびに送られた目標の集合で`goals`配列を丸ごと置き換えるだけ**で自然に満たされる。`sort_order`は`POST`と同じくクライアントの値を無視してリクエスト配列の位置から採番し直す
+- `validate_goals`の型注釈を`list[GoalInput]`から`Sequence[GoalInput] | Sequence[GoalUpdateInput]`に広げ、`POST`/`PUT`両方の目標件数検証（1〜3件）で共有した
+- `api/app/api/v1/area_plans.py`：`GET`/`PUT /area-plans/{area}`を追加。未作成の領域への直接アクセスはどちらも`404 AREA_PLAN_NOT_FOUND`とした（`09_API設計`はこの場合の応答を明記していないが、`GET /purposes/current`が下した「他の404の使い方に合わせる」判断をそのまま踏襲。`errorMessages.ts`に対応するcodeは追加していない——`PURPOSE_NOT_FOUND`も未追加のままフォールバック文言に委ねる、P3-9で確立済みの前例と同じ）
+- `web/src/api/areaPlans.ts`：`getAreaPlan`・`updateAreaPlan`を追加。`AreaPlanGoalUpdateIn`（`goal_key`は省略可能）を新規に定義した
+- `web/src/views/S-57.vue`：新規。ヘッダーは`AppHeaderSingle`（wireframe-spec.mdの型がS-36と一致。コンポーネントのコメント自体がP1-16時点で「S-57/S-58など」を想定済みだった）。`GET /area-plans/{area}`で理想の状態・目標一覧を取得し、「編集する」→S-58、「AIと話して見直す」→S-51（同じ領域）、「‹ 戻る」→S-41（P4-8未実装のためルートはまだ無い。S-36が確立した手法を踏襲）
+- `web/src/views/S-58.vue`：新規。マウント時に`GET /area-plans/{area}`で現在の理想の状態・目標を取得して編集欄の初期値にする（S-37と同じくストア経由ではなく毎回取得）。目標欄は行ごとに「削除」ボタンを持つ（screen-list.md「目標の削除はS-58でのみ行う。各行に削除ボタン」）。**削除ボタンの見た目はワイヤーフレームに指定が無いため、装飾アイコンを増やさずテキストボタンで実装した判断。** 「＋ 目標を追加」で最大3個までS-56と同じ上限。「保存する」は理想の状態が空でない、かつ目標が1件以上残っているときのみ有効（`GOALS_REQUIRED`と同じ1〜3件の下限をUI側でも表現）。保存成功後はS-57（同じ領域）へ遷移する
+- `web/src/router/index.ts`：`/s-57/:area`・`/s-58/:area`を追加
+- `api/tests/test_area_plans_endpoint.py`：`GET`/`PUT`それぞれの401・404（`AREA_PLAN_NOT_FOUND`）、`PUT`の422（`GOALS_REQUIRED`）、`GET`が保存済みの内容を返すこと、`PUT`が新バージョンを作り旧版を`HIST#AREA#CAREER#000001`へ退避しつつ`selected_direction`等を引き継ぐこと、そして**完了条件「`goal_key`の引き継ぎ」**を`test_put_carries_over_goal_key_for_existing_goals_and_assigns_new_ones`で確認した（既存の目標は送った`goal_key`をそのまま引き継ぎ、キーを送らない新規の目標は別の値が採番され、送らなかった既存のキーはDB上から消えること）
+- `web/src/views/S-57.spec.ts`・`S-58.spec.ts`：未知の領域でのS-50差し戻し、取得内容の表示・編集欄への反映、取得失敗時のエラー表示、S-57の各ボタンの遷移先、S-58の目標の削除・追加・上限到達、目標0件時の保存無効化、保存時に`goal_key`を送る目標／送らない目標が正しく`updateAreaPlan`へ渡ること、保存失敗時のエラー表示と入力保持、「‹ 戻る」の遷移先を確認した
+- `make lint && make test`が通ることを確認済み（api 324件・web 301件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`・`AREA_PLAN`アイテムを作って認証済みセッションを用意し、Playwrightで実際に`/s-57/career`→`/s-58/career`（目標の削除・追加・理想状態編集）→保存→`/s-57/career`への遷移を通した。ライト／ダーク両テーマの表示を確認し（コンソールエラーなし）、保存後にDynamoDBを直接読んで**既存の目標の`goal_key`が版をまたいで同一の値のまま引き継がれ、削除した目標のキーはDBから消え、新規の目標には別のキーが採番されていること**を実データで確認した。**実際のCognito・AWS実機での疎通確認は行っていない**（Cognito呼び出しを伴わないため他のP4系タスクより制約の影響は小さい）
 
 ---
 
