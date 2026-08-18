@@ -129,7 +129,6 @@ async function confirm(): Promise<void> {
     choicesStore.reset();
     dialogueStore.reset();
     proposalsStore.reset();
-    // S-41(P4-8)はまだ実装されていないため、この遷移は今は画面に反映されない(S-54/S-55が確立した手法を踏襲)
     router.push("/s-41");
   } catch (error) {
     confirmErrorMessage.value =

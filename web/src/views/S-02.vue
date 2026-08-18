@@ -22,7 +22,6 @@ async function submit(): Promise<void> {
   status.value = "pending";
   try {
     await login(email.value, password.value);
-    // S-41(ホーム)はP4-8で実装予定。ルーティングは仕様どおり先に配線しておく(P3-2の判断)。
     router.push("/s-41");
   } catch (error) {
     status.value = "failed";

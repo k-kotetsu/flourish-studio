@@ -11,9 +11,6 @@
  * ヘッダーは戻る/中断のどちらも置かない(wireframe-spec.md 1.1「S-50 領域を選ぶ | − | Flourish Map | − | −」)。
  * P1-16時点ではS-41ホーム専用として作られたAppHeaderHubだが、「左アクションなし・中央タイトル・
  * 右スロットのみ」という骨格がS-50の見た目とそのまま一致するため、titleを差し替えて再利用した。
- *
- * 選択先のS-51(P4-2、未実装)・「あとで」の遷移先S-41(P4-8、未実装)は、
- * S-11がP2-3未実装時にとった手法と同じく、遷移ロジック自体は仕様どおり実装してテストするに留める。
  */
 import { useRouter } from "vue-router";
 import AppHeaderHub from "../components/AppHeaderHub.vue";

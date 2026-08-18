@@ -39,8 +39,6 @@ onMounted(async () => {
 });
 
 function goBack(): void {
-  // screen-list.md「遷移先: 「戻る」→ S-41」。S-41はP4-8が担当。ルートが無いため
-  // この遷移は今は画面に反映されない(S-02が「S-41」未実装時にとった手法を踏襲)。
   router.push("/s-41");
 }
 

@@ -15,6 +15,7 @@ import S34View from "../views/S-34.vue";
 import S35View from "../views/S-35.vue";
 import S36View from "../views/S-36.vue";
 import S37View from "../views/S-37.vue";
+import S41View from "../views/S-41.vue";
 import S50View from "../views/S-50.vue";
 import S51View from "../views/S-51.vue";
 import S52View from "../views/S-52.vue";
@@ -111,7 +112,11 @@ export const router = createRouter({
       component: S37View,
     },
     {
-      // S-41(P4-8)はまだ実装されていないため、S-50の「あとで」の遷移先ルートはまだ無い
+      path: "/s-41",
+      name: "s-41",
+      component: S41View,
+    },
+    {
       path: "/s-50",
       name: "s-50",
       component: S50View,
@@ -144,7 +149,6 @@ export const router = createRouter({
       component: S55View,
     },
     {
-      // S-41(P4-8)はまだ実装されていないため、「確定する」の遷移先ルートはまだ無い
       path: "/s-56/:area",
       name: "s-56",
       component: S56View,
