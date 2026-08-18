@@ -592,7 +592,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P4-5**~~ ✅ | CC | S | S-55 理想状態の編集 | `05_質問・コンテンツ設計` 9.5 | 上部にありたい姿を表示し続ける | P4-4 |
 | ~~**P4-6**~~ ✅ | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
 | ~~**P4-7**~~ ✅ | CC | M | S-57 閲覧 / S-58 編集 ＋ `GET`/`PUT /area-plans/{area}` | `09_API設計` 5.12、`08_データモデル` 4.5 | **`goal_key` の引き継ぎ**をテストで確認 | P4-6 |
-| **P4-8** | CC | M | **S-41 ホーム ＋ `GET /home`。** BatchGet 1回、未作成は破線 | `09_API設計` 5.9、`04_画面設計` S-41、`07_デザイン原則` 原則2 | 「未完成」「空欄」と表示しない。立ち上がりの演出 | P4-7 |
+| ~~**P4-8**~~ ✅ | CC | M | **S-41 ホーム ＋ `GET /home`。** BatchGet 1回、未作成は破線 | `09_API設計` 5.9、`04_画面設計` S-41、`07_デザイン原則` 原則2 | 「未完成」「空欄」と表示しない。立ち上がりの演出 | P4-7 |
 | **P4-9** | CC | S | テーマ切替トグル（自動→ライト→ダーク→自動） | `07_デザイン原則` 3.2 | ホーム以外に置かない。アカウントに保存 | P4-8、P3-4 |
 
 **P4-1完了メモ（2026-08-16）：** S-50（最初の領域を選ぶ）を`web/src/views/S-50.vue`に実装した。P3-8完了時点でP3-8完了メモ（S-35の「進む」）が名指ししていた`/s-50`遷移先が、これで初めて実体を持つ。
@@ -689,6 +689,18 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `api/tests/test_area_plans_endpoint.py`：`GET`/`PUT`それぞれの401・404（`AREA_PLAN_NOT_FOUND`）、`PUT`の422（`GOALS_REQUIRED`）、`GET`が保存済みの内容を返すこと、`PUT`が新バージョンを作り旧版を`HIST#AREA#CAREER#000001`へ退避しつつ`selected_direction`等を引き継ぐこと、そして**完了条件「`goal_key`の引き継ぎ」**を`test_put_carries_over_goal_key_for_existing_goals_and_assigns_new_ones`で確認した（既存の目標は送った`goal_key`をそのまま引き継ぎ、キーを送らない新規の目標は別の値が採番され、送らなかった既存のキーはDB上から消えること）
 - `web/src/views/S-57.spec.ts`・`S-58.spec.ts`：未知の領域でのS-50差し戻し、取得内容の表示・編集欄への反映、取得失敗時のエラー表示、S-57の各ボタンの遷移先、S-58の目標の削除・追加・上限到達、目標0件時の保存無効化、保存時に`goal_key`を送る目標／送らない目標が正しく`updateAreaPlan`へ渡ること、保存失敗時のエラー表示と入力保持、「‹ 戻る」の遷移先を確認した
 - `make lint && make test`が通ることを確認済み（api 324件・web 301件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`・`AREA_PLAN`アイテムを作って認証済みセッションを用意し、Playwrightで実際に`/s-57/career`→`/s-58/career`（目標の削除・追加・理想状態編集）→保存→`/s-57/career`への遷移を通した。ライト／ダーク両テーマの表示を確認し（コンソールエラーなし）、保存後にDynamoDBを直接読んで**既存の目標の`goal_key`が版をまたいで同一の値のまま引き継がれ、削除した目標のキーはDBから消え、新規の目標には別のキーが採番されていること**を実データで確認した。**実際のCognito・AWS実機での疎通確認は行っていない**（Cognito呼び出しを伴わないため他のP4系タスクより制約の影響は小さい）
+
+**P4-8完了メモ（2026-08-18）：** S-41（ホーム）と、複数リソースを1回のBatchGetItemでまとめて返す`GET /home`を実装した。ここではじめて「S-41」がルートとして実体を持ち、他画面から埋め込まれていた`router.push("/s-41")`の暫定コメントを解消した。
+
+- `api/app/domain/home.py`：`get_home(user_id)`。`PURPOSE#CURRENT`と4領域の`AREA#<area>#CURRENT`を`repository.batch_get_items`で1回のBatchGetItemにまとめて取得し（`SK`をキーに引き直して領域ごとに振り分け）、`PROFILE`から`theme_preference`を別途1回読む。**判断の記録：** `ideal_state_summary`は09_API設計5.9のレスポンス例にフィールド名だけがあり、切り詰め方の文字数はどのドキュメントにも定めが無い（`ideal_state`自体にも上限が無い）。ここで独自の文字数上限を発明せず`ideal_state`をそのまま返し、カード内の省略表示は`web/src/views/S-41.vue`側の`line-clamp`（CSS）に委ねた（破ってはいけない規則2「ユーザーの言葉を消さない」を優先）。`reflection_available`はscreen-list.md S-41の「Weekly Reflection: 目標1個以上で有効」を4領域合計の目標数で判定した（`09_API設計`5.13が領域を問わず全目標を対象にするのと同じ考え方）
+- **`purpose`が`null`になりうる設計:** 通常の導線ではS-35（ありたい姿確定）を経ないとS-41に到達できないため実際には起こらないが、直接アクセス等の保険として`PURPOSE#CURRENT`が無い場合は`purpose: null`を返すことにした（`AREA_PLAN`側のように409で弾く既存の判断とは違い、ホームは集約エンドポイントであり一部の取得失敗で画面全体を壊したくないため、他の項目とは別の判断を採った）
+- `api/app/api/v1/home.py`：`GET /home`。`require_session`のみで、`app/domain/home.py`の戻り値をそのまま返す薄いラッパー
+- `api/app/main.py`：`home`ルーターを`/api/v1`に登録
+- `web/src/api/home.ts`：`getHome()`。`HomeArea`は`status: "EMPTY"`/`"CREATED"`で分岐する判別共用体とした
+- `web/src/views/S-41.vue`：新規。ヘッダーは`AppHeaderHub`（テーマ切替トグルの差し込み先`right`スロットはP4-9の担当のため空のまま）。ありたい姿カード→S-36、未作成の領域カード→S-51、作成済みの領域カード→S-57、「振り返りをする」→S-61（P5-1未実装のため、S-56確定時に踏襲されてきた「ルーティングだけ先に配線する」手法をここでも用いた）。記事・ツールカードはscreen-list.mdが「遷移先画面は作らない」と明記しているため`<div>`のままクリックハンドラを持たせていない
+- `web/src/router/index.ts`：`/s-41`を追加。これに伴い、S-02・S-36・S-56・S-57・S-50に残っていた「S-41(P4-8)は未実装」という趣旨のコメントと迂回説明を削除した（実体ができたため）
+- `api/tests/test_home_endpoint.py`：401、ありたい姿・4領域とも未作成時の応答（`purpose: null`・4領域とも`EMPTY`・`reflection_available: false`）、ありたい姿＋1領域作成済み時の応答（`ideal_state_summary`・`goal_count`・他領域は`EMPTY`のまま・`reflection_available: true`）、4領域とも未作成なら目標合計0で振り返り無効なこと、`theme_preference`が`PROFILE`の保存値を反映することを確認した
+- `make lint && make test`が通ることを確認済み（api 329件・web 301件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`PROFILE`・`PURPOSE`・`AREA_PLAN`アイテムを作って認証済みセッションを2パターン（4領域とも未作成／CAREERのみ作成済み）用意し、Playwrightで`/s-41`を実際にライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**完了条件「『未完成』『空欄』と表示しない」**は、未作成領域が破線カード＋「これから育てる領域」表現になっていることを画面で確認した。**実際のCognito・AWS実機での疎通確認は行っていない**
 
 ---
 
