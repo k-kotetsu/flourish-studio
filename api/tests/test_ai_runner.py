@@ -240,6 +240,35 @@ def test_generate_classifies_retryable_provider_error(monkeypatch: pytest.Monkey
     assert len(fake_client.messages.calls) == 1
 
 
+def test_generate_passes_spec_timeout_to_the_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = PromptSpec(
+        kind="GOAL_HINTS",
+        model=models.SONNET,
+        prompt_version="test-v1",
+        effort="low",
+        max_tokens=100,
+        individual_block=DUMMY_SPEC.individual_block,
+        schema=DUMMY_SCHEMA,
+        retry_on_invalid=False,
+        timeout=10.0,
+    )
+    fake_client = _install_fake_client(monkeypatch, [_response(text=_valid_output_text())])
+
+    generate(spec, DUMMY_MESSAGES, attempt=1)
+
+    assert fake_client.messages.calls[0]["timeout"] == 10.0
+
+
+def test_generate_omits_timeout_kwarg_when_spec_does_not_set_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_client = _install_fake_client(monkeypatch, [_response(text=_valid_output_text())])
+
+    generate(DUMMY_SPEC, DUMMY_MESSAGES, attempt=1)
+
+    assert "timeout" not in fake_client.messages.calls[0]
+
+
 def test_generate_classifies_non_retryable_provider_error(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_fake_client(monkeypatch, [_bad_request_error()])
 

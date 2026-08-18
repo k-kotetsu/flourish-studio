@@ -72,7 +72,6 @@ function goToProposalSelection(): void {
 function goNext(): void {
   if (!area || !canProceed.value) return;
   proposalsStore.setEditedIdealState(editedIdealState.value.trim());
-  // S-56(P4-6)はまだ実装されていないため、この遷移は今は画面に反映されない(S-54が確立した手法を踏襲)
   router.push(`/s-56/${AREA_META[area].slug}`);
 }
 </script>

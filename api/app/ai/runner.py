@@ -66,6 +66,9 @@ class PromptSpec:
     # GOAL_HINTSのみFalse。同期呼び出しで10秒上限があり、2回目の余裕がない
     # (スキル`flourish-ai`「GOAL_HINTSだけ再生成しない」)。
     retry_on_invalid: bool = True
+    # GOAL_HINTSのみ10秒(09_API設計5.10「タイムアウトは10秒。超えたら503を返す」)。
+    # 他のkindは非同期ジョブとして実行されるため、Lambdaのタイムアウト自体が上限になり指定しない。
+    timeout: float | None = None
 
 
 @dataclass(frozen=True)
@@ -154,15 +157,21 @@ def _call(
 ) -> GenerationResult:
     output_format: JSONOutputFormatParam = {"type": "json_schema", "schema": wire_schema}
     output_config: OutputConfigParam = {"effort": spec.effort, "format": output_format}
+    create_kwargs: dict[str, Any] = {
+        "model": spec.model,
+        "max_tokens": spec.max_tokens,
+        "output_config": output_config,
+        "system": system,
+        "messages": list(messages),
+    }
+    if spec.timeout is not None:
+        create_kwargs["timeout"] = spec.timeout
     try:
-        response = get_client().messages.create(
-            model=spec.model,
-            max_tokens=spec.max_tokens,
-            output_config=output_config,
-            system=system,
-            messages=list(messages),
-        )
+        response = get_client().messages.create(**create_kwargs)
     except anthropic.APIError as exc:
+        # タイムアウト(APITimeoutError)もAPIErrorのサブクラスで、ここに含まれる。
+        # GOAL_HINTSの10秒超過はAI_PROVIDER_ERROR(retryable)として扱われ、
+        # 呼び出し側(ai_goal_hints.py)がこれを503に変換する(09_API設計5.10)。
         retryable = isinstance(exc, _RETRYABLE_API_ERRORS)
         return GenerationResult(
             status="FAILED",

@@ -590,7 +590,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P4-3**~~ ✅ | CC | M | P-05 対話（SSE）＋ S-52。2往復。**ありたい姿を常時表示** | `10_AIプロンプト設計` 4.5 | 2往復目で必ずありたい姿に触れる | P3-6、P4-2 |
 | ~~**P4-4**~~ ✅ | CC | M | P-06 3案生成 ＋ S-53 → S-54。深める／変える／広げる | `10_AIプロンプト設計` 4.6、`05_質問・コンテンツ設計` 9.4 | **順序固定。回答で並べ替えない** | P4-3 |
 | ~~**P4-5**~~ ✅ | CC | S | S-55 理想状態の編集 | `05_質問・コンテンツ設計` 9.5 | 上部にありたい姿を表示し続ける | P4-4 |
-| **P4-6** | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
+| ~~**P4-6**~~ ✅ | CC | M | S-56 年間目標1〜3個 ＋ P-07 AIヒント（同期・10秒） ＋ `POST /area-plans` | `10_AIプロンプト設計` 4.7、`09_API設計` 5.10、5.11 | ヒント失敗でも進行が止まらない。**目標0件は422** | P4-5、P1-9 |
 | **P4-7** | CC | M | S-57 閲覧 / S-58 編集 ＋ `GET`/`PUT /area-plans/{area}` | `09_API設計` 5.12、`08_データモデル` 4.5 | **`goal_key` の引き継ぎ**をテストで確認 | P4-6 |
 | **P4-8** | CC | M | **S-41 ホーム ＋ `GET /home`。** BatchGet 1回、未作成は破線 | `09_API設計` 5.9、`04_画面設計` S-41、`07_デザイン原則` 原則2 | 「未完成」「空欄」と表示しない。立ち上がりの演出 | P4-7 |
 | **P4-9** | CC | S | テーマ切替トグル（自動→ライト→ダーク→自動） | `07_デザイン原則` 3.2 | ホーム以外に置かない。アカウントに保存 | P4-8、P3-4 |
@@ -660,6 +660,21 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/router/index.ts`：`/s-55/:area`を追加。S-56未実装のため、S-55の「次へ」の遷移先ルートはまだ無い（S-54がP4-5未実装時にとった手法を踏襲）
 - `web/src/views/S-55.spec.ts`／`web/src/stores/areaProposals.spec.ts`（追加分）：未知の領域でのS-50差し戻し、選ばれた案が無い場合の同一領域S-54への差し戻し、ありたい姿と選んだ案の理想状態の表示、ありたい姿取得失敗時にエラー表示のみで編集欄を出さないこと、編集して「次へ」でstoreに保存され同一領域のS-56へ進むこと、編集欄が空のあいだ「次へ」が無効なこと、「案を選び直す」とヘッダー「‹ 戻る」がいずれも同一領域のS-54へ戻ること、ストアの`editedIdealState`の設定・選び直し時のリセット・`reset()`でのクリアを確認した
 - `make lint && make test`が通ることを確認済み（api 291件・web 281件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`・`POST /ai/area-proposals`・`GET /jobs/{id}`をネットワークレベルでフェイクに差し替えて、S-51→S-52（2往復）→S-53→S-54→S-55の実画面遷移をPlaywrightで通した。S-55で「ありたい姿」が上部に表示され続けること、選んだ案の理想状態が編集欄に反映されること、編集後に「次へ」で`/s-56/career`への遷移が試みられることを、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
+
+**P4-6完了メモ（2026-08-18）：** S-56（領域：年間目標の設定）と、P-07 `GOAL_HINTS`（同期・10秒）・`POST /area-plans`を実装した。S-51〜S-55で集めたデータを`POST /area-plans`でまとめて確定し、ここではじめてAREA_PLANが保存される。
+
+- `api/app/ai/runner.py`：`PromptSpec`に`timeout: float | None`を追加した。GOAL_HINTSだけ同期呼び出しで10秒の上限があるため（4.7）、指定されたときだけ`messages.create(timeout=...)`に渡す。他のkind（非同期ジョブ）は指定せず、Lambdaのタイムアウト自体が上限になる従来どおりの挙動を維持した
+- `api/app/ai/prompts/goal_hints.py`：新規。P-07の個別ブロック・出力スキーマを4.7から一字一句書き写した。`retry_on_invalid=False`（サーバ内再生成をしない、runner.py側は既にこの前提でコメントされていた）。**`effort`/`max_tokens`の食い違いを1件確認した。** `10_AIプロンプト設計`4.7（`low`/2,000）とスキル`flourish-ai`の対応表（`low`/1,500）が食い違っていたため、確立済みの「ドキュメント優先」を踏襲し4.7の値を採用した（6件目の同種の食い違い。スキル側の表は未修正のまま残る）。`<existing_goals>`が複数件になる場合の表記は4.7に例が無いため、「、」で連結する判断とした
+- `api/app/domain/area_plan.py`：新規。`save_area_plan`が08_データモデル4.4のトランザクション（`ConditionCheck`でPURPOSE_REQUIRED、旧版があればHISTへ退避、新版をPut）をそのまま実装した。**判断：`goal_key`はサーバーが`uuid.uuid4().hex`で採番し、`sort_order`はクライアントの値を使わずリクエストの配列位置から採番し直す。** 08_データモデル4.2「並び順の一意性はリストの位置そのもの」という設計意図を字義通り満たすため、purpose.pyの`_build_conversation`が`seq`を採番し直すのと同じ考え方を踏襲した。目標1〜3件の範囲外（0件・4件以上）はどちらも`GOALS_REQUIRED`にまとめた（5.11は0件の場合のコードのみ明記。purposes.pyが`STATEMENT_TOO_LONG`を空文字・超過の両方に使う先例と同じ判断）
+- `api/app/api/v1/ai_goal_hints.py`：新規。`POST /ai/goal-hints`。`ai_area_dialogue.py`と同じく確定済みの「ありたい姿」はサーバーが`PURPOSE#CURRENT`から読み、無ければ`409 PURPOSE_REQUIRED`。生成失敗時（スキーマ違反・拒否・タイムアウト含む全経路）は常に`503`に変換する（5.10「候補が出なくてもユーザーは自分で書けるので進行は止まらない」）
+- `api/app/api/v1/area_plans.py`：新規。`POST /area-plans`。`validate_area_choices`（P4-3が実装済み）をそのまま再検証に使う
+- `api/app/main.py`：両ルーターを登録
+- `web/src/api/goalHints.ts`／`web/src/api/areaPlans.ts`：新規。他のAPIクライアントと同型
+- `web/src/views/S-56.vue`：新規。**判断：目標欄は既定で2つ表示し（mockup.html s56()「2つ目（任意）」）、「＋ 目標を追加」で3つ目まで増やせる。** 1つ目のみ必須で、空欄は確定時に取り除く（9.6「無理に3個作らせない。1個で確定できる」）。AIヒントは画面遷移せず、押したときだけ画面内のローディングで処理する（生成中画面を挟まない、9.6の例外）。候補をタップすると最初の空欄に反映され、そのまま編集もできる。**判断：確定成功後、`areaChoices`/`areaDialogue`/`areaProposals`ストアをリセットする。** これらは確定前の一時状態を運ぶためだけのものであり、成果物はサーバーに保存済みのため、同じ領域を将来作り直す（S-57「AIと話して見直す」、P4-7未実装）ときに前回の入力が残っていると混乱するための判断
+- `web/src/router/index.ts`：`/s-56/:area`を追加。「確定する」の遷移先S-41（`screen-list.md`）はP4-8が未実装のため、S-54/S-55が確立した「ルートが無いままpushする」手法を踏襲した。S-55の「S-56未実装」コメントは不要になったため削除した
+- `api/tests/test_goal_hints_prompt.py`／`test_ai_goal_hints_endpoint.py`／`test_area_plans_endpoint.py`：401・409（PURPOSE_REQUIRED）・429・422（GOALS_REQUIRED、0件と4件以上の両方）・タイムアウト時の503・スキーマ違反時に再生成せず503になること・GOAL_HINTSの`timeout`が実際にBedrock呼び出しへ渡ること・バージョン管理（2回目の確定でversion 2＆HIST退避）・`goal_key`/`sort_order`の採番（クライアントの`sort_order`を無視して配列順で振り直すこと）を確認した。`test_ai_runner.py`にも`spec.timeout`の伝播・非設定時に`timeout`引数自体を渡さないことのテストを追加した
+- `web/src/views/S-56.spec.ts`：画面ガード（未知の領域→S-50、案未選択→S-54、理想状態未編集→S-55）、目標欄の既定2つ・追加ボタン、確定ボタンの有効化条件、AIヒントの取得・反映・失敗時のエラー表示、確定時の`createAreaPlan`呼び出し引数とストアリセット・S-41遷移、確定失敗時のエラー表示と入力保持、‹戻るでのS-55遷移を確認した
+- `make lint && make test`が通ることを確認済み（api 315件・web 285件・infra 30件、全てpass）。加えて`make dev`起動下で、DynamoDB Localへ直接`SESSION`・`PURPOSE`アイテムを作って認証済みセッションを用意し、`POST /ai/area-dialogue`・`POST /ai/area-proposals`・`GET /jobs/{id}`・`POST /ai/goal-hints`・`POST /area-plans`をネットワークレベルでフェイクに差し替えて、S-51→S-52（1往復）→S-54→S-55→S-56の実画面遷移をPlaywrightで通した。理想の状態の表示、AIヒントの取得・候補タップでの反映、確定時に送られるリクエストボディの内容（`choices`/`messages`/`selected_direction`/`original_ideal_state`/`ideal_state`/`goals`のsort_order）を実際に確認し、ライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）。**実際のBedrock・AWS実機での疎通確認は行っていない**（他のAI生成系タスクと同様、本タスクの範囲外）
 
 ---
 

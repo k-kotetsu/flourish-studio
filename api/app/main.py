@@ -4,8 +4,10 @@ from app.api.v1 import (
     ai_area_dialogue,
     ai_area_proposals,
     ai_assessment_questions,
+    ai_goal_hints,
     ai_purpose_dialogue,
     ai_purpose_proposals,
+    area_plans,
     assessments,
     auth,
     guest_sessions,
@@ -31,6 +33,8 @@ app.include_router(ai_purpose_proposals.router, prefix="/api/v1")
 app.include_router(purposes.router, prefix="/api/v1")
 app.include_router(ai_area_dialogue.router, prefix="/api/v1")
 app.include_router(ai_area_proposals.router, prefix="/api/v1")
+app.include_router(ai_goal_hints.router, prefix="/api/v1")
+app.include_router(area_plans.router, prefix="/api/v1")
 
 
 @app.get("/health")
