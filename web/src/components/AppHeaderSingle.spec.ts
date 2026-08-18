@@ -22,4 +22,10 @@ describe("AppHeaderSingle", () => {
     expect(wrapper.emitted("cancel")).toHaveLength(1);
     expect(wrapper.emitted("back")).toBeUndefined();
   });
+
+  it("leftAction=noneでは戻る・中断のボタンを持たない", () => {
+    const wrapper = mount(AppHeaderSingle, { props: { title: "振り返り", leftAction: "none" } });
+    expect(wrapper.find("button").exists()).toBe(false);
+    expect(wrapper.text()).toContain("振り返り");
+  });
 });

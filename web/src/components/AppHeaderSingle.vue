@@ -1,15 +1,17 @@
 <script setup lang="ts">
 /**
  * 07_デザイン原則 6.2「単独の画面」型（S-57/S-58など）。
- * プログレスバーを出さない点はどちらも共通で、左のアクションだけが戻る/中断で切り替わる
+ * プログレスバーを出さない点はどちらも共通で、左のアクションだけが戻る/中断/なしで切り替わる
  * (AppHeaderFlowのleftActionと同じ考え方)。S-61(P5-1)は「‹ 戻る」ではなく「× 中断」を使う
- * (wireframe-spec.md「S-61 WR回答 | × 中断 | 振り返り | − | −」)。既定は`back`とし、
- * 既存の呼び出し元(S-36/S-37/S-57/S-58)の見た目・挙動は変えない。
+ * (wireframe-spec.md「S-61 WR回答 | × 中断 | 振り返り | − | −」)。
+ * S-62/S-63(P5-2)は左アクション自体を持たない
+ * (mockup.html `waiting()`/`s63()`のhdr呼び出しに`nav`が無い。タイトルのみ)。
+ * 既定は`back`とし、既存の呼び出し元(S-36/S-37/S-57/S-58)の見た目・挙動は変えない。
  */
 withDefaults(
   defineProps<{
     title: string;
-    leftAction?: "back" | "cancel";
+    leftAction?: "back" | "cancel" | "none";
   }>(),
   {
     leftAction: "back",
@@ -34,7 +36,7 @@ defineEmits<{
       ‹ 戻る
     </button>
     <button
-      v-else
+      v-else-if="leftAction === 'cancel'"
       type="button"
       class="app-header-single__nav"
       aria-label="中断"
