@@ -8,12 +8,19 @@
 08_データモデル4.4「領域の確定」のとおり、`ConditionCheck`で「ありたい姿なしに領域は
 作れない」を守りつつ、旧版があれば`HIST#AREA#<area>#<N>`へ退避して新版を書き込む
 (スキルflourish-data「外部キーの代わりにConditionCheck」)。
+
+`GET`/`PUT /area-plans/{area}`(S-57/S-58、P4-7)は保存済みのAREA_PLANを閲覧・直接編集する。
+PUTは`purpose.py`の`update_purpose_statement`と同じく、`repository.put_versioned`で
+新しいバージョンを作る(08_データモデル4.3「編集は上書きではなく、新しいアイテムの追加」)。
+AREA_PLANは作成時点で既に`PURPOSE_REQUIRED`の検証を通過しているため、更新時に
+`ConditionCheck`を重ねる必要はない。
 """
 
 from __future__ import annotations
 
 import dataclasses
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -33,6 +40,14 @@ MAX_GOALS = 3
 @dataclasses.dataclass(frozen=True)
 class GoalInput:
     body: str
+
+
+@dataclasses.dataclass(frozen=True)
+class GoalUpdateInput:
+    """`PUT /area-plans/{area}`(S-58)用。既存の目標は`goal_key`を送って引き継ぐ。"""
+
+    body: str
+    goal_key: str | None = None
 
 
 def now_iso() -> str:
@@ -63,7 +78,7 @@ def _build_goals(goals: list[GoalInput]) -> list[dict[str, Any]]:
     ]
 
 
-def validate_goals(goals: list[GoalInput]) -> None:
+def validate_goals(goals: Sequence[GoalInput] | Sequence[GoalUpdateInput]) -> None:
     """1〜3件。0件・4件以上のどちらも同じ`GOALS_REQUIRED`で扱う(purposes.pyが
     `STATEMENT_TOO_LONG`を空文字・超過の両方に使う判断と同じ考え方。5.11は0件の場合の
     コードのみ明記しているが、専用コードを増やさず範囲外全体をこれで表す)。
@@ -137,3 +152,59 @@ def save_area_plan(
     )
     repository.transact_write_items(transact_items)
     return new_item
+
+
+def get_area_plan(user_id: str, area: str) -> Item | None:
+    """`GET /area-plans/{area}`(S-57)。09_API設計5章の画面対応表。"""
+    return repository.get_item(user_pk(user_id), area_current_sk(area))
+
+
+def _build_goals_for_update(goals: Sequence[GoalUpdateInput]) -> list[dict[str, Any]]:
+    """`PUT /area-plans/{area}`(S-58)、09_API設計5.12。`goal_key`を送る目標はそのキーを
+    引き継いでbodyだけ書き換え、送らない目標は新規として`uuid.uuid4().hex`を採番する
+    (`_build_goals`と同じ採番方式)。送られなかった既存の`goal_key`はその版で削除された
+    ものとして扱う——個別の削除操作を持たず、PUTのたびに送られた集合で丸ごと置き換える
+    設計のため、これだけで08_データモデル4.5の「送られなかったgoal_keyは削除」を満たす。
+    `sort_order`は`_build_goals`と同じくリクエスト配列の位置から採番し直す。
+    """
+    return [
+        {
+            "goal_key": goal.goal_key if goal.goal_key is not None else uuid.uuid4().hex,
+            "body": goal.body,
+            "sort_order": index + 1,
+        }
+        for index, goal in enumerate(goals)
+    ]
+
+
+def update_area_plan(
+    *,
+    user_id: str,
+    area: str,
+    ideal_state: str,
+    goals: Sequence[GoalUpdateInput],
+    current: Item,
+) -> Item:
+    """`PUT /area-plans/{area}`(S-58)。理想状態と目標だけを書き換えた新しいバージョンを作る。
+
+    `selected_direction`/`selected_label`/`choices`/`conversation`/`original_ideal_state`/
+    `purpose_version`は現行版から引き継ぐ(`purpose.py`の`update_purpose_statement`と同じ
+    考え方。このAPIは直接編集のみが対象で、対話をやり直したわけではないため対話全文等も
+    そのまま引き継ぐ)。
+    """
+    new_attributes: Item = {
+        "entity": "AREA_PLAN",
+        "area": area,
+        "purpose_version": current["purpose_version"],
+        "ideal_state": ideal_state,
+        "original_ideal_state": current["original_ideal_state"],
+        "selected_direction": current["selected_direction"],
+        "selected_label": current["selected_label"],
+        "choices": current["choices"],
+        "conversation": current["conversation"],
+        "goals": _build_goals_for_update(goals),
+        "created_at": now_iso(),
+    }
+    return repository.put_versioned(
+        user_pk(user_id), area_current_sk(area), f"AREA#{area}", new_attributes
+    )
