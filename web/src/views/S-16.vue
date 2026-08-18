@@ -19,6 +19,7 @@ import { useRouter } from "vue-router";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
 import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
+import SafetyNotice from "../components/SafetyNotice.vue";
 import { AREAS, AREA_META } from "../domain/questions";
 import { useAssessmentResultStore } from "../stores/assessmentResult";
 
@@ -154,60 +155,10 @@ function goNext(): void {
 
     <!--
       safety_flagが立った場合の表示。10_AIプロンプト設計3.7「相談窓口の案内は画面側が行う」。
-      文面はP7-1の成果物(docs/14_法務文書/safety-consultation.md)をそのまま踏襲した。
+      文面はP7-1の成果物(docs/14_法務文書/safety-consultation.md)をそのまま踏襲した
+      (SafetyNoticeコンポーネント、P5-2でS-63との共用のため切り出し)。
     -->
-    <div
-      v-else
-      class="s16__body s16__safety"
-      data-testid="safety-notice"
-    >
-      <p class="s16__safety-lead">
-        書いてくださった言葉の中に、<br>
-        ひとりで抱えるには重いことのように見えました。
-      </p>
-      <p class="s16__safety-text">
-        今回は現在地レポートの代わりに、<br>
-        話を聞いてくれる場所をお伝えします。
-      </p>
-
-      <div class="s16__safety-contact">
-        <p class="s16__safety-contact-name">
-          よりそいホットライン
-        </p>
-        <p class="s16__safety-contact-detail">
-          0120-279-338（通話無料・24時間）
-        </p>
-      </div>
-
-      <div class="s16__safety-contact">
-        <p class="s16__safety-contact-name">
-          いのちの電話
-        </p>
-        <p class="s16__safety-contact-detail">
-          0570-783-556（10時〜22時）<br>
-          0120-783-556（毎月10日 8時〜翌日8時・通話無料）
-        </p>
-      </div>
-
-      <div class="s16__safety-contact">
-        <p class="s16__safety-contact-name">
-          まもろうよ こころ（厚生労働省）
-        </p>
-        <p class="s16__safety-contact-detail">
-          電話が難しいときは、SNSでの相談窓口も探せます<br>
-          <a
-            href="https://www.mhlw.go.jp/mamorouyokokoro/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >https://www.mhlw.go.jp/mamorouyokokoro/</a>
-        </p>
-      </div>
-
-      <p class="s16__safety-note">
-        書いていただいた内容はそのまま残っています。<br>
-        落ち着いたときに、あらためて見ることもできます。
-      </p>
-    </div>
+    <SafetyNotice v-else />
 
     <div
       v-if="!isSafetyFlagged"
@@ -350,50 +301,6 @@ function goNext(): void {
   padding: var(--space-3) var(--layout-gutter);
   border-top: 1px solid var(--border);
   background: var(--surface);
-}
-
-.s16__safety {
-  padding-top: var(--space-5);
-}
-
-.s16__safety-lead,
-.s16__safety-text {
-  margin: 0;
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-}
-
-.s16__safety-contact {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.s16__safety-contact-name {
-  margin: 0;
-  font-size: var(--font-size-section);
-  font-weight: 600;
-}
-
-.s16__safety-contact-detail {
-  margin: 0;
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-}
-
-.s16__safety-contact-detail a {
-  color: var(--primary);
-}
-
-.s16__safety-note {
-  margin: 0;
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-  color: var(--text-sub);
 }
 
 @media (prefers-reduced-motion: reduce) {

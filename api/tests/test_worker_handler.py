@@ -8,7 +8,7 @@ import pytest
 
 from app.ai.prompts import assessment_questions
 from app.db import repository
-from app.db.keys import assessment_sk
+from app.db.keys import assessment_sk, reflection_sk, user_pk
 from app.domain import job as job_domain
 from app.domain import questions
 from app.domain.area_choices import ChoiceAnswer as AreaChoiceAnswer
@@ -28,34 +28,35 @@ def test_handler_returns_ok_for_empty_event() -> None:
 
 
 def test_handler_processes_a_dummy_job_to_succeeded() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALSは
-    # P2-5/P2-8/P3-7/P4-4で実処理に分岐したため、ここでは未実装のままダミー処理
-    # (雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALS・
+    # REFLECTION_SUMMARYはP2-5/P2-8/P3-7/P4-4/P5-2で実処理に分岐したため、ここでは
+    # 未実装のままダミー処理(雛形段階)が働くkindを使う。GOAL_HINTSは同期呼び出し
+    # (P4-6、09_API設計5.10)でありワーカーには来ないが、その分このテストのダミー役に使える。
     owner = f"USER#{_uid()}"
-    job_id, item = job_domain.create_job(owner, "REFLECTION_SUMMARY")
+    job_id, item = job_domain.create_job(owner, "GOAL_HINTS")
     assert item["status"] == "QUEUED"
 
-    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "REFLECTION_SUMMARY"})}]}
+    event = {"Records": [{"body": json.dumps({"job_id": job_id, "kind": "GOAL_HINTS"})}]}
     result = handler(event, object())
 
     assert result == {"status": "ok"}
     updated = job_domain.get_job(job_id)
     assert updated is not None
     assert updated["status"] == "SUCCEEDED"
-    assert updated["result"] == {"echo": "REFLECTION_SUMMARY"}
+    assert updated["result"] == {"echo": "GOAL_HINTS"}
 
 
 def test_handler_processes_multiple_records() -> None:
-    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALSは
-    # P2-5/P2-8/P3-7/P4-4で実処理に分岐したため、ここでは未実装のままダミー処理
-    # (雛形段階)が働くkindを使う。
+    # ASSESSMENT_QUESTIONS・ASSESSMENT_REPORT・PURPOSE_PROPOSALS・AREA_PROPOSALS・
+    # REFLECTION_SUMMARYはP2-5/P2-8/P3-7/P4-4/P5-2で実処理に分岐したため、ここでは
+    # 未実装のままダミー処理(雛形段階)が働くkindを使う。
     owner = f"USER#{_uid()}"
-    job_id_a, _ = job_domain.create_job(owner, "REFLECTION_SUMMARY")
-    job_id_b, _ = job_domain.create_job(owner, "GOAL_HINTS")
+    job_id_a, _ = job_domain.create_job(owner, "GOAL_HINTS")
+    job_id_b, _ = job_domain.create_job(owner, "SOME_OTHER_UNIMPLEMENTED_KIND")
     event = {
         "Records": [
-            {"body": json.dumps({"job_id": job_id_a, "kind": "REFLECTION_SUMMARY"})},
-            {"body": json.dumps({"job_id": job_id_b, "kind": "GOAL_HINTS"})},
+            {"body": json.dumps({"job_id": job_id_a, "kind": "GOAL_HINTS"})},
+            {"body": json.dumps({"job_id": job_id_b, "kind": "SOME_OTHER_UNIMPLEMENTED_KIND"})},
         ],
     }
 
@@ -501,6 +502,101 @@ def test_handler_fails_area_proposals_job_when_fewer_than_three_persist(
     job_id, _ = job_domain.create_job(owner, "AREA_PROPOSALS")
 
     handler(_area_proposals_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "FAILED"
+    assert updated["error"]["code"] == "AI_OUTPUT_INVALID"
+
+
+def _reflection_summary_payload() -> dict[str, Any]:
+    return {
+        "reflection_id": _uid(),
+        "purpose_statement": "まわりの人が安心して力を出せる存在でありたい。",
+        "statuses": [
+            {
+                "goal_key": "g-career-1",
+                "area": "CAREER",
+                "goal_body": "職務経歴書を書き上げる",
+                "status": "ON_TRACK",
+            },
+            {
+                "goal_key": "g-financial-1",
+                "area": "FINANCIAL",
+                "goal_body": "毎月の支出を把握する",
+                "status": "STALLED",
+            },
+        ],
+        "area_ideal_states": {
+            "CAREER": "今の仕事の中で自分の強みが言葉になっている状態。",
+            "FINANCIAL": "毎月の収支を自分で把握できている状態。",
+        },
+        "note": "今週は残業が続いて、時間が取れなかった",
+        "answered_at": "2026-08-15T00:00:00Z",
+    }
+
+
+def _valid_reflection_summary_json() -> str:
+    return json.dumps(
+        {
+            "looking_back": "Careerは前に進み、Financialは今週は手がつかなかったようです。",
+            "insight": "動けた目標には、その日のうちに終わる大きさがありました。",
+            "next_step": "来週は、1日1回アプリを開くだけにしてみるのはどうでしょう。",
+            "safety_flag": False,
+        }
+    )
+
+
+def _reflection_summary_event(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    body = {"job_id": job_id, "kind": "REFLECTION_SUMMARY", "payload": payload}
+    return {"Records": [{"body": json.dumps(body)}]}
+
+
+def test_handler_generates_reflection_summary_to_succeeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """完了条件「全体に1つ返す。次の一歩は1つだけ」(P5-2)。"""
+    payload = _reflection_summary_payload()
+    fake_client = _FakeClient([_fake_response(_valid_reflection_summary_json())])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    user_id = _uid()
+    owner = f"USER#{user_id}"
+    job_id, _ = job_domain.create_job(owner, "REFLECTION_SUMMARY")
+
+    handler(_reflection_summary_event(job_id, payload), object())
+
+    updated = job_domain.get_job(job_id)
+    assert updated is not None
+    assert updated["status"] == "SUCCEEDED"
+    reflection_id = payload["reflection_id"]
+    assert updated["result"] == {"reflection_id": reflection_id}
+
+    item = repository.get_item(
+        user_pk(user_id), reflection_sk(payload["answered_at"], reflection_id)
+    )
+    assert item is not None
+    assert item["result"]["next_step"] == (
+        "来週は、1日1回アプリを開くだけにしてみるのはどうでしょう。"
+    )
+    assert item["statuses"] == payload["statuses"]
+    assert item["note"] == payload["note"]
+    assert item["answered_at"] == payload["answered_at"]
+
+
+def test_handler_does_not_save_a_reflection_when_ai_output_is_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = _reflection_summary_payload()
+    invalid_text = json.dumps({"looking_back": ""})  # 必須フィールド欠落。再生成しても直らない
+    fake_client = _FakeClient([_fake_response(invalid_text), _fake_response(invalid_text)])
+    monkeypatch.setattr("app.ai.runner.get_client", lambda: fake_client)
+
+    user_id = _uid()
+    owner = f"USER#{user_id}"
+    job_id, _ = job_domain.create_job(owner, "REFLECTION_SUMMARY")
+
+    handler(_reflection_summary_event(job_id, payload), object())
 
     updated = job_domain.get_job(job_id)
     assert updated is not None

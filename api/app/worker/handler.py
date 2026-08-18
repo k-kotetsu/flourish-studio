@@ -15,6 +15,7 @@ from app.ai.prompts import (
     assessment_questions,
     assessment_report,
     purpose_proposals,
+    reflection_summary,
 )
 from app.ai.prompts.purpose_dialogue import DialogueMessage
 from app.domain import job as job_domain
@@ -23,6 +24,8 @@ from app.domain.assessment import build_assessment_item, now_iso
 from app.domain.assessment_precompute import FreeTextAnswer, ScaleAnswer, compute_commitment
 from app.domain.purpose_choices import ChoiceAnswer
 from app.domain.questions import get_question_set
+from app.domain.reflection import ResolvedStatus, build_reflection_item
+from app.domain.reflection import now_iso as reflection_now_iso
 
 
 def handler(event: dict[str, Any], context: object) -> dict[str, str]:
@@ -54,15 +57,16 @@ def _process_record(record: dict[str, Any]) -> None:
     if kind == "AREA_PROPOSALS":
         _process_area_proposals(job_id, body.get("payload", {}))
         return
+    if kind == "REFLECTION_SUMMARY":
+        _process_reflection_summary(job_id, current["owner"], body.get("payload", {}))
+        return
 
     job_domain.mark_succeeded(job_id, result={"echo": current["kind"]})
 
 
 def _process_assessment_questions(job_id: str, payload: dict[str, Any]) -> None:
     question_set = get_question_set(payload["question_set_version"])
-    targets = [
-        assessment_questions.QuestionTarget(**target) for target in payload["targets"]
-    ]
+    targets = [assessment_questions.QuestionTarget(**target) for target in payload["targets"]]
 
     result = assessment_questions.generate_assessment_questions(
         targets, question_set, identifiers={"job_id": job_id}
@@ -103,9 +107,7 @@ def _process_assessment_report(job_id: str, owner: str, payload: dict[str, Any])
     )
     # 成功した時点ではじめて保存する(09_API設計5.3)。JOB完了と成果物保存を1トランザクションに
     # まとめ、片方だけが書かれる状態を作らない(スキルflourish-api)。
-    job_domain.mark_succeeded_with_item(
-        job_id, result={"assessment_id": assessment_id}, item=item
-    )
+    job_domain.mark_succeeded_with_item(job_id, result={"assessment_id": assessment_id}, item=item)
 
 
 def _process_purpose_proposals(job_id: str, payload: dict[str, Any]) -> None:
@@ -122,6 +124,38 @@ def _process_purpose_proposals(job_id: str, payload: dict[str, Any]) -> None:
     else:
         assert result.error is not None
         job_domain.mark_failed(job_id, code=result.error.code, retryable=result.error.retryable)
+
+
+def _process_reflection_summary(job_id: str, owner: str, payload: dict[str, Any]) -> None:
+    user_id = owner.removeprefix("USER#")
+    statuses = [ResolvedStatus(**status) for status in payload["statuses"]]
+
+    result = reflection_summary.generate_reflection_summary(
+        payload["purpose_statement"],
+        statuses,
+        payload["area_ideal_states"],
+        payload["note"],
+        identifiers={"job_id": job_id},
+    )
+    if result.status != "SUCCEEDED":
+        assert result.error is not None
+        job_domain.mark_failed(job_id, code=result.error.code, retryable=result.error.retryable)
+        return
+
+    assert result.output is not None
+    reflection_id = payload["reflection_id"]
+    # 09_API設計5.14「成功時に回答とAI出力をまとめて保存する」。JOB完了とREFLECTION保存を
+    # 1トランザクションにまとめる(assessment_reportと同じ設計)。
+    item = build_reflection_item(
+        user_id=user_id,
+        reflection_id=reflection_id,
+        statuses=statuses,
+        note=payload["note"],
+        ai_output=result.output,
+        answered_at=payload["answered_at"],
+        generated_at=reflection_now_iso(),
+    )
+    job_domain.mark_succeeded_with_item(job_id, result={"reflection_id": reflection_id}, item=item)
 
 
 def _process_area_proposals(job_id: str, payload: dict[str, Any]) -> None:

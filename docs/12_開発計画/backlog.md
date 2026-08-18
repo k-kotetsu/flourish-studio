@@ -720,7 +720,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
 | ~~**P5-1**~~ ✅ | CC | M | `GET /reflections/context` ＋ S-61。3段階評価、自由記述1つ | `05_質問・コンテンツ設計` 10.1〜10.2、`09_API設計` 5.13 | 目標0件でも空配列を返す（409にしない） | P4-7 |
-| **P5-2** | CC | M | P-08 ＋ `POST /reflections` ＋ S-62 → S-63 | `10_AIプロンプト設計` 4.8、`09_API設計` 5.14 | **全体に1つ返す。次の一歩は1つだけ** | P5-1、P1-14 |
+| ~~**P5-2**~~ ✅ | CC | M | P-08 ＋ `POST /reflections` ＋ S-62 → S-63 | `10_AIプロンプト設計` 4.8、`09_API設計` 5.14 | **全体に1つ返す。次の一歩は1つだけ** | P5-1、P1-14 |
 | **P5-3** | CC | S | ホームのWR導線（目標0個で無効、理由を添える） | `03_ユーザーフロー` Step 8 | 無効ボタンを消さない | P4-8、P5-1 |
 
 **P5-1完了メモ（2026-08-18）：** `GET /reflections/context`と、S-61（Weekly Reflection：回答）を実装した。実際の送信（`POST /reflections`）と生成後の画面（S-62→S-63）はP5-2の範囲。
@@ -738,6 +738,27 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `web/src/components/AppHeaderSingle.vue`／`.spec.ts`：`leftAction`追加分のテストを追加
 - `web/src/views/S-61.spec.ts`：表示、取得失敗時のエラー表示、目標0件でのS-41への差し戻し、未回答時の無効化、送信時のstore記録と画面遷移、自由記述が空なら`note: null`、中断ダイアログの2経路を確認
 - `make lint && make test`が通ることを確認済み。**ブラウザでの目視確認は、この環境に対話的ブラウザツール（chromium-cli等）が無いため実施できていない**（P1-15・P1-16完了メモと同じ制約）。vitestのコンポーネントテストで代替した
+
+**P5-2完了メモ（2026-08-19）：** P-08（`REFLECTION_SUMMARY`）を実装し、`POST /reflections`（S-62生成中）→`GET /reflections/{id}`（S-63結果）を通した。
+
+- `api/app/ai/prompts/reflection_summary.py`：`10_AIプロンプト設計`4.8の個別ブロック・出力スキーマをそのまま実装。`build_messages`は`<purpose>`・`<goals>`（作成済み領域のみ、`STATUS_LABELS`で3段階を日本語化）・`<note>`を組み立てる。`validate_output`は3項目の非空・300文字以内・`next_step`の複数提案禁止（「または」「もしくは」を含まない）を検証する
+- `api/app/domain/reflection.py`：`resolve_generation_input`を追加。`POST /reflections`の「網羅」（現行の全目標と`goal_key`が完全一致するか）「目標0件」（`409 NO_GOALS`）の検証と、PURPOSE・4領域のAREA_PLANから`purpose_statement`・`goal_body`（回答時点のスナップショット）・`area_ideal_states`を1回の`BatchGetItem`で組み立てる処理をまとめた。`build_reflection_item`（REFLECTIONアイテム組み立て）、`get_reflection`（`GET /reflections/{id}`用の取得）も追加
+- `api/app/worker/handler.py`：`REFLECTION_SUMMARY`kindを実処理に分岐。生成成功時はJOB完了とREFLECTION保存を`mark_succeeded_with_item`で1トランザクションにまとめる（`assessment_report`と同じ設計）。ダミー処理に依存していた既存テスト2件は`GOAL_HINTS`（同期呼び出しでワーカーには来ないkind）に差し替えた
+- `api/app/api/v1/reflections.py`：`POST /reflections`（`202`、`Idempotency-Key`対応。**レート制限はかけない**）、`GET /reflections/{reflection_id}`（未存在・他人の所有を区別せず`403 REFLECTION_FORBIDDEN`にまとめる、`GET /assessments/{id}`と同じ考え方）を追加
+- **仕様の食い違いを2件発見し、実装前にユーザーに確認した：**
+  1. **`effort`/`max_tokens`の食い違い。** `10_AIプロンプト設計`2.2の初期値表（P2-14で「確定」と明記、2026-08-16付）は`REFLECTION_SUMMARY`を`medium`/6,000とするが、4.8の個別詳細セクションは`high`/8,000のまま未反映だった。ユーザー確認の結果、2.2表（確定済みの最新方針）を採用した。**既存実装の`ASSESSMENT_REPORT`にも同種の食い違い（コードは4.2の`high`/16,000のまま、2.2表だけ`medium`/12,000に更新）が残っていることも合わせて報告した（本タスクでは触れていない）**
+  2. **`safety_flag`が立った場合のS-63の扱い。** P-08の出力スキーマにも`safety_flag`が含まれる（3.7「全生成の出力スキーマに持たせる」）が、P5-2の依存列に`P7-1`が無い。既存の2つの前例（S-16はP7-1を依存に明記し固定文面を表示／S-32は依存に無いため値を受け取るだけに留めた）のどちらに倣うか確認し、**S-16と同じ固定文面を表示する**方針で実装した
+- **判断：SafetyNoticeコンポーネントへの切り出し。** 上記の確認を受けてS-16の相談窓口の固定文面（P2-12、`docs/14_法務文書/safety-consultation.md`）をS-63でも使うことになったため、`web/src/components/SafetyNotice.vue`に切り出し、S-16もこれを使うようリファクタした。文面は法務レビュー対象で複数箇所に重複させると差分が生まれやすいため、切り出しが妥当と判断した。`docs/14_法務文書/safety-consultation.md`の実装箇所の記載も更新した
+- **判断：S-63は`safety_flag`が立っていても「ホームへ」を表示する。** S-16がCTAを隠す判断をした理由は「ホーム画面(S-41)自体がP4-8まで未実装で戻り先を示せない」ためだったが、P5-2の時点ではP4-8は完了しホームが存在する。行き止まりの画面にしない（破ってはいけない規則2の精神）ため、S-63では固定文面の下にも「ホームへ」を表示する設計にした。同ドキュメントにこの経緯を追記した
+- **判断：`GET /reflections/{id}`の取得方法。** REFLECTIONのSKは`REFLECTION#<answered_at>#<id>`（08_データモデル5.1）で`answered_at`を含むため、`reflection_id`だけでは`get_item`できない。5.4が定める一覧クエリ（新しい順）を`reflection_id`の一致で絞り込む実装とした。この画面には生成直後にしか到達しないため、実質的に先頭付近での一致になる
+- **判断：ヘッダーの選択。** wireframe-spec.md 7.6「S-62生成中はこのフローだけプログレスバーがない」・mockup.htmlの`waiting()`/`s63()`呼び出しが`pct`を渡していないことから、S-62/S-63は`AppHeaderFlow`（バー前提）ではなく`AppHeaderSingle`を使うと判断した。同コンポーネントに`leftAction="none"`（戻る・中断ボタンを持たない）を追加した
+- **判断：レート制限をかけない。** `09_API設計`5.14「頻度: 制限しない。同じ日に何度でも記録できる」を、2.4の生成系一般則（登録済み1時間30回）の明示的な例外として扱った
+- `web/src/api/reflections.ts`：`generateReflection`（`POST /reflections`→ジョブ完了待ち→`GET /reflections/{id}`、`assessments.ts`と同じ構成）
+- `web/src/stores/reflectionResult.ts`：S-62の結果をS-63へ引き渡すストア（`assessmentResult`と同じ設計）
+- `web/src/views/S-62.vue`：生成中画面。回答が無ければ`/s-61`へ差し戻す。失敗時は同画面内でエラー表示に切り替え、自動リトライしない
+- `web/src/views/S-63.vue`：結果画面。「次の一歩」のカードのみ`--primary`で囲む。回答日時を`answered_at`から「YYYY年M月D日」の形式で表示し「今週の」と限定表記しない（08_データモデル5.5）
+- テスト：`api/tests/test_reflection_summary_prompt.py`（入力組み立て・出力検証）、`api/tests/test_worker_handler.py`（生成成功・スキーマ違反での失敗）、`api/tests/test_reflection_endpoint.py`（409/422/202/冪等性/レート制限なし/403/取得）、`web/src/api/reflections.spec.ts`、`web/src/views/S-62.spec.ts`、`web/src/views/S-63.spec.ts`、`web/src/components/SafetyNotice.spec.ts`、`AppHeaderSingle.spec.ts`の追加分
+- `make lint && make test`が通ることを確認済み。**ブラウザでの目視確認は、この環境に対話的ブラウザツールが無いため実施できていない**（P1-15以降の完了メモと同じ制約）。vitestのコンポーネントテストと`npm run build`で代替した
 
 ---
 
