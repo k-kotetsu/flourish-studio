@@ -54,8 +54,6 @@ function goToArea(area: Area, status: "EMPTY" | "CREATED"): void {
 }
 
 function goToReflection(): void {
-  // screen-list.md「振り返りをする → S-61」。S-61はP5-1が担当でまだ実装されていない。
-  // S-56確定時の「S-41」未実装時と同じ手法で、遷移ロジックは仕様どおり先に配線しておく。
   router.push("/s-61");
 }
 </script>

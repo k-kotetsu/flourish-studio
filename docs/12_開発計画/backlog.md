@@ -719,9 +719,25 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
-| **P5-1** | CC | M | `GET /reflections/context` ＋ S-61。3段階評価、自由記述1つ | `05_質問・コンテンツ設計` 10.1〜10.2、`09_API設計` 5.13 | 目標0件でも空配列を返す（409にしない） | P4-7 |
+| ~~**P5-1**~~ ✅ | CC | M | `GET /reflections/context` ＋ S-61。3段階評価、自由記述1つ | `05_質問・コンテンツ設計` 10.1〜10.2、`09_API設計` 5.13 | 目標0件でも空配列を返す（409にしない） | P4-7 |
 | **P5-2** | CC | M | P-08 ＋ `POST /reflections` ＋ S-62 → S-63 | `10_AIプロンプト設計` 4.8、`09_API設計` 5.14 | **全体に1つ返す。次の一歩は1つだけ** | P5-1、P1-14 |
 | **P5-3** | CC | S | ホームのWR導線（目標0個で無効、理由を添える） | `03_ユーザーフロー` Step 8 | 無効ボタンを消さない | P4-8、P5-1 |
+
+**P5-1完了メモ（2026-08-18）：** `GET /reflections/context`と、S-61（Weekly Reflection：回答）を実装した。実際の送信（`POST /reflections`）と生成後の画面（S-62→S-63）はP5-2の範囲。
+
+- `api/app/domain/reflection.py`：`get_reflection_context(user_id)`。`app/domain/home.py`と同じ「4領域のAREA_PLANを1回の`BatchGetItem`でまとめて取る」パターンで、現行の全目標を領域→`sort_order`の順にフラットな配列へ整形する。未作成の領域はスキップする（目標0件なら空配列。`409`にしない、09_API設計5.13）
+- `api/app/api/v1/reflections.py`：`GET /reflections/context`（要ログイン）。`main.py`に登録
+- **仕様の矛盾を発見し、実装前にユーザーに確認した：** `09_API設計`5.13/5.14のJSON例は目標の識別子として`goal_id`を使っているが、`08_データモデル`5.3「`goal_id`を廃止し、文言のスナップショットに置き換えた」はVersion 0.2で存在した`goal_id`を明示的に廃止し、`goal_key`＋`goal_body`（回答時点の文言スナップショット）に統合したと記録している。DynamoDB単一テーブル設計では目標が独立した行を持たないため`goal_id`に相当するものが無い。`08_データモデル`はVersion 0.3（DynamoDB移行時の改訂）、`09_API設計`はVersion 0.2のままで、この置き換えが反映されていない古い記述と判断した。**ユーザー確認の結果、`goal_key`のみを使う方針とした。** レスポンスに`goal_id`は含めない
+- `web/src/api/reflections.ts`：`getReflectionContext()`
+- `web/src/stores/reflectionAnswers.ts`：S-61の回答（`statuses`／`note`）をクライアント保持するストア（スキルflourish-api「入力途中を送らない」。S-14→S-15と同じ設計）。ステータスの3値（`ON_TRACK`/`STALLED`/`REVISE`）は`08_データモデル`5.1の`ReflectionStatus`に合わせた
+- `web/src/views/S-61.vue`：新規。`GET /reflections/context`で取得した目標ごとに、領域名（小さな英字ラベル、mockup.html s61()の判断を踏襲）・目標文・3段階の横並びセグメント（進んでいる/止まっている/見直したい、05_質問・コンテンツ設計10.1）を表示し、末尾に全体で1つの自由記述欄（10.2の問いかけ文をそのまま使用、任意）を置く。すべての目標に回答するまで「送信する」は無効。送信すると`reflectionAnswers`ストアに記録し、`/s-62`へ遷移する（S-62自体はP5-2の範囲。「ルーティングだけ先に配線する」手法をここでも踏襲）
+- **判断：ヘッダーの新しい組み合わせ。** wireframe-spec.mdは S-61 を「× 中断」＋プログレスバー無しと定めるが、既存の`AppHeaderFlow`（cancel対応だが常にプログレスバー付き）にも`AppHeaderSingle`（プログレスバー無しだが「‹ 戻る」専用）にもこの組み合わせが無かった。`AppHeaderSingle`に`leftAction`（既定`back`）を追加して`cancel`を選べるようにし、既存呼び出し元（S-36/S-37/S-57/S-58）の見た目・挙動は変えずに対応した。中断時はInterruptDialogを必ず挟む（S-51と同じ設計）
+- **判断：目標0件での直接アクセス。** 通常の導線ではS-41が無効ボタンで防ぐため到達しないが、直接URLで開かれた場合はS-41へ`router.replace`する（未知の領域パラメータをS-50へ戻すS-51/S-54/S-55と同じ考え方）
+- **判断：4領域アイコンは付けていない。** P7-3（アイコン選定）が未着手のため、S-41が確立した「英字ラベルのみ」の扱いを踏襲した
+- `api/tests/test_reflection_endpoint.py`：401、目標0件で空配列（`200`）、複数領域にまたがる目標を領域→`sort_order`順で返すこと、`goal_key`が`AREA_PLAN`のものと一致すること、レスポンスに`goal_id`を含まないことを確認
+- `web/src/components/AppHeaderSingle.vue`／`.spec.ts`：`leftAction`追加分のテストを追加
+- `web/src/views/S-61.spec.ts`：表示、取得失敗時のエラー表示、目標0件でのS-41への差し戻し、未回答時の無効化、送信時のstore記録と画面遷移、自由記述が空なら`note: null`、中断ダイアログの2経路を確認
+- `make lint && make test`が通ることを確認済み。**ブラウザでの目視確認は、この環境に対話的ブラウザツール（chromium-cli等）が無いため実施できていない**（P1-15・P1-16完了メモと同じ制約）。vitestのコンポーネントテストで代替した
 
 ---
 
