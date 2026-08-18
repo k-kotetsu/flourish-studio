@@ -14,4 +14,12 @@ describe("AppHeaderSingle", () => {
     await wrapper.find("button").trigger("click");
     expect(wrapper.emitted("back")).toHaveLength(1);
   });
+
+  it("leftAction=cancelでは「× 中断」を表示し、押すと cancel を発火する", async () => {
+    const wrapper = mount(AppHeaderSingle, { props: { title: "振り返り", leftAction: "cancel" } });
+    expect(wrapper.text()).toContain("中断");
+    await wrapper.find("button").trigger("click");
+    expect(wrapper.emitted("cancel")).toHaveLength(1);
+    expect(wrapper.emitted("back")).toBeUndefined();
+  });
 });

@@ -1,26 +1,46 @@
 <script setup lang="ts">
 /**
  * 07_デザイン原則 6.2「単独の画面」型（S-57/S-58など）。
- * 戻るのみを置き、フローではないためプログレスバーを出さない。
+ * プログレスバーを出さない点はどちらも共通で、左のアクションだけが戻る/中断で切り替わる
+ * (AppHeaderFlowのleftActionと同じ考え方)。S-61(P5-1)は「‹ 戻る」ではなく「× 中断」を使う
+ * (wireframe-spec.md「S-61 WR回答 | × 中断 | 振り返り | − | −」)。既定は`back`とし、
+ * 既存の呼び出し元(S-36/S-37/S-57/S-58)の見た目・挙動は変えない。
  */
-defineProps<{
-  title: string;
-}>();
+withDefaults(
+  defineProps<{
+    title: string;
+    leftAction?: "back" | "cancel";
+  }>(),
+  {
+    leftAction: "back",
+  },
+);
 
 defineEmits<{
   back: [];
+  cancel: [];
 }>();
 </script>
 
 <template>
   <header class="app-header-single">
     <button
+      v-if="leftAction === 'back'"
       type="button"
       class="app-header-single__nav"
       aria-label="戻る"
       @click="$emit('back')"
     >
       ‹ 戻る
+    </button>
+    <button
+      v-else
+      type="button"
+      class="app-header-single__nav"
+      aria-label="中断"
+      @click="$emit('cancel')"
+    >
+      × 中断
     </button>
     <span class="app-header-single__title">{{ title }}</span>
   </header>

@@ -15,6 +15,7 @@ from app.api.v1 import (
     jobs,
     me,
     purposes,
+    reflections,
 )
 from app.core.config import get_settings
 from app.core.error_handlers import register_error_handlers
@@ -37,6 +38,7 @@ app.include_router(ai_area_proposals.router, prefix="/api/v1")
 app.include_router(ai_goal_hints.router, prefix="/api/v1")
 app.include_router(area_plans.router, prefix="/api/v1")
 app.include_router(home.router, prefix="/api/v1")
+app.include_router(reflections.router, prefix="/api/v1")
 
 
 @app.get("/health")
