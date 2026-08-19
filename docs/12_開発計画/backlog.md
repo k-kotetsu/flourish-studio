@@ -873,8 +873,15 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | **P7-5** | CC | M | 監視とアラーム（DLQ、エラー率、レイテンシ、スロットリング、**AI日次コスト**） | `11_技術構成` 11章 | アラームが発火することをテスト | P1-6 |
 | **P7-6** | CC | M | ダッシュボード（EMFログから `kind` ごとの失敗率・トークン・`safety_flag`） | `11_技術構成` 11.2、`10_AIプロンプト設計` 6.3 | 6つの指標が見える | P7-5 |
 | **P7-7** | CC | M | **S3エクスポート＋Athena の経路を一度通す** | `11_技術構成` 6.5、`08_データモデル` 12.3 | サンプルクエリが実行できる。**手順を文書化** | P1-4 |
-| **P7-8** | CC | M | 通しの結合テスト（S-01 → S-16 → 登録 → ありたい姿 → 領域 → ホーム → 振り返り） | `03_ユーザーフロー` 1章 | 全経路が通る。**離脱・再試行・失敗の分岐も** | P5-3、P6-5 |
+| ~~**P7-8**~~ ✅ | CC | M | 通しの結合テスト（S-01 → S-16 → 登録 → ありたい姿 → 領域 → ホーム → 振り返り） | `03_ユーザーフロー` 1章 | 全経路が通る。**離脱・再試行・失敗の分岐も** | P5-3、P6-5 |
 | **P7-9** | **私** | S | 本番デプロイの承認と実行 | `11_技術構成` 13.2 | prod で通しの動作確認 | P7-8、P7-2 |
+
+**P7-8完了メモ（2026-08-19）：** `03_ユーザーフロー`1章の全体フロー（現在地レポート開始→4領域の質問→結果→登録→ありたい姿→最初の領域を選ぶ→理想状態と目標→ホーム→Weekly Reflection）を通しで検証するAPI結合テストを実装した。
+
+- `api/tests/test_full_journey.py`を新規作成。実際のFastAPIルーター（`app.main.app`）に対して1つの`TestClient`でCookieを引き継ぎながら、`POST /guest-sessions`から`GET /reflections/{id}`まで一連のHTTPリクエストとして再現する`test_full_journey_from_assessment_through_first_reflection`を中心に、離脱・再試行・失敗の分岐を確認する4本を追加した（`test_leaving_before_confirming_purpose_saves_nothing`＝ありたい姿の3案生成後に確定せず離脱すると何も保存されない、`test_assessment_report_failure_can_be_retried`＝AI出力がスキーマ違反でジョブがFAILEDになっても自動リトライせず、同じ入力での再試行で新しいジョブとして成功する、`test_home_reachable_and_reflection_blocked_when_areas_are_skipped`＝「あとで」で領域選択を全てスキップしてもホームには到達でき、目標0件では`POST /reflections`が`409 NO_GOALS`になる、`test_area_dialogue_requires_a_confirmed_purpose`＝ありたい姿確定前に領域のAI対話へ直接到達すると`409 PURPOSE_REQUIRED`）。実際にAWSへ接続する箇所（Bedrock・Cognito・SQS送信）は、それぞれ既存テスト（`test_worker_handler.py`・`test_ai_purpose_dialogue_endpoint.py`・`test_auth_register_endpoint.py`）と同じ手法でフェイクに差し替えている
+- **テスト方式の判断：** `web/`にはPlaywright等のブラウザE2Eフレームワークが導入されておらず（`vitest`＋`@vue/test-utils`のみ）、`Makefile`にもE2E専用ターゲットが無い。一方`api/tests/test_auth_flow.py`（P1-11）に「複数エンドポイントを1つのTestClientで順に呼ぶ通しテスト」の前例があった。完了条件（全経路が通る、離脱・再試行・失敗の分岐）はAPIレベルでも十分に検証できるため、新規にE2Eブラウザ基盤を導入せずAPIレベルの結合テストとして実装する方針をユーザーに確認し、承認を得た。S-01（`/app`の外にある静的サイト、`web/`側に実装なし）はこのテストの対象外とした
+- ジョブ登録系エンドポイント（`POST /ai/assessment-questions`・`POST /assessments`・`POST /ai/purpose-proposals`・`POST /ai/area-proposals`・`POST /reflections`）は、`send_job_message`を横取りしてSQSへの実送信をスキップし、捕捉したペイロードで`app.worker.handler.handler`を直接呼ぶことでジョブをQUEUED→SUCCEEDEDまで進めた。SSE対話系（`POST /ai/purpose-dialogue`・`POST /ai/area-dialogue`）は各対話モジュールの`get_client`・`check_safety`をフェイクにし、3往復（ありたい姿）・2往復（領域）を実際にループで進めてから提案生成に接続した
+- `make lint && make test`が通ることを確認済み（`api`361件・`tools`27件・`web`350件・`infra`30件、いずれも既存分を含めて全件成功）
 
 **P7-1完了メモ（2026-08-16）：** ユーザー指示によりCCが文面を起草し、ユーザーが内容を確認して確定した。
 
