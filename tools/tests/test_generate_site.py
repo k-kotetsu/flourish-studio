@@ -55,6 +55,34 @@ def test_build_site_generates_list_and_detail_pages(tmp_path: Path) -> None:
     assert "第二段落。" in detail_html
 
 
+def test_build_site_generates_top_page(tmp_path: Path) -> None:
+    articles_dir = tmp_path / "articles"
+    articles_dir.mkdir()
+    slug = f"test-{uuid.uuid4().hex}"
+    _write_article(articles_dir, slug, title="転職を考える前に")
+    insert_articles(articles_dir)
+
+    output_dir = tmp_path / "site"
+    build_site(output_dir)
+
+    top_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert "人生は、" in top_html
+    assert '<span class="site-header__brand">Flourish Studio</span>' in top_html
+    assert 'href="/app/s-02"' in top_html
+    assert 'href="/app/s-11"' in top_html
+    assert 'href="/articles"' in top_html
+    assert f'href="/articles/{slug}"' in top_html
+    assert "転職を考える前に" in top_html
+
+
+def test_build_site_top_page_redirects_signed_in_users(tmp_path: Path) -> None:
+    output_dir = tmp_path / "site"
+    build_site(output_dir)
+
+    top_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert '"/app/s-41"' in top_html
+
+
 def test_build_site_excludes_unpublished_articles(tmp_path: Path) -> None:
     articles_dir = tmp_path / "articles"
     articles_dir.mkdir()
@@ -119,6 +147,7 @@ def test_iter_upload_targets_maps_local_paths_to_extensionless_s3_keys(tmp_path:
     targets = _iter_upload_targets(output_dir)
     keys = {key for _, key, _ in targets}
 
+    assert "index.html" in keys
     assert "articles" in keys
     assert f"articles/{slug}" in keys
     assert "assets/site.css" in keys
@@ -143,6 +172,7 @@ def test_sync_to_s3_uploads_each_target_with_content_type(
     sync_to_s3(output_dir, "example-bucket")
 
     uploaded_keys = {call.kwargs["Key"] for call in mock_client.put_object.call_args_list}
+    assert "index.html" in uploaded_keys
     assert "articles" in uploaded_keys
     assert f"articles/{slug}" in uploaded_keys
     assert "assets/site.css" in uploaded_keys
@@ -152,7 +182,7 @@ def test_sync_to_s3_uploads_each_target_with_content_type(
 
 
 @patch("generate_site.boto3")
-def test_invalidate_cloudfront_creates_invalidation_for_articles_paths(
+def test_invalidate_cloudfront_creates_invalidation_for_top_and_articles_paths(
     mock_boto3: MagicMock,
 ) -> None:
     mock_client = MagicMock()
@@ -163,4 +193,4 @@ def test_invalidate_cloudfront_creates_invalidation_for_articles_paths(
     mock_client.create_invalidation.assert_called_once()
     call_kwargs = mock_client.create_invalidation.call_args.kwargs
     assert call_kwargs["DistributionId"] == "EDFXXXXXXXXX"
-    assert call_kwargs["InvalidationBatch"]["Paths"]["Items"] == ["/articles", "/articles/*"]
+    assert call_kwargs["InvalidationBatch"]["Paths"]["Items"] == ["/", "/articles", "/articles/*"]
