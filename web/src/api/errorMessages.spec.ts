@@ -15,6 +15,8 @@ describe("messageForCode", () => {
   it("既知のcodeには具体的な文言を返す", () => {
     expect(messageForCode("UNAUTHENTICATED")).toContain("ログイン");
     expect(messageForCode("RATE_LIMITED")).not.toBe("");
+    expect(messageForCode("EMAIL_TAKEN")).toContain("登録");
+    expect(messageForCode("WEAK_PASSWORD")).not.toBe("");
   });
 
   it("未知のcodeはフォールバック文言に落ちる", () => {
@@ -27,6 +29,8 @@ describe("messageForCode", () => {
     const codes = [
       "UNAUTHENTICATED",
       "INVALID_CREDENTIALS",
+      "EMAIL_TAKEN",
+      "WEAK_PASSWORD",
       "JOB_NOT_FOUND",
       "JOB_FORBIDDEN",
       "RATE_LIMITED",
