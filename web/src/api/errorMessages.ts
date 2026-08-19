@@ -7,6 +7,8 @@
 const CODE_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "ログインが必要です。もう一度ログインしてみてください。",
   INVALID_CREDENTIALS: "メールアドレスまたはパスワードが違います。",
+  EMAIL_TAKEN: "このメールアドレスは、すでに登録されています。ログインを試してみてください。",
+  WEAK_PASSWORD: "このパスワードは使えません。別のパスワードを試してみてください。",
   JOB_NOT_FOUND: "この処理は見つかりませんでした。最初からやり直してみてください。",
   JOB_FORBIDDEN: "この処理は開けませんでした。最初からやり直してみてください。",
   RATE_LIMITED: "少し時間を置いてから、もう一度試してみてください。",

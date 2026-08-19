@@ -8,6 +8,7 @@ import S13View from "../views/S-13.vue";
 import S14View from "../views/S-14.vue";
 import S15View from "../views/S-15.vue";
 import S16View from "../views/S-16.vue";
+import S21View from "../views/S-21.vue";
 import S31View from "../views/S-31.vue";
 import S32View from "../views/S-32.vue";
 import S33View from "../views/S-33.vue";
@@ -79,7 +80,11 @@ export const router = createRouter({
       component: S16View,
     },
     {
-      // S-21(登録)はまだ実装されていないため、この画面への実際の遷移元はまだ無い
+      path: "/s-21",
+      name: "s-21",
+      component: S21View,
+    },
+    {
       path: "/s-31",
       name: "s-31",
       component: S31View,
