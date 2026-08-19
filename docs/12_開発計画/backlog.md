@@ -774,7 +774,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
 | ~~**P6-1**~~ ✅ | **私** | L | **記事コンテンツの執筆**（5カテゴリ、各2〜3本を目安） | `01_全体コンセプト` 12章 | 記事本文。カテゴリは4領域＋Flourishとは | − |
-| **P6-2** | CC | S | 記事の投入スクリプト（`flourish_article` へ） | `08_データモデル` 6.4 | 冪等に投入できる | P1-4 |
+| ~~**P6-2**~~ ✅ | CC | S | 記事の投入スクリプト（`flourish_article` へ） | `08_データモデル` 6.4 | 冪等に投入できる | P1-4 |
 | **P6-3** | CC | M | **静的サイトジェネレータ。** DynamoDB → HTML → S3 → invalidation | `11_技術構成` 4.4 | `make publish-site` で反映 | P6-2 |
 | **P6-4** | CC | M | S-01 トップページ（7セクション） | `04_画面設計` S-01、`06_ワイヤーフレーム`、`01_全体コンセプト` 17章 | 最大幅960px。SPAへの導線 | P6-3、P1-15 |
 | **P6-5** | CC | M | K-01 記事一覧 / K-02 記事詳細。末尾に共通CTA | `04_画面設計` K-01/K-02 | ログイン不要で全文が読める | P6-3 |
@@ -791,6 +791,17 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `Makefile`：`setup-tools`に`boto3`・`boto3-stubs[dynamodb]`を追加
 - DynamoDB Localに対して実行し、15件の投入と`category-index`での取得を確認した。開発環境への投入は次回`deploy-dev`実行時に行う（本タスクでは未実施）
 - `make lint && make test`が通ることを確認済み
+
+**P6-2完了メモ（2026-08-19）：** P6-1で暫定投入用に作った `tools/insert_articles.py` を、正式な冪等投入スクリプトとして仕上げた。
+
+- **スクリプト自体の冪等性は元から成立していた。** `flourish_article`のPKは`slug`（`08_データモデル`6.4）で、`put_item`は無条件の上書きのため、同一slugの再投入は重複を生まない。本タスクの実質的な範囲は、その性質をテストで裏付けることと、「一時的な投入手段」という説明を外して正式なスクリプトに位置づけ直すことだった
+- `tools/insert_articles.py`：`load_articles`／`insert_articles`に`directory`引数を追加し、テストからfixtureディレクトリを渡せるようにした（既定値は従来どおり`content/articles`）。冒頭のdocstringから「P6-2で整備する」という前方参照を外した
+- `tools/tests/test_insert_articles.py`：新規。**完了条件「冪等に投入できる」**を、同一slugの二重投入で件数が増えないこと、内容を変えて再投入すると上書きされること、`category-index`（GSI）越しに見ても重複しないことの3点で確認した。既存の15記事と衝突しないよう、`uuid`で一意なslugを使うテスト記事を`tmp_path`に生成する方式にした（`test_repository.py`の`_uid()`と同じ考え方）
+- `tools/tests/conftest.py`：セッションスコープで`ensure_table_exists`を呼ぶ、`api/tests/conftest.py`と同型のfixture
+- **`tools/__init__.py`を削除した。** 存在すると`tests/`から`tools`ルートまでの間にパッケージ境界が生まれず、pytestがリポジトリルートを起点にインポートしようとして`insert_articles`モジュールが解決できなかった（`ModuleNotFoundError`）。`api/`（`tests/`はパッケージ、`api/`直下はパッケージでない）と同じ形にするため削除した。他に`tools`をパッケージとして`import`している箇所がないことを確認済み
+- `Makefile`：`setup-tools`に`pytest`を追加。`test-tools`ターゲット（`dynamodb-local-up`依存）を新設し、`test`から呼ばれるようにした（`test-api`と対になる構成）
+- **本タスクとは別に、環境依存の問題を1件その場で踏んで直した（backlogには残さない一時対応）。** `tools/.venv`へ`boto3-stubs`を素直に最新版でインストールすると、`mypy`が`boto3`を「stubsが無い」として`import-untyped`エラーにする既知の退行を踏んだ。`api/.venv`で実際に動いているバージョン（`1.43.67`）に合わせることで解消した。`Makefile`の`setup-tools`自体はバージョン非固定のままのため、次に新規環境で`make setup-tools`をゼロから実行すると同じ事象が再発しうる。既存の`setup-api`も同様に非固定であり、この問題はP6-2固有ではなくリポジトリ全体の潜在的な既知事項として残る
+- `make lint && make test`が通ることを確認済み（api 356件・tools 4件・web 335件・infra 30件、全てpass）
 
 ---
 
