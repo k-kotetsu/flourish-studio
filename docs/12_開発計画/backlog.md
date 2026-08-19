@@ -778,7 +778,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | ~~**P6-3**~~ ✅ | CC | M | **静的サイトジェネレータ。** DynamoDB → HTML → S3 → invalidation | `11_技術構成` 4.4 | `make publish-site` で反映 | P6-2 |
 | ~~**P6-4**~~ ✅ | CC | M | S-01 トップページ（7セクション） | `04_画面設計` S-01、`06_ワイヤーフレーム`、`01_全体コンセプト` 17章 | 最大幅960px。SPAへの導線 | P6-3、P1-15 |
 | ~~**P6-5**~~ ✅ | CC | M | K-01 記事一覧 / K-02 記事詳細。末尾に共通CTA | `04_画面設計` K-01/K-02 | ログイン不要で全文が読める | P6-3 |
-| **P6-6** | CC | S | メタタグ、OGP、sitemap.xml、robots.txt | − | 検索エンジンにインデックスされる状態 | P6-4、P6-5 |
+| ~~**P6-6**~~ ✅ | CC | S | メタタグ、OGP、sitemap.xml、robots.txt | − | 検索エンジンにインデックスされる状態 | P6-4、P6-5 |
 
 **P6-1 が律速になる。** ~~記事は Claude Code に書かせず、人が書く（`flourish-tone` の適用が最も難しい領域であり、サービスの声そのものになるため）。~~ → ユーザーの明示的な指示により、本タスクはClaude Codeが執筆した（下記完了メモ参照）。
 
@@ -833,6 +833,17 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `tools/tests/test_generate_site.py`：`index.html`の生成・S3キー・invalidation対象への追加を確認するテストを追加（既存のK-01/K-02向けテストと合わせて8件→10件）
 - **ブラウザでの目視確認を実施した。** Playwrightで実際にChromiumを起動し、モバイル（390px）・デスクトップ（1280px）×ライト／ダークの組み合わせで表示を確認。横スクロールが発生しないこと、ヘッダーの`sticky`、CTAの`fixed`固定、レスポンシブでの折り返しを確認した。**システムのGoogle Chromeを`--headless`（旧ヘッダレスモード）で使った最初のスクリーンショットでは横あふれのように見えたが、Playwright経由のChromiumで実際のDOM幅（`scrollWidth`）を計測したところ問題はなく、旧ヘッダレスモード特有の描画不具合と判明した。** 実装のCSS自体に問題はなかった
 - `make lint && make test`が通ることを確認済み（tools 12件、他レイヤーへの変更なし）
+
+**P6-6完了メモ（2026-08-19）：** 公開サイト（S-01・K-01・K-02、いずれもP6-3の静的サイトジェネレータが生成）に、メタタグ・OGP・sitemap.xml・robots.txtを追加した。
+
+- **参照列が「−」で、絶対URLの組み立てに要るドメイン名の扱いが仕様に明記されていなかった。** `api/app/core/config.py`の`public_domain_name`（Google連携のコールバックURL組み立て等に既に使用）と同じ環境変数名`PUBLIC_DOMAIN_NAME`を`tools/generate_site.py`にも導入し、既存の`PUBLIC_SITE_BUCKET_NAME`／`CLOUDFRONT_DISTRIBUTION_ID`と同じ「未設定ならローカル出力のみ・該当機能は省略」という方針を踏襲した（判断の記録）。OGP・canonical・sitemap.xmlは絶対URLが必須のため、`PUBLIC_DOMAIN_NAME`未設定時はこれらを出力しない
+- `tools/generate_site.py`：`_og_tags`／`_page_head`にcanonicalタグとOGP（`og:type`／`og:site_name`／`og:title`／`og:description`／`og:url`）・`twitter:card`（`summary`。記事ごとのサムネイル画像が データモデルに存在しないため`summary_large_image`は使わず画像なしの型にした）を追加。トップ・記事一覧は`og:type=website`、記事詳細は`og:type=article`とした
+- `render_robots_txt`：`/app/`（要ログインのSPA）・`/api/`をDisallowにした。**仕様に明記のない判断。** `11_技術構成`2章「公開サイトとアプリを分ける」理由（LPと記事はSEOが要る、SPAでは集客が成立しない）から、SPA側は最初からインデックス対象外という設計意図を汲み取った
+- `render_sitemap`：`/`・`/articles`・`/articles/{slug}`（各記事の`published_at`日付を`<lastmod>`に）を列挙。`PUBLIC_DOMAIN_NAME`未設定時は`None`を返し、`build_site`はファイル自体を書き出さない
+- `build_site`・`_iter_upload_targets`・`invalidate_cloudfront`：`robots.txt`・`sitemap.xml`をS3同期・CloudFront invalidation対象に追加した（`/robots.txt`・`/sitemap.xml`をinvalidationパスに追加）
+- `tools/tests/test_generate_site.py`：OGP/canonicalの有無（ドメイン設定時・未設定時）、`robots.txt`の内容、`sitemap.xml`の内容（`<lastmod>`含む）とドメイン未設定時に生成されないこと、アップロード対象・invalidation対象への追加を確認するテストを追加した
+- **ローカルのDynamoDB Local（in-memory）に、繰り返しテストを実行した際の蓄積データによるテストの不安定さ（`test_build_site_generates_top_page`が上位3件の記事枠に収まらなくなる）を確認した。** 本タスク以前から存在する問題（変更前のmainブランチでも同じ箇所で再現することを確認済み）で、CIのようにコンテナを1回だけ使うフローでは発生しない。本タスクの範囲外として、コード側の修正はしていない
+- `make lint && make test`が通ることを確認済み（api 356件・tools 28件・web 335件・infra 30件、全てpass）。CloudFront・S3実機での反映確認（実際に検索エンジンにインデックスされること）は本タスクの範囲外（AWS実機へのデプロイ後に確認が必要）
 
 ---
 
