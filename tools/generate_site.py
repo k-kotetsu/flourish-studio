@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import html
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -24,6 +25,7 @@ from insert_articles import TABLE_NAME, Article, get_resource
 
 SITE_DIR = Path(__file__).resolve().parent / "site_assets"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "dist" / "site"
+LEGAL_DOCS_DIR = Path(__file__).resolve().parent.parent / "docs" / "14_法務文書"
 
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 PUBLIC_SITE_BUCKET_NAME = os.environ.get("PUBLIC_SITE_BUCKET_NAME")
@@ -581,7 +583,8 @@ def render_top_page(articles: list[Article], domain_name: str | None) -> str:
       </section>
 
       <footer class="lp-footer">
-        <p class="lp-note">© Flourish Studio ／ 利用規約 ／ プライバシーポリシー</p>
+        <p class="lp-note">© Flourish Studio ／ <a href="/terms-of-service">利用規約</a> ／
+          <a href="/privacy-policy">プライバシーポリシー</a></p>
       </footer>
     </main>
 
@@ -711,7 +714,12 @@ def render_sitemap(articles: list[Article], domain_name: str | None) -> str | No
     if not domain_name:
         return None
 
-    paths_with_lastmod: list[tuple[str, str | None]] = [("/", None), ("/articles", None)]
+    paths_with_lastmod: list[tuple[str, str | None]] = [
+        ("/", None),
+        ("/articles", None),
+        ("/privacy-policy", None),
+        ("/terms-of-service", None),
+    ]
     paths_with_lastmod += [
         (f"/articles/{article['slug']}", article["published_at"][:10]) for article in articles
     ]
@@ -728,6 +736,109 @@ def render_sitemap(articles: list[Article], domain_name: str | None) -> str | No
         + "\n".join(entries)
         + "\n</urlset>\n"
     )
+
+
+_TASK_REFERENCE = re.compile(r"（P\d+-\d+[^）]*）")
+
+
+def _inline_md(text: str) -> str:
+    """`**太字**`と`` `コード` ``のみを扱う、この2文書専用の最小限のインラインMarkdown変換。"""
+    escaped = html.escape(text)
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+    return re.sub(r"`(.+?)`", r"<code>\1</code>", escaped)
+
+
+def _render_legal_body(markdown_text: str) -> tuple[str, str]:
+    """`docs/14_法務文書/`の法務文書（P7-1）をHTMLに変換する。
+
+    この2文書に十分な範囲（見出しh2・テーブル・箇条書き・段落・太字・コード）だけを
+    扱う専用の最小限のパーサ（汎用Markdownライブラリは導入しない）。
+    冒頭のバージョン管理メタデータ（1つ目の"---"まで）は内部向けのため出力しない。
+    1つ目と2つ目の"---"の間にある注記(blockquote)は、内部タスクID
+    （例："（P7-9 本番デプロイ）"）を取り除いたうえで注記として表示する。
+    """
+    lines = markdown_text.split("\n")
+    title = lines[0].removeprefix("# ").strip()
+
+    first_rule = lines.index("---")
+    second_rule = lines.index("---", first_rule + 1)
+    notice = " ".join(
+        line.strip().removeprefix("> ")
+        for line in lines[first_rule + 1 : second_rule]
+        if line.strip().startswith("> ")
+    )
+    notice = _TASK_REFERENCE.sub("", notice).strip()
+
+    parts: list[str] = []
+    if notice:
+        parts.append(f'<p class="legal-notice">{_inline_md(notice)}</p>')
+
+    list_buffer: list[str] = []
+    table_buffer: list[str] = []
+
+    def flush_list() -> None:
+        if list_buffer:
+            items = "\n".join(f"<li>{_inline_md(item)}</li>" for item in list_buffer)
+            parts.append(f"<ul>\n{items}\n</ul>")
+            list_buffer.clear()
+
+    def flush_table() -> None:
+        if table_buffer:
+            rows = [
+                [cell.strip() for cell in row.strip().strip("|").split("|")]
+                for row in table_buffer
+            ]
+            header, _separator, *data_rows = rows
+            head_cells = "".join(f"<th>{_inline_md(cell)}</th>" for cell in header)
+            body_rows = "\n".join(
+                "<tr>" + "".join(f"<td>{_inline_md(cell)}</td>" for cell in row) + "</tr>"
+                for row in data_rows
+            )
+            parts.append(f"<table><thead><tr>{head_cells}</tr></thead><tbody>\n{body_rows}\n</tbody></table>")
+            table_buffer.clear()
+
+    for line in lines[second_rule + 1 :]:
+        stripped = line.rstrip()
+        if not stripped:
+            flush_list()
+            flush_table()
+        elif stripped.startswith("## "):
+            flush_list()
+            flush_table()
+            parts.append(f"<h2>{_inline_md(stripped.removeprefix('## '))}</h2>")
+        elif stripped.startswith("|"):
+            table_buffer.append(stripped)
+        elif stripped.startswith("- "):
+            flush_table()
+            list_buffer.append(stripped.removeprefix("- "))
+        else:
+            flush_list()
+            flush_table()
+            parts.append(f"<p>{_inline_md(stripped)}</p>")
+    flush_list()
+    flush_table()
+
+    return title, "\n".join(parts)
+
+
+def render_legal_page(markdown_text: str, path: str, domain_name: str | None) -> str:
+    title, body_html = _render_legal_body(markdown_text)
+    body = f"""
+{_header(title, "/")}
+    <main class="site-main">
+      <article class="article">
+        <h1 class="article__title">{html.escape(title)}</h1>
+        <div class="article__body">
+{body_html}
+        </div>
+      </article>
+    </main>
+{AUTH_SWITCH_SCRIPT}
+  </body>
+</html>
+"""
+    description = f"Flourish Studioの{title}。"
+    return _page_head(f"{title} | Flourish Studio", description, path, domain_name) + body
 
 
 def fetch_published_articles() -> list[Article]:
@@ -769,6 +880,23 @@ def build_site(
         (SITE_DIR / "site.css").read_text(encoding="utf-8"), encoding="utf-8"
     )
 
+    (output_dir / "privacy_policy.html").write_text(
+        render_legal_page(
+            (LEGAL_DOCS_DIR / "privacy-policy.md").read_text(encoding="utf-8"),
+            "/privacy-policy",
+            domain_name,
+        ),
+        encoding="utf-8",
+    )
+    (output_dir / "terms_of_service.html").write_text(
+        render_legal_page(
+            (LEGAL_DOCS_DIR / "terms-of-service.md").read_text(encoding="utf-8"),
+            "/terms-of-service",
+            domain_name,
+        ),
+        encoding="utf-8",
+    )
+
     (output_dir / "robots.txt").write_text(render_robots_txt(domain_name), encoding="utf-8")
     sitemap = render_sitemap(articles, domain_name)
     if sitemap is not None:
@@ -790,6 +918,8 @@ def _iter_upload_targets(output_dir: Path) -> list[tuple[Path, str, str]]:
         (output_dir / "articles_list.html", "articles", "text/html; charset=utf-8"),
         (output_dir / "assets" / "site.css", "assets/site.css", "text/css; charset=utf-8"),
         (output_dir / "robots.txt", "robots.txt", "text/plain; charset=utf-8"),
+        (output_dir / "privacy_policy.html", "privacy-policy", "text/html; charset=utf-8"),
+        (output_dir / "terms_of_service.html", "terms-of-service", "text/html; charset=utf-8"),
     ]
     sitemap_path = output_dir / "sitemap.xml"
     if sitemap_path.exists():
@@ -812,7 +942,15 @@ def sync_to_s3(output_dir: Path, bucket_name: str) -> None:
 
 
 def invalidate_cloudfront(distribution_id: str) -> None:
-    paths = ["/", "/articles", "/articles/*", "/robots.txt", "/sitemap.xml"]
+    paths = [
+        "/",
+        "/articles",
+        "/articles/*",
+        "/robots.txt",
+        "/sitemap.xml",
+        "/privacy-policy",
+        "/terms-of-service",
+    ]
     cloudfront = boto3.client("cloudfront")
     cloudfront.create_invalidation(
         DistributionId=distribution_id,

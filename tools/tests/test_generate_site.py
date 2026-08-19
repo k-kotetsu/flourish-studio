@@ -5,13 +5,39 @@ from unittest.mock import MagicMock, patch
 
 from generate_site import (
     _iter_upload_targets,
+    _render_legal_body,
     build_site,
     invalidate_cloudfront,
+    render_legal_page,
     render_robots_txt,
     render_sitemap,
     sync_to_s3,
 )
 from insert_articles import Article, insert_articles
+
+_SAMPLE_LEGAL_MARKDOWN = """# サンプル規約
+
+> Version 1.0
+> 制定：2026-08-16（P7-1）
+
+---
+
+> 運営者情報は、一般公開する段階（P7-9 本番デプロイ）までに追記する。
+
+---
+
+導入の段落です。
+
+## 1. 見出し
+
+| 分類 | 内容 |
+|---|---|
+| 行1 | `コード` を含む値 |
+| 行2 | **太字**を含む値 |
+
+- 箇条書き1
+- 箇条書き2
+"""
 
 
 def _write_article(
@@ -220,6 +246,8 @@ def test_invalidate_cloudfront_creates_invalidation_for_top_and_articles_paths(
         "/articles/*",
         "/robots.txt",
         "/sitemap.xml",
+        "/privacy-policy",
+        "/terms-of-service",
     ]
 
 
@@ -311,3 +339,74 @@ def test_build_site_writes_sitemap_only_when_domain_is_known(tmp_path: Path) -> 
     build_site(without_domain_dir, domain_name=None)
     assert not (without_domain_dir / "sitemap.xml").exists()
     assert (without_domain_dir / "robots.txt").exists()
+
+
+def test_render_legal_body_strips_internal_task_references_from_notice() -> None:
+    title, body_html = _render_legal_body(_SAMPLE_LEGAL_MARKDOWN)
+
+    assert title == "サンプル規約"
+    assert "運営者情報は、一般公開する段階までに追記する。" in body_html
+    assert "P7-9" not in body_html
+    assert "P7-1" not in body_html
+
+
+def test_render_legal_body_converts_headings_tables_lists_and_inline_markup() -> None:
+    _title, body_html = _render_legal_body(_SAMPLE_LEGAL_MARKDOWN)
+
+    assert "<h2>1. 見出し</h2>" in body_html
+    assert "<p>導入の段落です。</p>" in body_html
+    assert "<table><thead><tr><th>分類</th><th>内容</th></tr></thead>" in body_html
+    assert "<td><code>コード</code> を含む値</td>" in body_html
+    assert "<td><b>太字</b>を含む値</td>" in body_html
+    assert "<ul>\n<li>箇条書き1</li>\n<li>箇条書き2</li>\n</ul>" in body_html
+
+
+def test_render_legal_page_includes_ogp_when_domain_is_known() -> None:
+    page = render_legal_page(_SAMPLE_LEGAL_MARKDOWN, "/sample", "flourish-st.com")
+
+    assert "<title>サンプル規約 | Flourish Studio</title>" in page
+    assert '<link rel="canonical" href="https://flourish-st.com/sample" />' in page
+    assert '<h1 class="article__title">サンプル規約</h1>' in page
+
+
+def test_build_site_generates_privacy_policy_and_terms_of_service_pages(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "site"
+    build_site(output_dir, domain_name="flourish-st.com")
+
+    privacy_html = (output_dir / "privacy_policy.html").read_text(encoding="utf-8")
+    assert "<h1 class=\"article__title\">プライバシーポリシー</h1>" in privacy_html
+    assert "AIモデルの学習には利用されません" in privacy_html
+    assert "P7-9" not in privacy_html
+
+    terms_html = (output_dir / "terms_of_service.html").read_text(encoding="utf-8")
+    assert "<h1 class=\"article__title\">利用規約</h1>" in terms_html
+    assert "禁止事項" in terms_html
+    assert "P7-9" not in terms_html
+
+
+def test_build_site_top_page_links_to_legal_pages(tmp_path: Path) -> None:
+    output_dir = tmp_path / "site"
+    build_site(output_dir, domain_name="flourish-st.com")
+
+    top_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="/terms-of-service"' in top_html
+    assert 'href="/privacy-policy"' in top_html
+
+
+def test_iter_upload_targets_includes_legal_pages(tmp_path: Path) -> None:
+    output_dir = tmp_path / "site"
+    build_site(output_dir, domain_name="flourish-st.com")
+
+    keys = {key for _, key, _ in _iter_upload_targets(output_dir)}
+    assert "privacy-policy" in keys
+    assert "terms-of-service" in keys
+
+
+def test_render_sitemap_includes_legal_pages() -> None:
+    sitemap = render_sitemap([], "flourish-st.com")
+
+    assert sitemap is not None
+    assert "<loc>https://flourish-st.com/privacy-policy</loc>" in sitemap
+    assert "<loc>https://flourish-st.com/terms-of-service</loc>" in sitemap

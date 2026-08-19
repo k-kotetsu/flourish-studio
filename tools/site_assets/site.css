@@ -338,6 +338,57 @@ a {
   margin: 0 0 var(--space-4);
 }
 
+.article__body h2 {
+  font-size: var(--font-size-section);
+  line-height: var(--line-height-section);
+  font-weight: 600;
+  margin: var(--space-5) 0 var(--space-3);
+}
+
+.article__body ul {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-4);
+}
+
+.article__body li {
+  margin-bottom: var(--space-1);
+}
+
+.article__body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.article__body th,
+.article__body td {
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.article__body th {
+  background: var(--surface-sub);
+}
+
+.article__body code {
+  font-family: monospace;
+  background: var(--surface-sub);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.article__body .legal-notice {
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--surface-sub);
+  color: var(--text-sub);
+}
+
 .cta-banner {
   margin-top: var(--space-5);
   padding: var(--space-4);
@@ -594,6 +645,15 @@ a {
 .lp-footer {
   padding: var(--space-5) var(--layout-gutter);
   text-align: center;
+}
+
+.lp-footer a {
+  color: var(--primary);
+}
+
+.lp-footer a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .lp-cta {

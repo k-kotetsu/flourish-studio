@@ -93,6 +93,11 @@ function goToTop(): void {
       >
         トップに戻る
       </AppButton>
+      <p class="s02__legal">
+        <a href="/terms-of-service">利用規約</a>
+        ／
+        <a href="/privacy-policy">プライバシーポリシー</a>
+      </p>
     </div>
   </div>
 </template>
@@ -149,7 +154,25 @@ function goToTop(): void {
 
 .s02__footer {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-3) var(--layout-gutter) var(--space-5);
+}
+
+.s02__legal {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  color: var(--text-sub);
+}
+
+.s02__legal a {
+  color: var(--primary);
+}
+
+.s02__legal a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 </style>

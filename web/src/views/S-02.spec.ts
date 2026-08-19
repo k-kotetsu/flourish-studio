@@ -72,4 +72,14 @@ describe("S-02", () => {
 
     expect(push).toHaveBeenCalledWith("/");
   });
+
+  it("利用規約・プライバシーポリシーへのリンクを表示する", () => {
+    const wrapper = mount(S02View);
+
+    const legalLinks = wrapper.findAll(".s02__legal a");
+    const hrefs = legalLinks.map((link) => link.attributes("href"));
+
+    expect(hrefs).toContain("/terms-of-service");
+    expect(hrefs).toContain("/privacy-policy");
+  });
 });
