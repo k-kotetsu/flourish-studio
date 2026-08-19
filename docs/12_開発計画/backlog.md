@@ -775,9 +775,9 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 |---|---|---|---|---|---|---|
 | ~~**P6-1**~~ ✅ | **私** | L | **記事コンテンツの執筆**（5カテゴリ、各2〜3本を目安） | `01_全体コンセプト` 12章 | 記事本文。カテゴリは4領域＋Flourishとは | − |
 | ~~**P6-2**~~ ✅ | CC | S | 記事の投入スクリプト（`flourish_article` へ） | `08_データモデル` 6.4 | 冪等に投入できる | P1-4 |
-| **P6-3** | CC | M | **静的サイトジェネレータ。** DynamoDB → HTML → S3 → invalidation | `11_技術構成` 4.4 | `make publish-site` で反映 | P6-2 |
+| ~~**P6-3**~~ ✅ | CC | M | **静的サイトジェネレータ。** DynamoDB → HTML → S3 → invalidation | `11_技術構成` 4.4 | `make publish-site` で反映 | P6-2 |
 | **P6-4** | CC | M | S-01 トップページ（7セクション） | `04_画面設計` S-01、`06_ワイヤーフレーム`、`01_全体コンセプト` 17章 | 最大幅960px。SPAへの導線 | P6-3、P1-15 |
-| **P6-5** | CC | M | K-01 記事一覧 / K-02 記事詳細。末尾に共通CTA | `04_画面設計` K-01/K-02 | ログイン不要で全文が読める | P6-3 |
+| ~~**P6-5**~~ ✅ | CC | M | K-01 記事一覧 / K-02 記事詳細。末尾に共通CTA | `04_画面設計` K-01/K-02 | ログイン不要で全文が読める | P6-3 |
 | **P6-6** | CC | S | メタタグ、OGP、sitemap.xml、robots.txt | − | 検索エンジンにインデックスされる状態 | P6-4、P6-5 |
 
 **P6-1 が律速になる。** ~~記事は Claude Code に書かせず、人が書く（`flourish-tone` の適用が最も難しい領域であり、サービスの声そのものになるため）。~~ → ユーザーの明示的な指示により、本タスクはClaude Codeが執筆した（下記完了メモ参照）。
@@ -802,6 +802,23 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `Makefile`：`setup-tools`に`pytest`を追加。`test-tools`ターゲット（`dynamodb-local-up`依存）を新設し、`test`から呼ばれるようにした（`test-api`と対になる構成）
 - **本タスクとは別に、環境依存の問題を1件その場で踏んで直した（backlogには残さない一時対応）。** `tools/.venv`へ`boto3-stubs`を素直に最新版でインストールすると、`mypy`が`boto3`を「stubsが無い」として`import-untyped`エラーにする既知の退行を踏んだ。`api/.venv`で実際に動いているバージョン（`1.43.67`）に合わせることで解消した。`Makefile`の`setup-tools`自体はバージョン非固定のままのため、次に新規環境で`make setup-tools`をゼロから実行すると同じ事象が再発しうる。既存の`setup-api`も同様に非固定であり、この問題はP6-2固有ではなくリポジトリ全体の潜在的な既知事項として残る
 - `make lint && make test`が通ることを確認済み（api 356件・tools 4件・web 335件・infra 30件、全てpass）
+
+**P6-3・P6-5完了メモ（2026-08-19）：** `flourish_article`からK-01（記事一覧）・K-02（記事詳細）の静的HTMLを生成し、S3・CloudFrontへ反映する仕組みを実装した。K-01/K-02は`04_画面設計`・`06_ワイヤーフレーム`の仕様どおり本格実装したため、P6-5もあわせて完了とした（ユーザーとの対話で合意）。
+
+- **担当のズレの記録：** K-01/K-02を本格デザインで作ると、静的サイトジェネレータ（P6-3）の生成対象そのものがP6-5の完了条件（「ログイン不要で全文が読める」）を満たしてしまう。両タスクを1セッションで完了とする方針をユーザーに確認した
+- `tools/generate_site.py`：新規。`flourish_article`を`scan`し`status=PUBLISHED`のみ新着順に抽出、K-01/K-02のHTMLを組み立てて`dist/site/`に書き出す。`PUBLIC_SITE_BUCKET_NAME`・`CLOUDFRONT_DISTRIBUTION_ID`が設定されていれば`boto3`でS3へ`put_object`しCloudFront invalidationも行う（未設定ならローカル出力のみ。`insert_articles.py`の環境変数切り替えと同じ考え方）
+- `tools/site_assets/site.css`：新規。`web/src/styles/tokens.css`と同じ値のトークンに、公開サイト例外のレイアウト（最大幅960px・本文640px、`flourish-uiスキル`）を加えたスタイル
+- **S3キーとローカルパスの分離：** S3では`articles`というオブジェクトと`articles/{slug}`というオブジェクトが共存できるが、ローカルのファイルシステムでは同名のファイルとディレクトリは共存できない。ローカルは`articles_list.html`／`articles_detail/{slug}`という名前で書き出し、`_iter_upload_targets`でS3キー（`articles`／`articles/{slug}`、いずれも拡張子なし）への対応関係を持たせた。URLとS3キーを一致させ、CloudFrontのdefaultRootObjectの挙動に依存しない構成にした
+- **ログイン状態の出し分け（ヘッダー右・CTAバナー）はHTMLに焼き込まない。** 生成されるHTMLは常にDB・セッションに依存しない「未登録」の見た目とし、クライアントJSが`GET /api/v1/me`の成否だけを見て`data-auth`属性を切り替える設計にした。技術構成4.4の「DBが公開経路から外れる」という決定と両立させるための判断
+- **CTAバナーの文言は仕様に未定義だったため新規に作成した。** `flourish-tone`（問いかけで終える、機能名を出さない、感嘆符不使用）に沿い、S-01と同じCTA「5分で、いまの自分を見てみる」＋補足「登録はあとからで大丈夫です」を再利用し、導入文「ここまで読んでみて、浮かんだことはありますか。」を添えた
+- **4領域アイコンは既存実装がなく、本タスクで新規に描き起こした。** `flourish-uiスキル`（線画のみ・線幅1.6px・24pxグリッド・`currentColor`）に沿ったインラインSVGを`CATEGORY_ICONS`に用意した
+- `Makefile`：`publish-site`ターゲットを追加（`dynamodb-local-up`に依存、`tools/generate_site.py`を実行）
+- `tools/tests/test_generate_site.py`：新規。生成対象の記事の絞り込み（`PUBLISHED`のみ）、HTMLエスケープ（XSS対策）、S3キー対応、`boto3`をモックした同期・invalidation呼び出しを確認した
+- **実機検証でインフラの前提条件のズレを発見した。** `EdgeStack`（S3・CloudFront・WAF）は未デプロイの一方、`DataStack`・`AuthStack`・`AppStack`は2026-08-09時点のコードのままデプロイ済みで、現在のコードと大きく乖離していた（SQSキュー追加、Bedrockモデル変更、Cognito権限変更など、いずれもP6-3と無関係）。`EdgeStack`は`crossRegionReferences`で`AppStack`の出力を参照するため、`--exclusively`で分離してもデプロイできず（`AppStack`側に対応する出力がまだ存在しないため`TemplateError`で失敗）、結局4スタック全部を最新化する必要があった。ユーザーに状況を共有し合意のうえで実施した。破壊的な置換・削除がないことを`cdk diff`で確認してから実行した
+- `infra/lib/edge-stack.ts`：CloudFront invalidationに必要な`DistributionId`のCfnOutputが無かったため追加した
+- **dev環境への記事投入も本タスクで実施した。** P6-1完了メモに「開発環境へは次回デプロイ時に同様の内容を投入予定」と記載されていたため、`insert_articles.py`をdev環境の`flourish_article`に対して実行した
+- 実機検証：`https://{EdgeStackのCloudFrontドメイン}/articles`・`/articles/{slug}`・`/assets/site.css`がいずれも200、Content-Typeが`text/html`／`text/css`で返ることを`curl`で確認した。`/`（トップページ）は403（P6-4未実装のためS3に`index.html`が無い、想定内）
+- `make lint && make test`が通ることを確認済み（api 356件・tools 10件・web 335件・infra 30件、全てpass）。`make publish-site`単体でもローカル生成が動くことを確認した
 
 ---
 
