@@ -28,6 +28,10 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "dist" / "site"
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 PUBLIC_SITE_BUCKET_NAME = os.environ.get("PUBLIC_SITE_BUCKET_NAME")
 CLOUDFRONT_DISTRIBUTION_ID = os.environ.get("CLOUDFRONT_DISTRIBUTION_ID")
+# api/app/core/config.pyのPUBLIC_DOMAIN_NAMEと同じ環境変数名（絶対URLの組み立てに使う）。
+# 未設定時はOGP/canonical/sitemap.xmlを省略し、ローカル出力のみ行う
+# （PUBLIC_SITE_BUCKET_NAME等と同じ「未設定ならローカルのみ」の方針）。
+PUBLIC_DOMAIN_NAME = os.environ.get("PUBLIC_DOMAIN_NAME")
 
 CATEGORIES = ["CAREER", "FINANCIAL", "PHYSICAL", "SOCIAL", "FLOURISH"]
 CATEGORY_LABELS = {
@@ -254,7 +258,31 @@ def _format_date(published_at: str) -> str:
     return f"{dt.year}.{dt.month}.{dt.day}"
 
 
-def _page_head(title: str, description: str) -> str:
+def _og_tags(title: str, description: str, path: str, domain_name: str | None, og_type: str) -> str:
+    """OGP・canonicalタグ。絶対URLが要るため、ドメインが分かるビルドでのみ出力する
+    （`PUBLIC_DOMAIN_NAME`未設定のローカル出力では省略する）。
+    """
+    if not domain_name:
+        return ""
+    url = f"https://{domain_name}{path}"
+    return f"""
+    <link rel="canonical" href="{url}" />
+    <meta property="og:type" content="{og_type}" />
+    <meta property="og:site_name" content="Flourish Studio" />
+    <meta property="og:title" content="{html.escape(title)}" />
+    <meta property="og:description" content="{html.escape(description)}" />
+    <meta property="og:url" content="{url}" />
+    <meta name="twitter:card" content="summary" />"""
+
+
+def _page_head(
+    title: str,
+    description: str,
+    path: str,
+    domain_name: str | None,
+    *,
+    og_type: str = "website",
+) -> str:
     return f"""<!doctype html>
 <html lang="ja">
   <head>
@@ -262,7 +290,7 @@ def _page_head(title: str, description: str) -> str:
 {THEME_INIT_SCRIPT}
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="{html.escape(description)}" />
-    <title>{html.escape(title)}</title>
+    <title>{html.escape(title)}</title>{_og_tags(title, description, path, domain_name, og_type)}
     <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>"""
@@ -336,7 +364,7 @@ def _step_item(number: int, heading: str, body: str) -> str:
         </li>"""
 
 
-def render_top_page(articles: list[Article]) -> str:
+def render_top_page(articles: list[Article], domain_name: str | None) -> str:
     """S-01 トップページ。7セクション＋読みもの＋フッターの縦長スクロール
     （wireframe-spec 7.1.1）。**アプリ画面ではなくウェブサイト**として、
     Vue SPA（/app/*）とは別に静的サイトジェネレータで生成する。
@@ -569,10 +597,10 @@ def render_top_page(articles: list[Article]) -> str:
         "自分の現在地を知り、自分なりのより良い人生を探索し、育てていく。"
         "Flourish Studio は、そのためのパーソナルスタジオです。何も売らないAI。"
     )
-    return _page_head("Flourish Studio", top_description) + body
+    return _page_head("Flourish Studio", top_description, "/", domain_name) + body
 
 
-def render_article_list_page(articles: list[Article]) -> str:
+def render_article_list_page(articles: list[Article], domain_name: str | None) -> str:
     chips = [
         '      <button type="button" class="chip is-selected" data-category="ALL">'
         "すべて</button>"
@@ -624,10 +652,10 @@ def render_article_list_page(articles: list[Article]) -> str:
         "Flourish Studioの読みもの。CareerやFinancialなど4つの領域と、"
         "Flourishという考え方について。"
     )
-    return _page_head("記事 | Flourish Studio", list_description) + body
+    return _page_head("記事 | Flourish Studio", list_description, "/articles", domain_name) + body
 
 
-def render_article_detail_page(article: Article) -> str:
+def render_article_detail_page(article: Article, domain_name: str | None) -> str:
     paragraphs = "\n".join(
         f"        <p>{html.escape(paragraph)}</p>"
         for paragraph in article["body"].split("\n\n")
@@ -655,7 +683,51 @@ def render_article_detail_page(article: Article) -> str:
   </body>
 </html>
 """
-    return _page_head(f"{article['title']} | Flourish Studio", article["excerpt"]) + body
+    path = f"/articles/{article['slug']}"
+    return (
+        _page_head(
+            f"{article['title']} | Flourish Studio",
+            article["excerpt"],
+            path,
+            domain_name,
+            og_type="article",
+        )
+        + body
+    )
+
+
+def render_robots_txt(domain_name: str | None) -> str:
+    """`/app/*`（要ログインのSPA）・`/api/*`は集客対象ではないため巡回対象から外す
+    （`11_技術構成`2章「公開サイトとアプリを分ける」理由：LPと記事はSEOが要る）。
+    """
+    lines = ["User-agent: *", "Allow: /", "Disallow: /app/", "Disallow: /api/"]
+    if domain_name:
+        lines += ["", f"Sitemap: https://{domain_name}/sitemap.xml"]
+    return "\n".join(lines) + "\n"
+
+
+def render_sitemap(articles: list[Article], domain_name: str | None) -> str | None:
+    """sitemap.xmlの`<loc>`は絶対URLが要るため、ドメインが分かるビルドでのみ生成する。"""
+    if not domain_name:
+        return None
+
+    paths_with_lastmod: list[tuple[str, str | None]] = [("/", None), ("/articles", None)]
+    paths_with_lastmod += [
+        (f"/articles/{article['slug']}", article["published_at"][:10]) for article in articles
+    ]
+
+    entries = []
+    for path, lastmod in paths_with_lastmod:
+        lastmod_tag = f"\n    <lastmod>{lastmod}</lastmod>" if lastmod else ""
+        loc = f"https://{domain_name}{path}"
+        entries.append(f"  <url>\n    <loc>{loc}</loc>{lastmod_tag}\n  </url>")
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(entries)
+        + "\n</urlset>\n"
+    )
 
 
 def fetch_published_articles() -> list[Article]:
@@ -666,7 +738,9 @@ def fetch_published_articles() -> list[Article]:
     return published
 
 
-def build_site(output_dir: Path = OUTPUT_DIR) -> list[Article]:
+def build_site(
+    output_dir: Path = OUTPUT_DIR, domain_name: str | None = PUBLIC_DOMAIN_NAME
+) -> list[Article]:
     """`output_dir`直下に生成する。S3キーとローカルのファイル名は必ずしも一致しない
     （S3では"articles"というオブジェクトと"articles/xxx"というオブジェクトが共存できるが、
     ローカルのファイルシステムではファイルとディレクトリが同名で共存できないため）。
@@ -675,16 +749,18 @@ def build_site(output_dir: Path = OUTPUT_DIR) -> list[Article]:
     articles = fetch_published_articles()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "index.html").write_text(render_top_page(articles), encoding="utf-8")
+    (output_dir / "index.html").write_text(
+        render_top_page(articles, domain_name), encoding="utf-8"
+    )
     (output_dir / "articles_list.html").write_text(
-        render_article_list_page(articles), encoding="utf-8"
+        render_article_list_page(articles, domain_name), encoding="utf-8"
     )
 
     detail_dir = output_dir / "articles_detail"
     detail_dir.mkdir(parents=True, exist_ok=True)
     for article in articles:
         (detail_dir / article["slug"]).write_text(
-            render_article_detail_page(article), encoding="utf-8"
+            render_article_detail_page(article, domain_name), encoding="utf-8"
         )
 
     assets_dir = output_dir / "assets"
@@ -692,6 +768,11 @@ def build_site(output_dir: Path = OUTPUT_DIR) -> list[Article]:
     (assets_dir / "site.css").write_text(
         (SITE_DIR / "site.css").read_text(encoding="utf-8"), encoding="utf-8"
     )
+
+    (output_dir / "robots.txt").write_text(render_robots_txt(domain_name), encoding="utf-8")
+    sitemap = render_sitemap(articles, domain_name)
+    if sitemap is not None:
+        (output_dir / "sitemap.xml").write_text(sitemap, encoding="utf-8")
 
     print(f"{len(articles)}件の記事をもとに静的サイトを {output_dir} に生成しました。")
     return articles
@@ -708,7 +789,11 @@ def _iter_upload_targets(output_dir: Path) -> list[tuple[Path, str, str]]:
         (output_dir / "index.html", "index.html", "text/html; charset=utf-8"),
         (output_dir / "articles_list.html", "articles", "text/html; charset=utf-8"),
         (output_dir / "assets" / "site.css", "assets/site.css", "text/css; charset=utf-8"),
+        (output_dir / "robots.txt", "robots.txt", "text/plain; charset=utf-8"),
     ]
+    sitemap_path = output_dir / "sitemap.xml"
+    if sitemap_path.exists():
+        targets.append((sitemap_path, "sitemap.xml", "application/xml; charset=utf-8"))
     for path in sorted((output_dir / "articles_detail").iterdir()):
         targets.append((path, f"articles/{path.name}", "text/html; charset=utf-8"))
     return targets
@@ -727,11 +812,12 @@ def sync_to_s3(output_dir: Path, bucket_name: str) -> None:
 
 
 def invalidate_cloudfront(distribution_id: str) -> None:
+    paths = ["/", "/articles", "/articles/*", "/robots.txt", "/sitemap.xml"]
     cloudfront = boto3.client("cloudfront")
     cloudfront.create_invalidation(
         DistributionId=distribution_id,
         InvalidationBatch={
-            "Paths": {"Quantity": 3, "Items": ["/", "/articles", "/articles/*"]},
+            "Paths": {"Quantity": len(paths), "Items": paths},
             "CallerReference": datetime.now(UTC).isoformat(),
         },
     )
