@@ -9,11 +9,14 @@ import AppProgressBar from "../components/AppProgressBar.vue";
 import AppHeaderHub from "../components/AppHeaderHub.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
 import AppHeaderSingle from "../components/AppHeaderSingle.vue";
+import AppLogo from "../components/AppLogo.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import GeneratingScreen from "../components/GeneratingScreen.vue";
 import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
 import ChipMultiSelect from "../components/ChipMultiSelect.vue";
 import CheckboxChoiceSelector from "../components/CheckboxChoiceSelector.vue";
+import { AREAS, AREA_META } from "../domain/questions";
 import { GROWTH_STAGES, GROWTH_STAGE_ICONS, GROWTH_STAGE_LABELS } from "../domain/growthStage";
 import { VALUES_OPTIONS, VALUES_MAX_SELECTION, FULFILLING_MOMENT_OPTIONS } from "../domain/purposeChoices";
 
@@ -226,6 +229,38 @@ const gallerySelectedMoments = ref<string[]>(["HELPED_SOMEONE"]);
             />
           </svg>
           <span class="gallery__label">{{ GROWTH_STAGE_LABELS[stage] }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gallery__group">
+      <h2>4領域アイコン（P7-3。`07_デザイン原則`7.6）</h2>
+      <p class="gallery__lede">
+        線画・24pxグリッド・線幅1.6px・塗りつぶしなし・`currentColor`。既製セット（`mockup.html`のICON）から選定した。2.6「4領域の色分けはしない」ため、4つとも同じ色（`currentColor`）で表示される。
+      </p>
+      <div class="gallery__row">
+        <div
+          v-for="area in AREAS"
+          :key="`area-icon-${area}`"
+          class="gallery__icon"
+        >
+          <AreaIcon
+            :area="area"
+            :size="32"
+          />
+          <span class="gallery__label">{{ AREA_META[area].en }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gallery__group">
+      <h2>ロゴロックアップ（P7-3。定義書19章 未決#4）</h2>
+      <p class="gallery__lede">
+        ロゴマーク（`ICON_FLOURISH`由来の双葉のモチーフ）とサービス名を組みで表示する。ロゴマーク単体では使わない。`AppHeaderHub`はtitle省略時（S-41ホーム）にこれを出す。
+      </p>
+      <div class="gallery__row">
+        <div class="gallery__frame gallery__frame--narrow">
+          <AppLogo />
         </div>
       </div>
     </section>

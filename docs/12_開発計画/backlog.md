@@ -868,7 +868,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 |---|---|---|---|---|---|---|
 | ~~**P7-1**~~ ✅ | **私** | L | **プライバシーポリシー、利用規約、相談窓口の文面**（専門の確認を含む） | `08_データモデル` 11.1、`10_AIプロンプト設計` 3.7、`11_技術構成` 8.4 | 退会後のデータ保持、AI処理を行う国、相談窓口が明記されている | P0-2 |
 | ~~**P7-2**~~ ✅ | CC | S | ポリシー・規約ページの実装 | P7-1 の成果物 | 公開サイトとアプリ内の両方から到達できる | P7-1、P6-3 |
-| **P7-3** | **私** | M | **4領域アイコンの選定**、ロゴとサービス名のロックアップ | `07_デザイン原則` 7.6、12章 | 線画SVG。定義書19章 未決#4 を解消 | − |
+| ~~**P7-3**~~ ✅ | **私** | M | **4領域アイコンの選定**、ロゴとサービス名のロックアップ | `07_デザイン原則` 7.6、12章 | 線画SVG。定義書19章 未決#4 を解消 | − |
 | **P7-4** | CC | M | アクセシビリティ検証（コントラスト実測、キーボード操作、文字拡大、`prefers-reduced-motion`） | `07_デザイン原則` 9〜10章 | WCAG 2.1 AA 相当を満たす。**実測値を記録** | P4-9 |
 | **P7-5** | CC | M | 監視とアラーム（DLQ、エラー率、レイテンシ、スロットリング、**AI日次コスト**） | `11_技術構成` 11章 | アラームが発火することをテスト | P1-6 |
 | **P7-6** | CC | M | ダッシュボード（EMFログから `kind` ごとの失敗率・トークン・`safety_flag`） | `11_技術構成` 11.2、`10_AIプロンプト設計` 6.3 | 6つの指標が見える | P7-5 |
@@ -898,6 +898,24 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - `tools/tests/test_generate_site.py`：Markdown変換（見出し・テーブル・箇条書き・太字・コード・内部タスクIDの除去）、実際の`privacy-policy.md`/`terms-of-service.md`からのページ生成、S-01フッターへのリンク、S3アップロード対象・sitemap・invalidationへの追加を確認するテストを追加した。`web/src/views/S-02.spec.ts`にリンクの存在を確認するテストを追加した
 - `make lint && make test`が通ることを確認済み（api 356件・tools 27件・web 336件・infra 30件、全てpass）。加えてPlaywrightで実際に`/privacy-policy`・S-01・S-02をライト／ダーク両テーマでスクリーンショット確認し、テーブル・箇条書き・注記・リンクの見た目、内部タスクIDが表示に出ていないことを確認した
 
+**P7-3完了メモ（2026-08-19）：** 4領域アイコンを選定し、ロゴとサービス名のロックアップを作った。定義書19章 未決#4を解消した。
+
+- **担当の変更。** バックログ上は担当**私**（ビジュアル制作）だが、ユーザーの指示によりCCが担当した（P2-10と同じ扱い）
+- **4領域アイコンの選定について、既製セットから新規に探さず`docs/06_ワイヤーフレーム/mockup.html`の`ICON`（Career/Financial/Physical/Social）をそのまま採用した。** `07_デザイン原則`7.6「4領域のアイコンは既製セットから選んでよい」の要件（24pxグリッド・線幅1.6px・線端と接合部を丸める・`currentColor`）にmockup.html時点ですでに合致しており、P2-9・P4-1・P4-8など複数の完了メモが「P7-3待ち」として名指ししてきたものだった。新規に探す・描き起こすより、既存の設計意図をそのまま正式採用する判断とした
+- **ロゴマークは`mockup.html`の`ICON_FLOURISH`（双葉のモチーフ）を採用した。** 成長段階アイコン・4領域アイコンと同じ線画スタイルで統一され、サービス名「Flourish」が表す成長・繁茂のイメージを図形化している。ロゴマーク単体では意味を持たないため、常に「Flourish Studio」の文字と組み合わせるロックアップとして設計した（定義書19章 未決#4の解消）
+- `web/src/domain/areaIcons.ts`：新規。4領域の線画アイコンを`{viewBox, elements}`（`path`/`circle`/`rect`の判別共用体）で持つ。`growthStage.ts`の`{viewBox, paths}`と違い、Financial（円＋通貨記号）・Social（人物2人）が`circle`要素を使うため、`path`だけでなく`circle`/`rect`も表現できる形にした
+- `web/src/components/AreaIcon.vue`：新規。`AREA_ICONS`を描画する表示専用コンポーネント。`aria-hidden`（隣接するen/jpラベルと情報が重複するため）、`currentColor`のみ（2.6「4領域の色分けはしない」）
+- `web/src/domain/logo.ts`：新規。ロゴマークのpathデータと`SERVICE_NAME`（"Flourish Studio"）
+- `web/src/components/AppLogo.vue`：新規。ロゴマーク＋サービス名のロックアップ。欧文ラベルと同じ`--font-latin`（Instrument Sans）で組んだ
+- `web/src/components/AppHeaderHub.vue`：`title`省略時（S-41ホーム）は`AppLogo`（ブランド表示）を出し、`title`指定時（S-50「Flourish Map」）はこれまでどおり文字列のみを出すよう分岐を追加した。S-41.vueの呼び出しから`title="Flourish Studio"`を外した
+- アイコン未選定を理由にテキストのみだった6画面（S-12・S-14・S-16・S-41・S-50・S-61）に`AreaIcon`を組み込んだ。S-61は`mockup.html s61()`どおり「アイコン＋小さな英字ラベルで、目標文より弱くする」構成にした
+- `web/index.html`・`web/public/favicon.svg`：SPAのfaviconを追加した（`%BASE_URL%favicon.svg`）。`tools/site_assets/favicon.svg`・`tools/generate_site.py`（`_page_head`のlinkタグ、`build_site`でのコピー、`_iter_upload_targets`・`invalidate_cloudfront`への追加）で公開サイト側にも同じfaviconを追加した。**faviconは埋め込み先にDOMの色継承先が無いため`currentColor`を使わず、`--primary`のライト値（`#52796F`）を直接埋め込んだ判断とした**（トークンが将来変わった場合はfaviconも合わせて更新が要る）
+- `tools/generate_site.py`の`_top_header()`（公開サイトLPのヘッダー）にもロゴマークを追加した。TypeScript側（`logo.ts`）とPython側で定義が分かれるのは、既存の`growthStage.ts`/`growth_stage.py`と同じパターンを踏襲した
+- `web/src/views/ComponentGalleryView.vue`：「4領域アイコン（P7-3）」「ロゴロックアップ（P7-3）」の2セクションを追加した
+- `web/src/domain/areaIcons.spec.ts`・`AreaIcon.spec.ts`・`AppLogo.spec.ts`：新規。`AppHeaderHub.spec.ts`：title省略時にロゴを出す・指定時に出さないことを追加確認。S-12/S-14/S-16/S-41/S-50/S-61の各spec：領域アイコンが表示されることを追加確認した
+- `tools/tests/test_generate_site.py`：ロゴロックアップ・favicon linkタグの出力、`favicon.svg`が`_iter_upload_targets`・S3アップロード対象・CloudFront invalidationパスに含まれることを追加確認した
+- `make lint && make test`が通ることを確認済み（api 356件・tools 27件・web 350件・infra 30件、全てpass。**ローカルDynamoDB Localの蓄積データによる`test_build_site_generates_top_page`の不安定さ〔P6-3で既知〕は本タスクとは無関係のため、コンテナ再起動で解消することを確認した**）。加えて`make dev`起動下でPlaywrightを使い、`/_gallery`（4領域アイコン・ロゴロックアップの一覧）・S-12・S-50の実画面をライト／ダーク両テーマでスクリーンショット確認した（コンソールエラーなし）
+
 ---
 
 ## 11. 私の作業だけを抜き出したもの
@@ -914,7 +932,7 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | **P2-14** | **評価セットのレビュー、あだ名の許容ライン** | 品質確定 | P2-13の直後 |
 | **P6-1** | **記事の執筆** | P6-3以降 | **今すぐ着手可** |
 | ~~P7-1~~ ✅ | プライバシーポリシー・規約・相談窓口 | P7-2、リリース | 済（運営者情報のみP7-9までに追記） |
-| P7-3 | アイコン選定、ロゴ | 仕上げ | いつでも |
+| ~~P7-3~~ ✅ | アイコン選定、ロゴ | 仕上げ | 済（ユーザー指示によりCCが担当） |
 | P7-9 | 本番デプロイ承認 | リリース | 最後 |
 
 **P6-1 は今日から着手できる。**

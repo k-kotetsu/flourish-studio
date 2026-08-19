@@ -14,6 +14,7 @@
  */
 import { useRouter } from "vue-router";
 import AppHeaderHub from "../components/AppHeaderHub.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import { AREAS, AREA_META } from "../domain/questions";
 
 const router = useRouter();
@@ -45,6 +46,10 @@ function skip(): void {
           class="s50__card"
           @click="selectArea(AREA_META[area].slug)"
         >
+          <AreaIcon
+            :area="area"
+            :size="24"
+          />
           <span class="s50__card-en">{{ AREA_META[area].en }}</span>
           <span class="s50__card-jp">{{ AREA_META[area].jp }}</span>
         </button>

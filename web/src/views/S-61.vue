@@ -14,8 +14,8 @@
  * AppHeaderFlow/AppHeaderSingleのどちらにも無かった組み合わせのため、AppHeaderSingleに
  * `leftAction`（既定`back`）を追加して`cancel`を選べるようにした(既存呼び出し元の見た目は
  * 変わらない)。中断はInterruptDialogを必ず挟む(7.2、S-51と同じ設計)。
- * 【判断】4領域アイコン自体はP7-3が未着手のため、mockup.htmlの「小さな英字ラベル」部分のみを
- * 採用し、アイコンは付けない(S-41が確立した扱いを踏襲)。
+ * 【判断】領域はmockup.html s61()どおり、アイコン＋小さな英字ラベルで示し、目標文より弱くする
+ * (P7-3でアイコンが選定されたため反映した)。
  * 【判断】直接URLで開かれるなどして目標が0件だった場合、screen-list.mdの前提「目標が1個以上
  * あること」を満たさないため、この画面フローの入口であるS-41へ`router.replace`する
  * (未知の領域パラメータをS-50へ戻すS-51/S-54/S-55と同じ考え方)。
@@ -27,6 +27,7 @@ import { messageForCode } from "../api/errorMessages";
 import { getReflectionContext, type ReflectionGoal } from "../api/reflections";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderSingle from "../components/AppHeaderSingle.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import { AREA_META } from "../domain/questions";
 import { useReflectionAnswersStore } from "../stores/reflectionAnswers";
@@ -118,9 +119,15 @@ function submit(): void {
         :key="goal.goal_key"
         class="s61__row"
       >
-        <p class="s61__area-label">
-          {{ AREA_META[goal.area].en }}
-        </p>
+        <div class="s61__area-heading">
+          <AreaIcon
+            :area="goal.area"
+            :size="16"
+          />
+          <p class="s61__area-label">
+            {{ AREA_META[goal.area].en }}
+          </p>
+        </div>
         <p class="s61__goal-body">
           {{ goal.body }}
         </p>
@@ -224,6 +231,13 @@ function submit(): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.s61__area-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-faint);
 }
 
 .s61__area-label {

@@ -36,6 +36,7 @@ describe("S-12", () => {
     expect(wrapper.text()).toContain("Career");
     expect(wrapper.text()).toContain("仕事・働き方");
     expect(wrapper.text()).toContain("右にいくほど、満たされている状態です");
+    expect(wrapper.find(".s12__heading svg").exists()).toBe(true); // P7-3: 4領域アイコン
   });
 
   it("6問(充足感5＋コミット度1)を表示する", () => {

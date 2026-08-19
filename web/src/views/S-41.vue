@@ -25,6 +25,7 @@ import { messageForCode } from "../api/errorMessages";
 import { getHome, type HomeResponse } from "../api/home";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderHub from "../components/AppHeaderHub.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import ThemeToggle from "../components/ThemeToggle.vue";
 import { AREA_META, type Area } from "../domain/questions";
 import { useThemeStore } from "../stores/theme";
@@ -60,7 +61,7 @@ function goToReflection(): void {
 
 <template>
   <div class="s41">
-    <AppHeaderHub title="Flourish Studio">
+    <AppHeaderHub>
       <template #right>
         <ThemeToggle />
       </template>
@@ -93,7 +94,10 @@ function goToReflection(): void {
           :class="{ 's41__area-card--empty': area.status === 'EMPTY' }"
           @click="goToArea(area.area, area.status)"
         >
-          <span class="s41__area-en">{{ AREA_META[area.area].en }}</span>
+          <div class="s41__area-heading">
+            <AreaIcon :area="area.area" />
+            <span class="s41__area-en">{{ AREA_META[area.area].en }}</span>
+          </div>
           <span class="s41__area-jp">{{ AREA_META[area.area].jp }}</span>
           <p
             v-if="area.status === 'CREATED'"
@@ -221,6 +225,12 @@ function goToReflection(): void {
 .s41__area-card:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+.s41__area-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .s41__area-en {
