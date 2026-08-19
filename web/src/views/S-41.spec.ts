@@ -50,6 +50,33 @@ describe("S-41", () => {
     expect(themeStore.mode).toBe("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
+
+  it("目標0個ではWeekly Reflection導線を無効状態で表示し、消さずに理由を添える", async () => {
+    vi.mocked(getHome).mockResolvedValue({ ...homeResponse, reflection_available: false });
+    const wrapper = mount(S41View);
+    await flushPromises();
+
+    const button = wrapper.find("button.app-button");
+    expect(button.exists()).toBe(true);
+    expect(button.attributes("disabled")).toBeDefined();
+    expect(wrapper.text()).toContain("目標を1つ作ると振り返れるようになります");
+
+    await button.trigger("click");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("目標1個以上ではWeekly Reflection導線を有効にし、理由は添えずタップでS-61へ遷移する", async () => {
+    vi.mocked(getHome).mockResolvedValue({ ...homeResponse, reflection_available: true });
+    const wrapper = mount(S41View);
+    await flushPromises();
+
+    const button = wrapper.find("button.app-button");
+    expect(button.attributes("disabled")).toBeUndefined();
+    expect(wrapper.text()).not.toContain("目標を1つ作ると振り返れるようになります");
+
+    await button.trigger("click");
+    expect(push).toHaveBeenCalledWith("/s-61");
+  });
 });
 
 function flushPromises(): Promise<void> {

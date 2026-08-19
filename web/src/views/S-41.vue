@@ -125,7 +125,7 @@ function goToReflection(): void {
           v-if="!home.reflection_available"
           class="s41__reflection-hint"
         >
-          目標を1つ作ると、振り返れるようになります
+          目標を1つ作ると振り返れるようになります
         </p>
       </div>
 
