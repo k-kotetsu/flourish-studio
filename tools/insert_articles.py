@@ -1,7 +1,8 @@
 """content/articles/ 配下のJSONを flourish_article テーブルへ投入する。
 
-P6-1: 記事は管理画面を持たず直接投入する方針（08_データモデル 6.4）。
-冪等な投入フローの整備はP6-2で行う。これはローカル・開発環境への一時的な投入手段。
+記事は管理画面を持たず直接投入する方針（08_データモデル 6.4）。PKは`slug`のため、
+`put_item`による上書きだけで冪等性が成り立つ（同じslugの再投入は重複を生まず、
+内容の更新として反映される）。
 """
 
 from __future__ import annotations
@@ -32,9 +33,9 @@ class Article(TypedDict):
     published_at: str
 
 
-def load_articles() -> list[Article]:
+def load_articles(directory: Path = ARTICLES_DIR) -> list[Article]:
     return [
-        json.loads(path.read_text(encoding="utf-8")) for path in sorted(ARTICLES_DIR.glob("*.json"))
+        json.loads(path.read_text(encoding="utf-8")) for path in sorted(directory.glob("*.json"))
     ]
 
 
@@ -81,14 +82,15 @@ def ensure_table_exists(client: DynamoDBClient) -> None:
     client.get_waiter("table_exists").wait(TableName=TABLE_NAME)
 
 
-def insert_articles() -> None:
+def insert_articles(directory: Path = ARTICLES_DIR) -> list[Article]:
     ensure_table_exists(get_client())
 
     table = get_resource().Table(TABLE_NAME)
-    articles = load_articles()
+    articles = load_articles(directory)
     for article in articles:
         table.put_item(Item=cast(dict[str, Any], article))
     print(f"{len(articles)}件の記事を {TABLE_NAME} に投入しました。")
+    return articles
 
 
 if __name__ == "__main__":

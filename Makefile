@@ -2,7 +2,7 @@ PYTHON := python3.12
 
 .PHONY: setup setup-api setup-tools setup-web setup-infra \
 	dev test lint lint-api lint-tools lint-web lint-infra \
-	test-api test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down eval
+	test-api test-tools test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down eval
 
 # DynamoDB Localはリクエスト署名を検証しないが、boto3のクライアント生成には
 # 認証情報が要る。値そのものに意味はない。
@@ -15,7 +15,7 @@ setup-api:
 	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx "boto3-stubs[dynamodb,sqs,cognito-idp]" types-jsonschema -r requirements.txt
 
 setup-tools:
-	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy boto3 "boto3-stubs[dynamodb]"
+	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest boto3 "boto3-stubs[dynamodb]"
 
 setup-web:
 	cd web && npm ci
@@ -37,10 +37,13 @@ lint-web:
 lint-infra:
 	cd infra && npm run lint && npm run typecheck
 
-test: test-api test-web test-infra
+test: test-api test-tools test-web test-infra
 
 test-api: dynamodb-local-up
 	cd api && $(LOCAL_AWS_ENV) .venv/bin/pytest
+
+test-tools: dynamodb-local-up
+	cd tools && $(LOCAL_AWS_ENV) .venv/bin/pytest
 
 test-web:
 	cd web && npm test
