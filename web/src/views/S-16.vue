@@ -18,6 +18,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import GrowthStageDisplay from "../components/GrowthStageDisplay.vue";
 import SafetyNotice from "../components/SafetyNotice.vue";
 import { AREAS, AREA_META } from "../domain/questions";
@@ -97,6 +98,7 @@ function goNext(): void {
         class="s16__card"
       >
         <div class="s16__area-heading">
+          <AreaIcon :area="area.area" />
           <span class="s16__area-en">{{ AREA_META[area.area].en }}</span>
           <span class="s16__area-jp">{{ AREA_META[area.area].jp }}</span>
         </div>
@@ -251,7 +253,7 @@ function goNext(): void {
 
 .s16__area-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
 }
 

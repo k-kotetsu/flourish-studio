@@ -8,6 +8,7 @@ import { computed, onMounted, reactive } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import { AREAS, AREA_META } from "../domain/questions";
 import { useAssessmentQuestionsStore } from "../stores/assessmentQuestions";
 import { useFreeTextAnswersStore, type FreeTextAnswer } from "../stores/freeTextAnswers";
@@ -88,6 +89,7 @@ function goBack(): void {
         class="s14__section"
       >
         <div class="s14__heading">
+          <AreaIcon :area="section.area" />
           <span class="s14__en">{{ section.meta.en }}</span>
           <span class="s14__jp">{{ section.meta.jp }}</span>
         </div>
@@ -162,7 +164,7 @@ function goBack(): void {
 
 .s14__heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
 }
 

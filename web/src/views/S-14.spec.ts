@@ -59,6 +59,8 @@ describe("S-14", () => {
     expect(labels[1]).toContain("CAREERの最も低い項目");
     expect(labels[6]).toContain("SOCIALの中では");
     expect(labels[7]).toContain("SOCIALの最も低い項目");
+    // P7-3: 4領域アイコンを見出しごとに表示する
+    expect(wrapper.findAll(".s14__heading svg")).toHaveLength(4);
   });
 
   it("textareaに1,000文字の上限が設定されている", () => {

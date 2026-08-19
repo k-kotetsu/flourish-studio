@@ -33,6 +33,7 @@ describe("S-50", () => {
       "Physical健康・生活習慣",
       "Social人との関係",
     ]);
+    expect(cards.every((c) => c.find("svg").exists())).toBe(true); // P7-3: 4領域アイコン
   });
 
   it("推奨・優先度を示すバッジやラベルを一切出さない", () => {

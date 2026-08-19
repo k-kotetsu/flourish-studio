@@ -11,6 +11,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppButton from "../components/AppButton.vue";
 import AppHeaderFlow from "../components/AppHeaderFlow.vue";
+import AreaIcon from "../components/AreaIcon.vue";
 import InterruptDialog from "../components/InterruptDialog.vue";
 import ScaleSelector from "../components/ScaleSelector.vue";
 import StackedChoiceSelector from "../components/StackedChoiceSelector.vue";
@@ -112,6 +113,7 @@ function goNext(): void {
     />
     <div class="s12__body">
       <div class="s12__heading">
+        <AreaIcon :area="meta.area" />
         <span class="s12__en">{{ meta.en }}</span>
         <span class="s12__jp">{{ meta.jp }}</span>
       </div>
@@ -198,7 +200,7 @@ function goNext(): void {
 
 .s12__heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
 }
 

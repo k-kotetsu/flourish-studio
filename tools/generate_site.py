@@ -293,6 +293,7 @@ def _page_head(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="{html.escape(description)}" />
     <title>{html.escape(title)}</title>{_og_tags(title, description, path, domain_name, og_type)}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>"""
@@ -315,9 +316,24 @@ def _cta_banner() -> str:
     </div>"""
 
 
+# ロゴマーク(P7-3、`web/src/domain/logo.ts`の`LOGO_MARK_PATHS`と同じ双葉のモチーフ)。
+# TypeScript側と定義が分かれるのは`growth_stage.py`/`growthStage.ts`と同じ既存パターン。
+_LOGO_MARK_PATHS = (
+    '<path d="M12 21V10"/>'
+    '<path d="M12 13c0-4-3-6.5-7-6.5 0 4 3 6.5 7 6.5z"/>'
+    '<path d="M12 15c0-4 3-6.5 7-6.5 0 4-3 6.5-7 6.5z"/>'
+    '<path d="M8 21h8"/>'
+)
+_LOGO_MARK_SVG = (
+    '<svg class="site-header__brand-mark" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+    f'stroke-linejoin="round" aria-hidden="true">{_LOGO_MARK_PATHS}</svg>'
+)
+
+
 def _top_header() -> str:
-    return """    <header class="site-header">
-      <span class="site-header__brand">Flourish Studio</span>
+    return f"""    <header class="site-header">
+      <span class="site-header__brand">{_LOGO_MARK_SVG}Flourish Studio</span>
       <a class="site-header__action" href="/app/s-02">ログイン</a>
     </header>"""
 
@@ -879,6 +895,9 @@ def build_site(
     (assets_dir / "site.css").write_text(
         (SITE_DIR / "site.css").read_text(encoding="utf-8"), encoding="utf-8"
     )
+    (output_dir / "favicon.svg").write_text(
+        (SITE_DIR / "favicon.svg").read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
     (output_dir / "privacy_policy.html").write_text(
         render_legal_page(
@@ -917,6 +936,7 @@ def _iter_upload_targets(output_dir: Path) -> list[tuple[Path, str, str]]:
         (output_dir / "index.html", "index.html", "text/html; charset=utf-8"),
         (output_dir / "articles_list.html", "articles", "text/html; charset=utf-8"),
         (output_dir / "assets" / "site.css", "assets/site.css", "text/css; charset=utf-8"),
+        (output_dir / "favicon.svg", "favicon.svg", "image/svg+xml"),
         (output_dir / "robots.txt", "robots.txt", "text/plain; charset=utf-8"),
         (output_dir / "privacy_policy.html", "privacy-policy", "text/html; charset=utf-8"),
         (output_dir / "terms_of_service.html", "terms-of-service", "text/html; charset=utf-8"),
@@ -948,6 +968,7 @@ def invalidate_cloudfront(distribution_id: str) -> None:
         "/articles/*",
         "/robots.txt",
         "/sitemap.xml",
+        "/favicon.svg",
         "/privacy-policy",
         "/terms-of-service",
     ]

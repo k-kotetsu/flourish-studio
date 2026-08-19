@@ -100,7 +100,11 @@ def test_build_site_generates_top_page(tmp_path: Path) -> None:
 
     top_html = (output_dir / "index.html").read_text(encoding="utf-8")
     assert "人生は、" in top_html
-    assert '<span class="site-header__brand">Flourish Studio</span>' in top_html
+    # P7-3: ロゴマーク＋サービス名のロックアップ
+    assert '<span class="site-header__brand">' in top_html
+    assert 'class="site-header__brand-mark"' in top_html
+    assert "Flourish Studio</span>" in top_html
+    assert '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />' in top_html
     assert 'href="/app/s-02"' in top_html
     assert 'href="/app/s-11"' in top_html
     assert 'href="/articles"' in top_html
@@ -184,6 +188,7 @@ def test_iter_upload_targets_maps_local_paths_to_extensionless_s3_keys(tmp_path:
     assert "articles" in keys
     assert f"articles/{slug}" in keys
     assert "assets/site.css" in keys
+    assert "favicon.svg" in keys
     assert "robots.txt" in keys
     assert "sitemap.xml" in keys
 
@@ -194,6 +199,7 @@ def test_iter_upload_targets_omits_sitemap_without_domain(tmp_path: Path) -> Non
 
     keys = {key for _, key, _ in _iter_upload_targets(output_dir)}
 
+    assert "favicon.svg" in keys
     assert "robots.txt" in keys
     assert "sitemap.xml" not in keys
 
@@ -221,6 +227,7 @@ def test_sync_to_s3_uploads_each_target_with_content_type(
     assert "articles" in uploaded_keys
     assert f"articles/{slug}" in uploaded_keys
     assert "assets/site.css" in uploaded_keys
+    assert "favicon.svg" in uploaded_keys
     assert "robots.txt" in uploaded_keys
     assert "sitemap.xml" in uploaded_keys
     for call in mock_client.put_object.call_args_list:
@@ -246,6 +253,7 @@ def test_invalidate_cloudfront_creates_invalidation_for_top_and_articles_paths(
         "/articles/*",
         "/robots.txt",
         "/sitemap.xml",
+        "/favicon.svg",
         "/privacy-policy",
         "/terms-of-service",
     ]

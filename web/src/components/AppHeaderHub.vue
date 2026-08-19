@@ -3,20 +3,23 @@
  * 07_デザイン原則 6.2「ハブ」型（S-41ホーム、S-50領域を選ぶなど）。戻るを置かない。
  * `right`スロットにはS-41のみ`ThemeToggle`（P4-9）を差し込む。3.2「ホーム以外の画面には
  * トグルを置かない」ため、このコンポーネント自体はテーマ切替を知らない汎用のslotのままにする。
+ * `title`省略時（S-41ホーム）はサービスのブランド表示として`AppLogo`（P7-3のロゴロックアップ）を出す。
+ * `title`指定時（S-50「Flourish Map」など）はこれまでどおり画面固有の文字列のみを出す。
  */
-withDefaults(
-  defineProps<{
-    title?: string;
-  }>(),
-  {
-    title: "Flourish Studio",
-  },
-);
+import AppLogo from "./AppLogo.vue";
+
+defineProps<{
+  title?: string;
+}>();
 </script>
 
 <template>
   <header class="app-header-hub">
-    <span class="app-header-hub__title">{{ title }}</span>
+    <AppLogo v-if="!title" />
+    <span
+      v-else
+      class="app-header-hub__title"
+    >{{ title }}</span>
     <div class="app-header-hub__right">
       <slot name="right" />
     </div>

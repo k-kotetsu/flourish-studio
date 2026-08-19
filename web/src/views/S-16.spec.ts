@@ -82,6 +82,8 @@ describe("S-16", () => {
     expect(wrapper.text()).toContain("Careerの満たされている点。");
     expect(wrapper.text()).toContain("Careerの気になっている点。");
     expect(wrapper.text()).toContain("Careerのこれからできそうなこと。");
+    // P7-3: 4領域アイコンを見出しごとに表示する
+    expect(wrapper.findAll(".s16__area-heading svg")).toHaveLength(4);
   });
 
   it("言語化度・コミット度は4段階すべてを表示し、該当段階のみ点灯する。数値は出さない", () => {

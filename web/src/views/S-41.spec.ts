@@ -77,6 +77,14 @@ describe("S-41", () => {
     await button.trigger("click");
     expect(push).toHaveBeenCalledWith("/s-61");
   });
+
+  it("4領域カードそれぞれに領域アイコンを表示する(P7-3)", async () => {
+    vi.mocked(getHome).mockResolvedValue(homeResponse);
+    const wrapper = mount(S41View);
+    await flushPromises();
+
+    expect(wrapper.findAll(".s41__area-heading svg")).toHaveLength(4);
+  });
 });
 
 function flushPromises(): Promise<void> {

@@ -42,6 +42,7 @@ describe("S-61", () => {
     expect(wrapper.text()).toContain("Career");
     expect(wrapper.text()).toContain("Social");
     expect(wrapper.find("textarea").exists()).toBe(true);
+    expect(wrapper.findAll(".s61__area-heading svg")).toHaveLength(2); // P7-3: 4領域アイコン
   });
 
   it("取得に失敗したらエラーを表示する", async () => {

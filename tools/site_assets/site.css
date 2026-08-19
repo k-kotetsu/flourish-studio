@@ -163,7 +163,16 @@ a {
 }
 
 .site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-weight: 700;
+}
+
+.site-header__brand-mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .site-main {
