@@ -15,7 +15,7 @@ setup-api:
 	cd api && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy pytest httpx "boto3-stubs[dynamodb,sqs,cognito-idp]" types-jsonschema -r requirements.txt
 
 setup-tools:
-	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy
+	cd tools && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip ruff mypy boto3 "boto3-stubs[dynamodb]"
 
 setup-web:
 	cd web && npm ci

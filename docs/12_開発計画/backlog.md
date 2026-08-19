@@ -773,14 +773,24 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 
 | ID | 担当 | 見積 | タスク | 参照 | 完了条件 | 依存 |
 |---|---|---|---|---|---|---|
-| **P6-1** | **私** | L | **記事コンテンツの執筆**（5カテゴリ、各2〜3本を目安） | `01_全体コンセプト` 12章 | 記事本文。カテゴリは4領域＋Flourishとは | − |
+| ~~**P6-1**~~ ✅ | **私** | L | **記事コンテンツの執筆**（5カテゴリ、各2〜3本を目安） | `01_全体コンセプト` 12章 | 記事本文。カテゴリは4領域＋Flourishとは | − |
 | **P6-2** | CC | S | 記事の投入スクリプト（`flourish_article` へ） | `08_データモデル` 6.4 | 冪等に投入できる | P1-4 |
 | **P6-3** | CC | M | **静的サイトジェネレータ。** DynamoDB → HTML → S3 → invalidation | `11_技術構成` 4.4 | `make publish-site` で反映 | P6-2 |
 | **P6-4** | CC | M | S-01 トップページ（7セクション） | `04_画面設計` S-01、`06_ワイヤーフレーム`、`01_全体コンセプト` 17章 | 最大幅960px。SPAへの導線 | P6-3、P1-15 |
 | **P6-5** | CC | M | K-01 記事一覧 / K-02 記事詳細。末尾に共通CTA | `04_画面設計` K-01/K-02 | ログイン不要で全文が読める | P6-3 |
 | **P6-6** | CC | S | メタタグ、OGP、sitemap.xml、robots.txt | − | 検索エンジンにインデックスされる状態 | P6-4、P6-5 |
 
-**P6-1 が律速になる。** 記事は Claude Code に書かせず、人が書く（`flourish-tone` の適用が最も難しい領域であり、サービスの声そのものになるため）。
+**P6-1 が律速になる。** ~~記事は Claude Code に書かせず、人が書く（`flourish-tone` の適用が最も難しい領域であり、サービスの声そのものになるため）。~~ → ユーザーの明示的な指示により、本タスクはClaude Codeが執筆した（下記完了メモ参照）。
+
+**P6-1完了メモ（2026-08-19）：** 5カテゴリ×3本、計15本の記事本文を執筆し、DynamoDB Local（`flourish_article`）へ投入した。
+
+- **担当のズレ：** バックログは本タスクを「私」（人）が書く前提とし、その理由（`flourish-tone`適用が最も難しい領域で、サービスの声そのものになるため）も明記されていた。今回はユーザーとの対話で明示的にClaude Codeへの委任が確認されたため、その指示に従って執筆した（判断の記録としてここに残す）
+- **スコープの拡張：** 完了条件は「記事本文」のみだったが、ユーザーとの合意により投入（DynamoDB Localへ直接、開発環境へは次回デプロイ時に同様の内容を投入予定）もあわせて本タスクで行った。冪等な投入フロー自体はP6-2の範囲のまま
+- `content/articles/*.json`（15ファイル）：`08_データモデル`6.4のスキーマ（`slug`/`title`/`excerpt`/`body`/`category`/`reading_minutes`/`status`/`published_at`）に沿って作成。カテゴリはCareer/Financial/Physical/Social各3本＋Flourishとは3本。`flourish-tone`（禁止語・感嘆符・断定回避・非販売・非専門助言）に沿って執筆した
+- `tools/insert_articles.py`：`content/articles/`のJSONを読み、`flourish_article`テーブルへ`put_item`する一時的な投入スクリプト。ローカルではテーブルが存在しなければ`slug`をパーティションキー、GSI `category-index`（PK=`category`、SK=`published_at`）を持つテーブルを自前で作成する（DynamoDB Localは`-inMemory`のため、CDKでテーブルを作る本番・dev環境とは別に用意した）。本番・dev環境では既存テーブルに対して`put_item`のみ行う
+- `Makefile`：`setup-tools`に`boto3`・`boto3-stubs[dynamodb]`を追加
+- DynamoDB Localに対して実行し、15件の投入と`category-index`での取得を確認した。開発環境への投入は次回`deploy-dev`実行時に行う（本タスクでは未実施）
+- `make lint && make test`が通ることを確認済み
 
 ---
 
