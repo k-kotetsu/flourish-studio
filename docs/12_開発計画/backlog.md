@@ -874,7 +874,8 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 | **P7-6** | CC | M | ダッシュボード（EMFログから `kind` ごとの失敗率・トークン・`safety_flag`） | `11_技術構成` 11.2、`10_AIプロンプト設計` 6.3 | 6つの指標が見える | P7-5 |
 | **P7-7** | CC | M | **S3エクスポート＋Athena の経路を一度通す** | `11_技術構成` 6.5、`08_データモデル` 12.3 | サンプルクエリが実行できる。**手順を文書化** | P1-4 |
 | ~~**P7-8**~~ ✅ | CC | M | 通しの結合テスト（S-01 → S-16 → 登録 → ありたい姿 → 領域 → ホーム → 振り返り） | `03_ユーザーフロー` 1章 | 全経路が通る。**離脱・再試行・失敗の分岐も** | P5-3、P6-5 |
-| **P7-9** | **私** | S | 本番デプロイの承認と実行 | `11_技術構成` 13.2 | prod で通しの動作確認 | P7-8、P7-2 |
+| ~~**P7-10**~~ ✅ | **CC＋私** | M | **デプロイパイプラインの実配線。** `make deploy-dev`/`deploy-prod`を実際の`cdk deploy`に置き換え、同一AWSアカウント内でdev/prodのスタック・物理名を分離する | `11_技術構成` 10.2、13.2 | `cdk synth -c env=dev`/`-c env=prod`が両方成功し、物理名（テーブル名・キュー名・User Pool名・シークレット名）が衝突しない。GitHub ActionsがOIDCでAWS認証する配線が入っている（ロール作成・secrets登録・`cdk bootstrap`・Google OAuthのprodリダイレクトURI登録は人の作業） | P1-6、P1-7 |
+| **P7-9** | **私** | S | 本番デプロイの承認と実行 | `11_技術構成` 13.2 | prod で通しの動作確認 | P7-8、P7-2、P7-10 |
 
 **P7-8完了メモ（2026-08-19）：** `03_ユーザーフロー`1章の全体フロー（現在地レポート開始→4領域の質問→結果→登録→ありたい姿→最初の領域を選ぶ→理想状態と目標→ホーム→Weekly Reflection）を通しで検証するAPI結合テストを実装した。
 
@@ -882,6 +883,22 @@ P6（公開サイト）は P1 以降いつでも着手できる。**私の作業
 - **テスト方式の判断：** `web/`にはPlaywright等のブラウザE2Eフレームワークが導入されておらず（`vitest`＋`@vue/test-utils`のみ）、`Makefile`にもE2E専用ターゲットが無い。一方`api/tests/test_auth_flow.py`（P1-11）に「複数エンドポイントを1つのTestClientで順に呼ぶ通しテスト」の前例があった。完了条件（全経路が通る、離脱・再試行・失敗の分岐）はAPIレベルでも十分に検証できるため、新規にE2Eブラウザ基盤を導入せずAPIレベルの結合テストとして実装する方針をユーザーに確認し、承認を得た。S-01（`/app`の外にある静的サイト、`web/`側に実装なし）はこのテストの対象外とした
 - ジョブ登録系エンドポイント（`POST /ai/assessment-questions`・`POST /assessments`・`POST /ai/purpose-proposals`・`POST /ai/area-proposals`・`POST /reflections`）は、`send_job_message`を横取りしてSQSへの実送信をスキップし、捕捉したペイロードで`app.worker.handler.handler`を直接呼ぶことでジョブをQUEUED→SUCCEEDEDまで進めた。SSE対話系（`POST /ai/purpose-dialogue`・`POST /ai/area-dialogue`）は各対話モジュールの`get_client`・`check_safety`をフェイクにし、3往復（ありたい姿）・2往復（領域）を実際にループで進めてから提案生成に接続した
 - `make lint && make test`が通ることを確認済み（`api`361件・`tools`27件・`web`350件・`infra`30件、いずれも既存分を含めて全件成功）
+
+**P7-10が生まれた経緯：** P7-9（本番デプロイの承認と実行）に着手しようとして気づいた。`.github/workflows/deploy-prod.yml`は`echo "未実装...cdk deployに置き換える"`のプレースホルダーのまま、`Makefile`の`deploy-dev`も同様で、P1-6・P1-7の完了メモから繰り返し「別タスクとして残っている」と先送りされてきたが、それを行う番号付きのタスクが無かった。**このままではタグを打ってもprodはおろかdevにも実際のCDKデプロイが走らない状態だった。** ユーザーに確認のうえ、CCが先に実配線を実装する方針とした。
+
+**P7-10完了メモ（2026-08-20）：** `make deploy-dev`/`deploy-prod`を実際の`cdk deploy`に置き換え、同一AWSアカウント内でdev/prodをスタック名・物理名の両方で分離した。
+
+- **アカウント構成の判断：** dev/prodを別AWSアカウントに分けるか、同一アカウント内でスタックを分けるかが`11_技術構成`10.2に明記されておらず、ユーザーに確認した。**同一アカウント内でスタックを分ける**方針を選択
+- `infra/lib/stage.ts`：`Stage = "dev" | "prod"`を新設。`infra/bin/infra.ts`がCDKコンテキスト`env`（`-c env=dev`/`-c env=prod`、既定`dev`）から解決し、各スタックへ渡す
+- **スタックID：** `DataStack`→`DataStack-dev`/`DataStack-prod`のように4スタック全てにsuffixを付けた
+- **物理名の衝突を防ぐパラメータ化（今回の本題）：** DynamoDBテーブル名（`data-stack.ts`。`flourish`→`flourish-{stage}`、`flourish_article`→`flourish_article-{stage}`）、SQSキュー名（`app-stack.ts`。`flourish-job-queue`/`flourish-job-dlq`に`-{stage}`suffix）、Cognito User Pool名・Secrets Manager シークレット名（`auth-stack.ts`。`flourish-users`/`flourish/google-oauth-client-secret`に`-{stage}`suffix）。DynamoDBテーブル名・SQSキュー名は同一アカウント・同一リージョンで一意である必要があり、suffixを付けなければdev/prod両方のデプロイでCloudFormationが衝突する。S3バケット名（`edge-stack.ts`）はCDKの自動生成名（stack名を含む）に委ねており元から衝突しないため変更していない
+- **ドメイン名・Cognitoドメインprefixの判断：** prod用の値はdocsに存在しなかった。`11_技術構成`10.4・P1-3完了メモが「apex `flourish-st.com` + ワイルドカード`*.flourish-st.com`」の証明書を取得済みと記録していたことから、**prodはapex（`flourish-st.com`）、devは既存の`dev.flourish-st.com`のまま**とした。CognitoドメインprefixはP1-5が確立した`flourish-st-dev`と対称になる**`flourish-st-prod`**を採用（新規追加した判断のため、他の判断と分けてここに明記する）
+- **Google OAuthクライアントは dev/prod で共通のまま。** `googleClientId`は変更していない。Googleは1クライアントに複数の承認済みリダイレクトURIを登録できるため、**prod用コールバックURL（`https://flourish-st.com/api/v1/auth/google/callback`）をGoogle Cloud Consoleへ追加登録する作業が別途必要**（人の作業。`infra/bin/infra.ts`にコメントで明記）
+- **CI認証の判断：** 長期のAWS access keyをGitHub Secretsに置かず、`aws-actions/configure-aws-credentials`によるOIDCの一時credentialsを採用した（`deploy-dev.yml`・`deploy-prod.yml`双方に`permissions: id-token: write`と`role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}`を追加）。**OIDC IDプロバイダとIAMロールの作成、ロールARNの`AWS_DEPLOY_ROLE_ARN`という名前でのGitHub Secrets登録は、AWSコンソール/CLIでの人の作業として残っている**（コードでは行えない）
+- `tools/insert_articles.py`：`TABLE_NAME`を`ARTICLE_TABLE_NAME`環境変数で上書き可能にした（既定値`flourish_article`のまま。`publish-site`はdev/prod化されたテーブル名に対して未配線で、これは別途必要になったときに対応する）
+- **完了条件の確認方法：** `CDK_DEFAULT_ACCOUNT=123456789012 CDK_DEFAULT_REGION=ap-northeast-1 npx cdk synth -c env=dev`と`-c env=prod`の両方が成功し、`cdk ls -c env=prod`が`DataStack-prod`/`AuthStack-prod`/`AppStack-prod`/`EdgeStack-prod`を返すことを確認した。実際の`cdk deploy`（AWS実機）は本タスクの範囲外（AWS認証情報がこの環境に無い）
+- **残る人の作業（P7-9着手前に必要）：** (1) OIDC IAMロールの作成とGitHub Secrets（`AWS_DEPLOY_ROLE_ARN`）への登録、(2) 対象アカウント・両リージョン（`ap-northeast-1`・`us-east-1`）での`cdk bootstrap`、(3) GitHub Environment「production」のRequired reviewers設定（`deploy-prod.yml`既存コメントのとおり）、(4) Google Cloud ConsoleでのprodリダイレクトURI追加登録
+- `make lint && make test`が通ることを確認済み（infra側は`data-stack.test.ts`・`auth-stack.test.ts`・`app-stack.test.ts`の物理名アサーションを新しい命名に合わせて更新した）
 
 **P7-1完了メモ（2026-08-16）：** ユーザー指示によりCCが文面を起草し、ユーザーが内容を確認して確定した。
 

@@ -21,6 +21,7 @@ function synth(): Template {
   const userPoolClient = userPool.addClient("UserPoolClient");
   const stack = new AppStack(app, "AppStack", {
     env: { account: "123456789012", region: "ap-northeast-1" },
+    stage: "dev",
     table,
     userPool,
     userPoolClient,
@@ -49,14 +50,14 @@ describe("AppStack", () => {
   it("ジョブキューはDLQ付きでmaxReceiveCount=1(自動リトライしない。技術構成5.5)", () => {
     const template = synth();
     template.hasResourceProperties("AWS::SQS::Queue", {
-      QueueName: "flourish-job-queue",
+      QueueName: "flourish-job-queue-dev",
       VisibilityTimeout: 330,
       RedrivePolicy: {
         maxReceiveCount: 1,
       },
     });
     template.hasResourceProperties("AWS::SQS::Queue", {
-      QueueName: "flourish-job-dlq",
+      QueueName: "flourish-job-dlq-dev",
     });
   });
 
