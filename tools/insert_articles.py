@@ -17,7 +17,9 @@ from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb import DynamoDBClient, DynamoDBServiceResource
 
 ARTICLES_DIR = Path(__file__).resolve().parent.parent / "content" / "articles"
-TABLE_NAME = "flourish_article"
+# 実AWSでの物理名は`flourish_article-dev`/`flourish_article-prod`(P7-10、
+# `infra/lib/data-stack.ts`)。DynamoDB Local(ローカル・テスト)では未設定のまま既定値を使う。
+TABLE_NAME = os.environ.get("ARTICLE_TABLE_NAME", "flourish_article")
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 DYNAMODB_ENDPOINT_URL = os.environ.get("DYNAMODB_ENDPOINT_URL")
 

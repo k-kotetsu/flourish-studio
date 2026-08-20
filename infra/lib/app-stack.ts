@@ -8,6 +8,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
+import { Stage } from "./stage";
 
 // Bedrockで呼ぶモデルだけを許可する(技術構成8.5)。Resource: "*" にしない。
 // クロスリージョン推論プロファイルの実際のルーティング先リージョンは非公開かつ
@@ -37,6 +38,8 @@ export interface AppStackProps extends cdk.StackProps {
   readonly domainName: string;
   /** Cognito Hosted Domainのプレフィックス。`AuthStack`に渡したものと同じ値(技術構成7.5)。 */
   readonly cognitoDomainPrefix: string;
+  /** dev/prodで物理名(SQSキュー名)を分離する識別子(P7-10)。 */
+  readonly stage: Stage;
 }
 
 export class AppStack extends cdk.Stack {
@@ -53,14 +56,14 @@ export class AppStack extends cdk.Stack {
 
     // DLQは保持14日でアラーム対象(技術構成11.1)。
     this.deadLetterQueue = new sqs.Queue(this, "JobDeadLetterQueue", {
-      queueName: "flourish-job-dlq",
+      queueName: `flourish-job-dlq-${props.stage}`,
       retentionPeriod: cdk.Duration.days(14),
     });
 
     // maxReceiveCount=1: 自動リトライしない(技術構成5.5)。
     // 失敗はユーザーに見せ、押されたときだけ再実行する(破ってはいけない規則5)。
     this.queue = new sqs.Queue(this, "JobQueue", {
-      queueName: "flourish-job-queue",
+      queueName: `flourish-job-queue-${props.stage}`,
       visibilityTimeout: cdk.Duration.seconds(330),
       deadLetterQueue: {
         queue: this.deadLetterQueue,

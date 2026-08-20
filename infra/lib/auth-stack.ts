@@ -2,6 +2,7 @@ import * as cdk from "aws-cdk-lib/core";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
+import { Stage } from "./stage";
 
 export interface AuthStackProps extends cdk.StackProps {
   /** バックエンドがGoogle連携のコールバックを受けるドメイン（例: dev.flourish-st.com） */
@@ -10,6 +11,8 @@ export interface AuthStackProps extends cdk.StackProps {
   readonly cognitoDomainPrefix: string;
   /** Google CloudのOAuthクライアントID（機密ではないためコードで持つ） */
   readonly googleClientId: string;
+  /** dev/prodで物理名(User Pool名・シークレット名)を分離する識別子(P7-10)。 */
+  readonly stage: Stage;
 }
 
 export class AuthStack extends cdk.Stack {
@@ -23,7 +26,7 @@ export class AuthStack extends cdk.Stack {
     // パスワード要件（技術構成7.4）：8文字以上、英字と数字を各1文字以上。
     // 「よく使われるパスワードの拒否」はCognitoにない機能のためバックエンド側で実装する。
     this.userPool = new cognito.UserPool(this, "UserPool", {
-      userPoolName: "flourish-users",
+      userPoolName: `flourish-users-${props.stage}`,
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       // AdminConfirmSignUpで確認するため、Cognito標準の確認コードメールは送らせない（技術構成7.2）。
@@ -53,7 +56,7 @@ export class AuthStack extends cdk.Stack {
       this,
       "GoogleOAuthClientSecret",
       {
-        secretName: "flourish/google-oauth-client-secret",
+        secretName: `flourish/google-oauth-client-secret-${props.stage}`,
         description:
           "Google Cloud OAuthクライアントシークレット（P1-5。値は手動投入）",
       },

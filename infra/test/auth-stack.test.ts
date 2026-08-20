@@ -6,6 +6,7 @@ function synth(): Template {
   const app = new cdk.App();
   const stack = new AuthStack(app, "AuthStack", {
     env: { account: "123456789012", region: "ap-northeast-1" },
+    stage: "dev",
     domainName: "dev.flourish-st.com",
     cognitoDomainPrefix: "flourish-st-dev",
     googleClientId: "dummy-client-id.apps.googleusercontent.com",
@@ -65,7 +66,7 @@ describe("AuthStack", () => {
   it("Google連携用のシークレットを用意する(値は空でコードに含めない)", () => {
     const template = synth();
     template.hasResourceProperties("AWS::SecretsManager::Secret", {
-      Name: "flourish/google-oauth-client-secret",
+      Name: "flourish/google-oauth-client-secret-dev",
     });
   });
 

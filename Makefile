@@ -2,7 +2,7 @@ PYTHON := python3.12
 
 .PHONY: setup setup-api setup-tools setup-web setup-infra \
 	dev test lint lint-api lint-tools lint-web lint-infra \
-	test-api test-tools test-web test-infra deploy-dev dynamodb-local-up dynamodb-local-down eval \
+	test-api test-tools test-web test-infra deploy-dev deploy-prod dynamodb-local-up dynamodb-local-down eval \
 	publish-site
 
 # DynamoDB Localはリクエスト署名を検証しないが、boto3のクライアント生成には
@@ -64,8 +64,14 @@ dev: dynamodb-local-up
 	(cd web && npm run dev) & \
 	wait
 
+# dev/prodは同一AWSアカウント内でスタックを分ける(P7-10)。CDKコンテキスト`env`で
+# 物理名(テーブル名・キュー名など)ごと分離する(infra/bin/infra.ts)。
+# 初回は対象アカウント・リージョン(ap-northeast-1・us-east-1の両方)で`cdk bootstrap`が要る(私)。
 deploy-dev:
-	@echo "未実装（P1-6: AppStack、P1-7: EdgeStack を参照。cdk deploy に置き換える）"
+	cd infra && npx cdk deploy --all -c env=dev --require-approval never
+
+deploy-prod:
+	cd infra && npx cdk deploy --all -c env=prod --require-approval never
 
 # ARTICLEテーブルを読んで公開サイト（K-01/K-02）の静的HTMLを生成する(技術構成4.4)。
 # PUBLIC_SITE_BUCKET_NAME・CLOUDFRONT_DISTRIBUTION_ID が未設定なら、
